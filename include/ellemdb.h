@@ -131,6 +131,20 @@ enum edb_err {
 
 	// end of file / stream
 	EDB_EEOF,
+
+	// something wrong with file
+	EDB_EFILE,
+
+	EDB_ENOTVALID,
+
+	// something is already open
+	EDB_EOPEN,
+
+	// system error, check errno.
+	EDB_EERRNO,
+
+	// something regarding hardware
+	EDB_EHW,
 };
 
 
@@ -158,6 +172,14 @@ typedef struct edb_open_st {
 	
 } edb_open_t;
 
+// edb_open errors:
+//   EDB_EINVAL - handle is null.
+//   EDB_EINVAL - params.path is null
+//   EDB_EERRNO - error with stat(2), open(2), (ie, file does not exist, permssions)
+//   EDB_EFILE  - path is not a regular file.
+//   EDB_ENOTVALID - file is invalid format, possibliy not a database.
+//   EDB_EHW    - this file was created on a different (non compatible) architecture
+//   EDB_EOPEN  - annother process already has the file open.
 //
 // These functions provide access to a database provided by the
 // instrunctions set forth in params. edb_open will write to edbh and
