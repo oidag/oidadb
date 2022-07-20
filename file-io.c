@@ -1,4 +1,5 @@
 #define _LARGEFILE64_SOURCE 1
+#define _GNU_SOURCE 1
 
 #include <sys/mmap.h>
 #include <sys/types.h>
@@ -7,6 +8,7 @@
 #include <sys/time.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <strings.h>
 #include <error.h>
 #include <errno.h>
@@ -140,7 +142,7 @@ edb_err edb_fileopen(edb_file *dbfile, edb_open_t params) {
 	bzero(dbfile, sizeof(edb_file))
 
 	int err = 0;
-	int trycreate = params.openoptions | EDB_OCREAT;
+	int trycreate = params.openoptions & EDB_OCREAT;
 
 	// get the stat of the file, and/or create the file if params dicates it.
 	restat:
@@ -185,11 +187,22 @@ edb_err edb_fileopen(edb_file *dbfile, edb_open_t params) {
 
 	// lock the file so that only this process can use it.
 	// we enable noblock so we know if something else has it open.
-	err = flock(dbfile->descriptor, LOCK_EX | LOCK_NB);
+	struct flock dbflock = {
+		.l_type = F_WRLCK,
+		.l_whence = SEEK_SET,
+		.l_start  = 0,
+		.l_len    = 0,
+		.l_pid    = 0,
+	};
+	// note we use OFD locks becuase how this is structured is that when
+	// the host needs to be started, first edb_fileopen is called and /then/
+	// the process is forked: the child process becomes
+	hmmmmmmmmmmmmm
+	err = fcntl(dbfile->descriptor, F_OFD_SETLK, &dbflock);
 	if(err == -1) {
 		int errnotmp = errno;
 		close(dbfile->descriptor);
-		if(errno == EWOULDBLOCK)
+		if(errno == EACCES || errno == EAGAIN)
 			return EDB_EOPEN;
 		// no other error is possible here except for out of memory error.
 		log_critf("failed to call flock(2) due to unpredictable errno: %d", errnotmp);
