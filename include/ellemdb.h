@@ -139,6 +139,7 @@ enum edb_err {
 
 	// something is already open
 	EDB_EOPEN,
+	EDB_ENOHOST,
 
 	// system error, check errno.
 	EDB_EERRNO,
@@ -180,10 +181,17 @@ typedef struct edb_open_st {
 //   EDB_ENOTVALID - file is invalid format, possibliy not a database.
 //   EDB_EHW    - this file was created on a different (non compatible) architecture
 //   EDB_EOPEN  - annother process already has the file open.
+//   EDB_ENOHOST - no host process found and cannot be started
 //
 // These functions provide access to a database provided by the
 // instrunctions set forth in params. edb_open will write to edbh and
 // mark it as open so it can be used in all other functions.
+//
+// There is a race condition to where 2 processes attempt to call
+// edb_open with both containing instunctions to start the host
+// proccess. In this case, 1 call will succeed and the other
+// will have EDB_EOPEN returned. In that case the process that failed
+// to open should attempt to run edb_open again.
 //
 // edb_create will fail if the file already exists.
 edb_err edb_open(edbh *handle, edb_open_t params);   // will create if not existing. Not thread safe.

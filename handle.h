@@ -3,12 +3,13 @@
 
 typedef struct edbh_st {
 
-	// depending on the handle, either host xor client will be not-null
-	client *edb_client;
+	pid_t hostpid;
 
 } edbh;
 
 typedef struct {
+
+	int clientc; // count of clients, when 0: the host will shut down.
 
 } edb_host;
 
