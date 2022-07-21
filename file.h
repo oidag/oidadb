@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 struct _edb_fhead_intro {
@@ -28,8 +29,11 @@ typedef struct {
 	char rsvd[72];
 } edb_fhead;
 
-typedef struct {
+typedef struct edb_file_st {
 	int descriptor;
+
+	// the path that was used to open the file.
+	const char *path;
 
 	// the stat it was opened with
 	struct stat openstat;
@@ -41,15 +45,24 @@ typedef struct {
 	//
 	edb_fhead *head;
 
-} edb_file;
+} edb_file_t;
 
 
 // open, create, and close valid edb files. does not edit
 // Head-Meta after loading.
 //
+// flags is an or'd bitflags of the EDB_H... constant family.
+//
+// edb_fileopen can return the following:
+//   EDB_EERRNO - from stat(2) or open(2)
+//   EDB_EFILE  - path is not a regular file,
+//   EDB_ENOTDB - if bad magic number (probably meaning not a edb file)
+//   EDB_EHW    - if invalid hardware.
+//
 // edb_fileclose will only ever return EDB_ECRIT (log_crit will already be called)
 // and errno is preserved.
-edb_err edb_fileopen(edb_file *file, edb_open_t params);
-edb_err edb_fileclose(edb_file *file);
+//
+edb_err edb_fileopen(edb_file_t *file, const char *path, int flags);
+edb_err edb_fileclose(edb_file_t *file);
 
 #endif
