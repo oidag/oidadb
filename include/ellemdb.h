@@ -136,7 +136,8 @@ enum edb_err {
 	// something wrong with file
 	EDB_EFILE,
 
-	EDB_ENOTVALID,
+	// not a edb file
+	EDB_ENOTDB,
 
 	// something is already open
 	EDB_EOPEN,
@@ -161,7 +162,7 @@ enum edb_err {
 // if the file does not exist then create a new database.
 #define EDB_HCREAT O_CREAT
 
-typedef struct edb_host_st {
+typedef struct edb_hostconfig_st {
 
 	// The host will manage memeory that will be shared between
 	// handles known as the job buffer. All functions ending in
@@ -176,9 +177,9 @@ typedef struct edb_host_st {
 	// of expensive operations.
 	//
 	// job_buffersize must be an multiple of the size of a job
-	// structure (sizeof(edb_job_t)). Said multiple should be equal or
-	// larger than worker_poolsize otherwise you risk workers doing
-	// nother but taking up resources.
+	// structure (sizeof(edb_job_t)) and greater than 0. Said multiple
+	// should be equal or larger than worker_poolsize otherwise you
+	// risk workers doing nother but taking up resources.
 	//
 	// The job buffer will be completely allocated on startup.
 	// 
@@ -224,7 +225,7 @@ typedef struct edb_host_st {
 	// worker_poolsize is indeed 1 this will result in no new workers
 	// to be created outside of the thread that was used to call
 	// edb_host.
-	int worker_poolsize;
+	unsigned int worker_poolsize;
 
 	// Jobs sent to the database will need to move pages to and from
 	// the underlying filesystem and memory. page_buffermax dicates
@@ -253,7 +254,7 @@ typedef struct edb_host_st {
 	// See EDB_H... family of constants
 	int flags;
 	
-} edb_host_t;
+} edb_hostconfig_t;
 
 // edb_open will create the file if not exists.
 typedef struct edb_open_st {
@@ -278,26 +279,29 @@ typedef struct edb_open_st {
 // A successful shutdown invoked by edb_hoststop will have both
 // edb_host and edb_hoststop return without error.
 //
-// errors:
-//   EDB_EINVAL - wpoolc is 0.
+// edb_host errors:
+//   EDB_EERRNO - from stat(2) or open(2).
+//   EDB_EINVAL - hostops is invalid and/or path is null
 //   EDB_EOPEN  - annother process already has the file open.
 //   EDB_EFILE  - path is not a regular file.
 //   EDB_EHW    - this file was created on a different (non compatible) architecture
-//   EDB_ENOTVALID - file is invalid format, possibliy not a database.
+//   EDB_ENOTDB - file is invalid format, possibliy not a database.
 //
 // Thread Safety: both edb_hoststop and edb_host is thread safe. The
 // aformentioned write-locks use Open File Descriptors (see fcntl(2)),
 // this means that attempts to open the same file in two seperate
 // threads will behave the same way as doing the same with two
-// seperate processes.
+// seperate processes. This also means the edb_host can be used in the
+// same process as all the job scheduling functions so long their on
+// different threads.
 // 
-edb_err edb_host(const char *path, edb_host_t hostops);
+edb_err edb_host(const char *path, edb_hostconfig_t hostops);
 edb_err edb_hoststop(const char *path);
 
 // edb_open errors:
 //   EDB_EINVAL - handle is null.
 //   EDB_EINVAL - params.path is null
-//   EDB_EERRNO - error with stat(2), open(2), (ie, file does not exist, permssions)
+//   EDB_EERRNO - error with open(2), (ie, file does not exist, permssions)
 //   EDB_ENOHOST - file is not being hosted (see edb_host)
 //
 // These functions provide access to a database provided by the

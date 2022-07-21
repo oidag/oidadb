@@ -21,12 +21,12 @@
 // it is assumed that path does not exist.
 //
 // can return EDB_EERRNO from open(2)
-static edb_err createfile(edb_open_t params) {
+static edb_err createfile(const char *path, int flags) {
 	int err = 0;
 	int minpagesize = sysconf(_SC_PAGE_SIZE);
 
 	// create the file itself.
-	int fd = creat(params.path);
+	int fd = creat(path);
 	if(fd == -1) {
 		return EDB_EERRNO;
 	}
@@ -80,7 +80,7 @@ static edb_err createfile(edb_open_t params) {
 
 // helper function to edb_open.
 // validates the headintro with the current system. returns
-// EDB_EVALID if bad magic number
+// EDB_ENOTDB if bad magic number (probably meaning not a edb file)
 // EDB_EHW if invalid hardware.
 static edb_err validateheadintro(edb_fhead_intro head) {
 	if(head.magic != {0xA6, 0xF0}) {
@@ -132,26 +132,23 @@ edb_err edb_fileclose(edb_file *file) {
 	}
 }
 
-edb_err edb_fileopen(edb_file *dbfile, edb_open_t params) {
-
-	// check for EINVAL
-	if(dbfile == 0 || params.path == 0)
-		return EDB_EINVAL;
+edb_err edb_fileopen(edb_file_t *file, const char *path, int flags) {
 
 	// initialize memeory.
-	bzero(dbfile, sizeof(edb_file))
+	bzero(dbfile, sizeof(edb_file));
+	dbfile->path = path;
 
 	int err = 0;
-	int trycreate = params.openoptions & EDB_OCREAT;
+	int trycreate = flags & EDB_OCREAT;
 
 	// get the stat of the file, and/or create the file if params dicates it.
 	restat:
-	err = stat(params.path, &(dbfile->openstat));
+	err = stat(path, &(dbfile->openstat));
 	if(err == -1) {
 		int errnotmp = errno;
 		if(errno == ENOENT && trycreate) {
 			// file does not exist and they would like to create it.
-			edb_err createrr = createfile(params);
+			edb_err createrr = createfile(path, flags);
 			if(createrr != 0) {
 				// failed to create
 				return createrr;
@@ -176,10 +173,10 @@ edb_err edb_fileopen(edb_file *dbfile, edb_open_t params) {
 	// operating exclusively on a block-by-block basis with mmap. Maybe
 	// that's good reason?
 	//
-	dbfile->descriptor = open(params.path, O_RDWR
-	                                      | O_DIRECT
-										  | O_SYNC
-										  | O_LARGEFILE);
+	dbfile->descriptor = open(path, O_RDWR
+	                                | O_DIRECT
+	                                | O_SYNC
+	                                | O_LARGEFILE);
 	if(dbfile->descriptor == -1) {
 		return EDB_EERRNO;
 	}
@@ -194,10 +191,8 @@ edb_err edb_fileopen(edb_file *dbfile, edb_open_t params) {
 		.l_len    = 0,
 		.l_pid    = 0,
 	};
-	// note we use OFD locks becuase how this is structured is that when
-	// the host needs to be started, first edb_fileopen is called and /then/
-	// the process is forked: the child process becomes
-	hmmmmmmmmmmmmm
+	// note we use OFD locks becuase the host can be started in the same
+	// process as handlers, but just use different threads.
 	err = fcntl(dbfile->descriptor, F_OFD_SETLK, &dbflock);
 	if(err == -1) {
 		int errnotmp = errno;
