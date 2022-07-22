@@ -148,6 +148,8 @@ enum edb_err {
 
 	// something regarding hardware
 	EDB_EHW,
+
+	EDB_ENOMEM,
 };
 
 
@@ -286,6 +288,11 @@ typedef struct edb_open_st {
 //   EDB_EFILE  - path is not a regular file.
 //   EDB_EHW    - this file was created on a different (non compatible) architecture
 //   EDB_ENOTDB - file is invalid format, possibliy not a database.
+//   EDB_ENOMEM - not enough memory to reliably host database.
+//
+// edb_hoststop errors:
+//    EDB_ENOHOST - no host for file
+//    EDB_EERRNO - error with open(2).
 //
 // Thread Safety: both edb_hoststop and edb_host is thread safe. The
 // aformentioned write-locks use Open File Descriptors (see fcntl(2)),
@@ -294,6 +301,8 @@ typedef struct edb_open_st {
 // seperate processes. This also means the edb_host can be used in the
 // same process as all the job scheduling functions so long their on
 // different threads.
+//
+// Note to self: edb_hoststop must NOT be called in the worker threads
 // 
 edb_err edb_host(const char *path, edb_hostconfig_t hostops);
 edb_err edb_hoststop(const char *path);
