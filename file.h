@@ -59,10 +59,9 @@ typedef struct edb_file_st {
 //   EDB_ENOTDB - if bad magic number (probably meaning not a edb file)
 //   EDB_EHW    - if invalid hardware.
 //
-// edb_fileclose will only ever return EDB_ECRIT (log_crit will already be called)
-// and errno is preserved.
+// edb_fileclose will preserve errno.
 //
 edb_err edb_fileopen(edb_file_t *file, const char *path, int flags);
-edb_err edb_fileclose(edb_file_t *file);
+void edb_fileclose(edb_file_t *file);
 
 #endif

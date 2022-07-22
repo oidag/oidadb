@@ -3,9 +3,6 @@
 
 #include "errors.h"
 
-
-typedef struct edb_worker_st edb_worker_t;
-
 // stored the pid of the host for a given database file.
 // does not validate the file itself.
 //
