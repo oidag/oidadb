@@ -1,7 +1,7 @@
 #define _LARGEFILE64_SOURCE 1
 #define _GNU_SOURCE 1
 
-#include <sys/mmap.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -26,7 +26,7 @@ static edb_err createfile(const char *path, int flags) {
 	int minpagesize = sysconf(_SC_PAGE_SIZE);
 
 	// create the file itself.
-	int fd = creat(path);
+	int fd = creat(path, 0666);
 	if(fd == -1) {
 		return EDB_EERRNO;
 	}
@@ -42,11 +42,16 @@ static edb_err createfile(const char *path, int flags) {
 	}
 
 	// generate the head structure.
-	edb_fhead newhead = {0};
-	newhead.intro.magic = {0xA6, 0xF0};
-	newhead.intro.intsize  = sizeof(int);
-	newhead.intro.entrysize = sizeof(edb_entry_t);
-	newhead.intro.pagesize = minpagesize;
+	edb_fhead_intro intro = {0};
+	intro.magic[0] = 0xA6;
+	intro.magic[1] = 0xF0;
+	intro.intsize  = sizeof(int);
+	intro.entrysize = sizeof(edb_entry_t);
+	intro.pagesize = minpagesize;
+	edb_fhead newhead = {.intro = intro};
+	// zero out the rest of the structure explicitly
+	bzero(&(newhead.newest), sizeof(edb_fhead) - sizeof(edb_fhead_intro));
+
 	// generate a random newhead.intro.id
     {
 		struct timeval tv;
@@ -83,26 +88,26 @@ static edb_err createfile(const char *path, int flags) {
 // EDB_ENOTDB if bad magic number (probably meaning not a edb file)
 // EDB_EHW if invalid hardware.
 static edb_err validateheadintro(edb_fhead_intro head) {
-	if(head.magic != {0xA6, 0xF0}) {
+	if(head.magic[0] != 0xA6 || head.magic[1] != 0xF0) {
 		log_errorf("invalid magic number: got {0x%02X, 0x%02X} but expecting {0x%02X, 0x%02X}",
-				   head.magic,
-				   {0xA6, 0xF0});
-		return EDB_ENOTVALID;
+				   head.magic[0], head.magic[1],
+				   0xA6, 0xF0);
+		return EDB_ENOTDB;
 	}
 	if(head.intsize != sizeof(int)) {
-		log_errorf("integer size mismatch: got %d but accepting %d",
+		log_errorf("integer size mismatch: got %d but accepting %ld",
 				   head.intsize,
 				   sizeof(int));
 		return EDB_EHW;
 	}
 	if(head.entrysize != sizeof(edb_entry_t)) {
-		log_errorf("entry size mismatch: got %d but accepting %d",
+		log_errorf("entry size mismatch: got %d but accepting %ld",
 				   head.entrysize,
 				   sizeof(edb_entry_t));
 		return EDB_EHW;
 	}
 	if(head.pagesize != sysconf(_SC_PAGE_SIZE)) {
-		log_errorf("minimum page size mismatch: got %d but accepting %d",
+		log_errorf("minimum page size mismatch: got %d but accepting %ld",
 				   head.pagesize,
 				   sysconf(_SC_PAGE_SIZE));
 		return EDB_EHW;
@@ -112,14 +117,14 @@ static edb_err validateheadintro(edb_fhead_intro head) {
 
 
 
-edb_err edb_fileclose(edb_file *file) {
+void edb_fileclose(edb_file_t *file) {
 	// dealloc memeory
-	int err = nummap(file->head, sysconf(_SC_PAGE_SIZE));
+	int err = munmap(file->head, sysconf(_SC_PAGE_SIZE));
 	if(err == -1) {
 		int errtmp = errno;
 		log_critf("failed to close file descriptor from nummap(2) errno: %d", errtmp);
 		errno = errtmp;
-		return EDB_ECRIT;
+		return;
 	}
 
 	// close the descriptor
@@ -128,18 +133,18 @@ edb_err edb_fileclose(edb_file *file) {
 		int errtmp = errno;
 		log_critf("failed to close file descriptor from close(2) errno: %d", errtmp);
 		errno = errtmp;
-		return EDB_ECRIT;
+		return;
 	}
 }
 
-edb_err edb_fileopen(edb_file_t *file, const char *path, int flags) {
+edb_err edb_fileopen(edb_file_t *dbfile, const char *path, int flags) {
 
 	// initialize memeory.
-	bzero(dbfile, sizeof(edb_file));
+	bzero(dbfile, sizeof(edb_file_t));
 	dbfile->path = path;
 
 	int err = 0;
-	int trycreate = flags & EDB_OCREAT;
+	int trycreate = flags & EDB_HCREAT;
 
 	// get the stat of the file, and/or create the file if params dicates it.
 	restat:
@@ -227,7 +232,7 @@ edb_err edb_fileopen(edb_file_t *file, const char *path, int flags) {
 	{
 		edb_err valdationerr = validateheadintro(dbfile->head->intro);
 		if(valdationerr != 0) {
-			closefile(dbfile);
+			edb_fileclose(dbfile);
 			return valdationerr;
 		}
 	}

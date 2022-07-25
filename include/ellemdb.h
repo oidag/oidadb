@@ -3,12 +3,11 @@
 
 #include <stdint.h>
 
-#include "edb.h"
-
 
 // easy typedefs.
-typedef edb_did uint64_t;
-typedef edb_oid uint64_t;
+typedef uint64_t edb_did;
+typedef uint64_t edb_oid;
+typedef uint64_t edb_eid;
 
 // hanlder
 
@@ -79,22 +78,8 @@ typedef struct edb_job_st edb_job_t;
 #define EDB_LINFO    LOG_INFO  // informational / verbose
 #define EDB_LDEBUG   LOG_DEBUG // debug message. may be redundant/useless
 
-
-// All of these functions will work regardless of the open state of
-// the handle so long that the handle was initialized with bzero(3).
-//
-// edb_errstr converts the relevant error into a string message.
-//
-// edb_setlogger sets the logger for the handle. The callback must be
-// threadsafe. The callback will only be called on the OR'd bitmask
-// specified in logmask (see EDB_L... enums). This function is simular
-// to syslog(3). Setting cb to null will disable it.
-const char *edb_errstr(edb_err error);
-edb_err edb_setlogger(edbh *handle, int logmask,
-					  void (*cb)(int logtype, const char *log));
-
 // error enums.
-enum edb_err {
+typedef enum edb_err_em {
 	
 	// no error - explicitly 0 - as all functions returning edb_err is
 	// expected to be layed out as follows for error handling:
@@ -150,7 +135,20 @@ enum edb_err {
 	EDB_EHW,
 
 	EDB_ENOMEM,
-};
+} edb_err;
+
+// All of these functions will work regardless of the open state of
+// the handle so long that the handle was initialized with bzero(3).
+//
+// edb_errstr converts the relevant error into a string message.
+//
+// edb_setlogger sets the logger for the handle. The callback must be
+// threadsafe. The callback will only be called on the OR'd bitmask
+// specified in logmask (see EDB_L... enums). This function is simular
+// to syslog(3). Setting cb to null will disable it.
+const char *edb_errstr(edb_err error);
+edb_err edb_setlogger(edbh *handle, int logmask,
+					  void (*cb)(int logtype, const char *log));
 
 
 
@@ -190,7 +188,7 @@ typedef struct edb_hostconfig_st {
 	//
 	//  job_buffersize = sizeof(edb_job_t) * worker_poolsize * worker_poolsize
 	//
-	off_t job_buffersize;
+	uint64_t job_buffersize;
 
 	// Whilest hosting, the host will manage memory that will be
 	// shared between handles known as the event buffer. And
@@ -215,7 +213,7 @@ typedef struct edb_hostconfig_st {
 	// you start seeing event loss, you should first work on the
 	// efficiency of handles and then look to increasing this number.
 	// 
-	off_t event_buffersize;
+	uint64_t event_buffersize;
 	
 	// Dictates the worker pool count that will be managed to
 	// serve queries. On paper, the optimial amount of workers is
@@ -251,7 +249,7 @@ typedef struct edb_hostconfig_st {
 	//
 	// Operating under a full buffer will cause jobs to slow, fail,
 	// and return early errors. So give this buffer plenty of space.
-	off_t page_buffermax;
+	uint64_t page_buffermax;
 	
 	// See EDB_H... family of constants
 	int flags;
@@ -516,7 +514,7 @@ typedef struct edb_query_st {
 	
 	int pagestart; // The page index to which to start
 	
-	int (*queryfunc)(edb_obj *row) func; // query function. the
+	int (*queryfunc)(edb_obj_t *row); // query function. the
 										 // pointer to row is not safe
 										 // to save.
 } edb_query_t;
@@ -544,13 +542,13 @@ typedef struct edb_infodatabase_st {
 
 // all these info- functions just return their relevant structure's
 // data that can be used for debugging reasons.
-edb_err edb_infohandle(edbh *handle, info *edb_infohandle_t);
-edb_err edb_infodatabase(edbh *handle, info *edb_infodatabase_t);
+edb_err edb_infohandle(edbh *handle, edb_infohandle_t *info);
+edb_err edb_infodatabase(edbh *handle, edb_infodatabase_t *info);
 
 // dump- functions just format the stucture and pipe it into fd.
 // these functions provide no more information than the equvilient
 // info- function.
-int edb_dumphandle(edbh *handle, fd int);
-int edb_dumpdatabase(edbh *handle, fd int);
+int edb_dumphandle(edbh *handle, int fd);
+int edb_dumpdatabase(edbh *handle, int fd);
 	
 #endif // _EDB_H_
