@@ -61,7 +61,7 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid);
 //                   due to its absence
 //     EDB_EERRNO - error returned shm_open(3)
 //     EDB_ENOTDB - shared memeory not properly formated/corrupted
-edb_err edb_host_shmlink(pid_t hostpid, edb_shm_t *outptr);
+edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid);
 void edb_host_shmunlink(edb_shm_t *outptr);
 
 #endif
