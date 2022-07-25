@@ -83,7 +83,7 @@ static void deleteshm(edb_shm_t *host) {
 	if(host->shm == 0) {
 		log_critf("attempting to delete shared memory that is not linked / initialized. prepare for errors.");
 	}
-	munmap(host->shm, host->shmc);
+	munmap(host->shm, host->head->shmc);
 	shm_unlink(host->shm_name);
 	host->shm = 0;
 }
@@ -131,7 +131,7 @@ static inline shmname(pid_t pid, char *buff) {
 static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 
 	// calculate the size we need upfront.
-	host->shmc = (sizeof (uint64_t) * 4) // all the counts
+	ssize_t shmc = sizeof (edb_shmhead_t)
 	              + config.job_buffersize
 	              + config.event_buffersize;
 
@@ -147,7 +147,7 @@ static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
-	int err = ftruncate64(shmfd, host->shmc);
+	int err = ftruncate64(shmfd, shmc);
 	if(err == -1) {
 		// no reason ftruncate should fail...
 		int errnotmp = errno;
@@ -157,7 +157,7 @@ static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
-	host->shm = mmap(0, host->shmc,
+	host->shm = mmap(0, shmc,
 	                         PROT_READ | PROT_WRITE,
 	                MAP_SHARED,
 	                shmfd, 0);
@@ -182,17 +182,17 @@ static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 	}
 
 	// initialize counts
-	bzero(host->shm, host->shmc);
-	uint64_t *countstart = (uint64_t *)(host->shm);
-	countstart[0] = EDB_SHM_MAGIC_NUM;
-	countstart[1] = host->shmc;
-	countstart[2] = host->jobc   = config.job_buffersize / sizeof (edb_job_t);
-	countstart[3] = host->eventc = config.event_buffersize / sizeof (edb_event_t);
+	bzero(host->shm, shmc); // todo: we may not need this sense ftruncate(2) should zero it out
+	host->head = host->shm;
+	host->head->magnum = EDB_SHM_MAGIC_NUM;
+	host->head->shmc   = shmc;
+	host->head->jobc   = config.job_buffersize / sizeof (edb_job_t);
+	host->head->eventc = config.event_buffersize / sizeof (edb_event_t);
 
 	// assign buffer pointers
-	void *bufferstart = (host->shm + sizeof(uint64_t)*4);
+	void *bufferstart = (host->shm + sizeof(edb_shmhead_t));
 	host->jobv     = (edb_job_t *)(bufferstart);
-	host->eventv   = (edb_event_t *)(host->jobv + host->jobc*sizeof(edb_job_t));
+	host->eventv   = (edb_event_t *)(host->jobv + host->head->jobc*sizeof(edb_job_t));
 	return 0;
 }
 
@@ -428,7 +428,7 @@ edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 	}
 
 	// get all the counts
-	ssize_t n = read(shmfd, &(outptr->magnum), sizeof (uint64_t) * 4);
+	ssize_t n = read(shmfd, &(outptr->head), sizeof (edb_shmhead_t));
 	if (n == -1) {
 		// no reason read should fail...
 		int errnotmp = errno;
@@ -438,22 +438,22 @@ edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
-	if (outptr->magnum != EDB_SHM_MAGIC_NUM) {
+	if (outptr->head->magnum != EDB_SHM_MAGIC_NUM) {
 		// failed to read in the shared memeory head.
 		shm_unlink(outptr->shm_name);
 		close(shmfd);
 		log_noticef("shared memory does not contain magic number: expecting %lx, got %lx",
 					EDB_SHM_MAGIC_NUM,
-					outptr->magnum);
+					outptr->head->magnum);
 		return EDB_ENOTDB;
 	}
 
 	// now retruncate with the full size now that we know what it is.
-	err = ftruncate64(shmfd, outptr->shmc);
+	err = ftruncate64(shmfd, outptr->head->shmc);
 	if(err == -1) {
 		// no reason ftruncate should fail...
 		int errnotmp = errno;
-		log_critf("ftruncate64(2) returned unexpected errno while truncating shm to %ld: %d", outptr->shmc, errnotmp);
+		log_critf("ftruncate64(2) returned unexpected errno while truncating shm to %ld: %d", outptr->head->shmc, errnotmp);
 		shm_unlink(outptr->shm_name);
 		close(shmfd);
 		errno = errnotmp;
@@ -461,7 +461,7 @@ edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 	}
 
 	// map it
-	outptr->shm = mmap(0, outptr->shmc,
+	outptr->shm = mmap(0, outptr->head->shmc,
 	                 PROT_READ | PROT_WRITE,
 	                 MAP_SHARED,
 	                 shmfd, 0);
@@ -482,9 +482,9 @@ edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 	}
 
 	// assign buffer pointers
-	void *bufferstart = (outptr->shm + sizeof(uint64_t)*4);
+	void *bufferstart = (outptr->shm + sizeof(edb_shmhead_t));
 	outptr->jobv     = (edb_job_t *)(bufferstart);
-	outptr->eventv   = (edb_event_t *)(outptr->jobv + outptr->jobc*sizeof(edb_job_t));
+	outptr->eventv   = (edb_event_t *)(outptr->jobv + outptr->head->jobc*sizeof(edb_job_t));
 
 	return 0;
 }

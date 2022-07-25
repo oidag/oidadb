@@ -19,6 +19,16 @@ typedef struct edb_job_st {
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22
 
+typedef struct edb_shmhead_st {
+	uint64_t magnum; // magicnumber (EDB_SHM_MAGIC_NUM)
+	uint64_t shmc;   // total bytes in the shm
+	uint64_t jobc;   // total count of jobs in jobv.
+	uint64_t eventc; // total count of events in eventv.
+
+	uint32_t futex_job;
+	uint32_t futex_event;
+} edb_shmhead_t;
+
 typedef struct edb_shm_st {
 
 	// the shared memory itself.
@@ -34,10 +44,7 @@ typedef struct edb_shm_st {
 	void *shm; // if 0, that means the shm is unlinked.
 
 	// sizes of the buffers
-	uint64_t magnum; // magicnumber (EDB_SHM_MAGIC_NUM)
-	uint64_t shmc;   // total bytes in the shm
-	uint64_t jobc;   // total count of jobs in jobv.
-	uint64_t eventc; // total count of events in eventv.
+	edb_shmhead_t *head; // head will be == shm.
 
 	// helper pointers
 	edb_job_t   *jobv;   // job buffer
