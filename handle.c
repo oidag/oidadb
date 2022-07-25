@@ -14,7 +14,7 @@ edb_err edb_open(edbh *handle, edb_open_t params) {
 	// get the hostpid.
 	edb_err hosterr = edb_host_getpid(params.path, &(handle->hostpid));
 	if(hosterr) {
-		return hosterr
+		return hosterr;
 	}
 
 	// at this point, the file exist and has a host attached to it.

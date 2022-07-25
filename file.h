@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "include/ellemdb.h"
+
 struct _edb_fhead_intro {
 	char magic[2];
 	uint8_t intsize;
@@ -20,7 +22,9 @@ typedef struct _edb_fhead_intro edb_fhead_intro;
 typedef uint64_t eid;
 
 typedef struct {
+	// intro must be first in this structure.
 	const edb_fhead_intro intro;
+
 	eid newest;
 	uint32_t loadedpages;
 	pid_t host;

@@ -57,7 +57,7 @@ typedef struct edb_host_st {
 } edb_host_t;
 
 // helper function for edb_host to Check for EDB_EINVALs
-static edb_err _validatehostops(const char *path, edb_host_t hostops) {
+static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 	if(path == 0) {
 		log_errorf("path is null");
 		return EDB_EINVAL;
@@ -81,6 +81,14 @@ static edb_err _validatehostops(const char *path, edb_host_t hostops) {
 	return 0;
 }
 
+// helper function to hostclose and createshm.
+// only works after createshm returned successfully.
+// this must be called before edb_fileclose(&(host->file))
+static void deleteshm(edb_host_t *host) {
+	munmap(host->alloc_static,host->alloc_static_size);
+	shm_unlink(host->shm_name);
+}
+
 // closes the host. syncs and closes all descriptors and buffers.
 //
 // all errors that can occour will be critical in nature.
@@ -89,10 +97,10 @@ static edb_err _validatehostops(const char *path, edb_host_t hostops) {
 // starting the shutdown but will not accept any more jobs.
 static void hostclose(edb_host_t *host) {
 
-	pthread_mutex_lock(host->statechange);
+	pthread_mutex_lock(&host->statechange);
 	if (host->state == HOST_CLOSED || host->state == HOST_CLOSING) {
-		pthread_mutex_unlock(host->statechange);
-		log_infof("attempted to close host that's already been marked for closing")
+		pthread_mutex_unlock(&host->statechange);
+		log_infof("attempted to close host that's already been marked for closing");
 		return;
 	}
 
@@ -122,22 +130,16 @@ static void hostclose(edb_host_t *host) {
 	host->state = HOST_CLOSED;
 
 	// unlock the statechange
-	pthread_mutex_unlock(host->statechange);
+	pthread_mutex_unlock(&host->statechange);
 
 	// this will cause future calls to pthread_mutex_lock to error out
 	// but thats okay because the state has already been changed so
 	// the subsquent if statements will do their job normally and
 	// prevent duplicate states.
-	pthread_mutex_destroy(&(host.statechange));
+	pthread_mutex_destroy(&(host->statechange));
 }
 
-// helper function to hostclose and createshm.
-// only works after createshm returned successfully.
-// this must be called before edb_fileclose(&(host->file))
-static void deleteshm(edb_host_t *host) {
-	munmap(host->alloc_static,host->alloc_static_size);
-	shm_unlink(host->shm_name);
-}
+
 
 // helper function for edb_host
 // builds and allocates the static shared memory region.
@@ -164,12 +166,12 @@ static edb_err createshm(edb_host_t *host, edb_hostconfig_t hostops) {
 		// no reason ftruncate should fail...
 		int errnotmp = errno;
 		log_critf("ftruncate(2) returned unexpected errno: %d", errnotmp);
-		shm_unlink(host->shm_name)
+		shm_unlink(host->shm_name);
 		close(shmfd);
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
-	host.alloc_static = mmap(0, host->alloc_static_size,
+	host->alloc_static = mmap(0, host->alloc_static_size,
 	                         PROT_READ | PROT_WRITE,
 	                         MAP_SHARED,
 	                         shmfd,0);
@@ -180,7 +182,7 @@ static edb_err createshm(edb_host_t *host, edb_hostconfig_t hostops) {
 	close(shmfd);
 
 	// /now/ we check for errors from the mmap
-	if (host.alloc_static == 0) {
+	if (host->alloc_static == 0) {
 		int errnotmp = errno;
 		shm_unlink(host->shm_name);
 		if (errno == ENOMEM) {
@@ -189,8 +191,8 @@ static edb_err createshm(edb_host_t *host, edb_hostconfig_t hostops) {
 		}
 		// all others are criticals
 		errno = errnotmp;
-		log_critf("mmap(2) failed to map shared memory: %d", errno)
-		return EDB_ECRIT
+		log_critf("mmap(2) failed to map shared memory: %d", errno);
+		return EDB_ECRIT;
 	}
 	// assign pointers
 	host->jobv    = (edb_job_t *)(host->alloc_static);
@@ -211,11 +213,11 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	// start building out our host.
 	edb_host_t host = {0};
 	host.config = hostops;
-	int err = pthread_mutex_init(&host.statechange);
+	int err = pthread_mutex_init(&host.statechange, 0);
 	host.state = HOST_OPENING; // technically a useless state, but oh well.
 	if(err) {
 		log_critf("failed to initialize state change mutex: %d", err);
-		return EDB_ECRIT
+		return EDB_ECRIT;
 	}
 
 	// past this point we need pthread_mutex_destroy(&(host.statechange));
@@ -251,7 +253,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 		}
 		errno = errnotmp;
 		log_critf("malloc(3) returned an unexpected error: %d", errno);
-		return EDB_ECRIT
+		return EDB_ECRIT;
 	}
 	for(int i = 0; i < host.workerc; i++) {
 		eerr = edb_workerinit(&host, &(host.workerv[i]));
@@ -279,8 +281,8 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	// enter hosting cycle
 	// start all the async workers. Note we do int i = 1 because the first one
 	// will be the sync worker.
-	for(int i = 1; i < host->workerc; i++) {
-		eerr = edb_workerasync(&(host->workerv[i]));
+	for(int i = 1; i < host.workerc; i++) {
+		eerr = edb_workerasync(&(host.workerv[i]));
 		if(eerr) {
 			hostclose(&host);
 			return eerr;
@@ -298,7 +300,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	// so there's really nothing for us to do but to return a successful
 	// exeuction.
 	hostclose(&host);
-	return
+	return 0;
 }
 
 // must NOT be called from a worker thread.
@@ -317,12 +319,12 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid) {
 	struct flock dblock = {0};
 
 	// open the file for the only purpose of reading locks.
-	fd = open(params.path,O_RDONLY);
+	fd = open(path,O_RDONLY);
 	if (fd == -1) {
 		return EDB_EERRNO;
 	}
 	// read any fcntl locks
-	dblock = {
+	dblock = (struct flock){
 			.l_type = F_WRLCK,
 			.l_whence = SEEK_SET,
 			.l_start = 0,

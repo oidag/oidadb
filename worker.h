@@ -3,12 +3,14 @@
 
 #include "host.h"
 
-typedef struct edb_worker_st edb_worker_t;
+typedef struct edb_worker_st {
+
+}edb_worker_t;
 
 // _init initializs a new worker and _decom decommissions it.
 //
 // edb_workerdecom will only crit out.
-edb_err edb_workerinit(edb_host *host, edb_worker_t *worker);
+edb_err edb_workerinit(edb_host_t *host, edb_worker_t *worker);
 void edb_workerdecom(edb_worker_t *worker);
 
 // once initialized, a worker can be started with either of these functions.
