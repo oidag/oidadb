@@ -17,6 +17,7 @@
 #include "include/ellemdb.h"
 
 enum hoststate {
+	HOST_NONE = 0,
 	HOST_CLOSED,
 	HOST_CLOSING,
 	HOST_OPEN,
@@ -27,7 +28,9 @@ enum hoststate {
 typedef struct edb_host_st {
 
 	enum hoststate state;
-	pthread_mutex_t statechange;
+	pthread_mutex_t bootup;
+
+	pthread_mutex_t retlock;
 
 
 	edb_file_t       file;
@@ -92,47 +95,28 @@ static void deleteshm(edb_shm_t *host) {
 // if waitjobs is not 0, then it will wait until the current job buffer is finished before
 // starting the shutdown but will not accept any more jobs.
 static void hostclose(edb_host_t *host) {
-
-	pthread_mutex_lock(&host->statechange);
-	if (host->state == HOST_CLOSED || host->state == HOST_CLOSING) {
-		pthread_mutex_unlock(&host->statechange);
-		log_infof("attempted to close host that's already been marked for closing");
+	if (host->state == HOST_NONE) {
+		log_errorf("tried to close a host that has not been started");
 		return;
 	}
 
-	host->state = HOST_CLOSING;
-	log_infof("closing %s...", host->file.path);
-
-	// stop all the workers.
-	for(int i = 0; i < host->workerc; i++) {
-		edb_workerstop(&(host->workerv[i]));
-	}
-	for(int i = 0; i < host->workerc; i++) {
-		edb_workerjoin(&(host->workerv[i]));
-		edb_workerdecom(&(host->workerv[i]));
+	// wait until we know that the host is booted up
+	int err = pthread_mutex_lock(&host->bootup);
+	if (err) {
+		log_critf("failed to obtain host bootup mutex: %d", err);
+		return;
 	}
 
-	// unallocate the worker space
-	free(host->workerv);
+	// okay we know its booted up. Go ahead and release the return mutex.
+	err = pthread_mutex_unlock(&host->retlock);
+	if (err) {
+		log_critf("failed to release retlock mutex: %d", err);
+		return;
+	}
 
-	// todo: deallocating the page buffer here.
+	// and that's it. the edb_host function will clean up the rest.
 
-	// unallocate the shared memory
-	deleteshm(&host->shm);
-
-	// close the file
-	edb_fileclose(&(host->file));
-
-	host->state = HOST_CLOSED;
-
-	// unlock the statechange
-	pthread_mutex_unlock(&host->statechange);
-
-	// this will cause future calls to pthread_mutex_lock to error out
-	// but thats okay because the state has already been changed so
-	// the subsquent if statements will do their job normally and
-	// prevent duplicate states.
-	pthread_mutex_destroy(&(host->statechange));
+	pthread_mutex_unlock(&host->bootup);
 }
 
 
@@ -215,36 +199,53 @@ static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 
 	// check for EINVAL
-	edb_err eerr;
+	edb_err eerr = 0;
+	int preserved_errno = 0;
 	eerr = _validatehostops(path, hostops);
 	if(eerr) return eerr;
 
 	// start building out our host.
 	edb_host_t host = {0};
 	host.config = hostops;
-	int err = pthread_mutex_init(&host.statechange, 0);
-	host.state = HOST_OPENING; // technically a useless state, but oh well.
+	int err = pthread_mutex_init(&host.bootup, 0);
 	if(err) {
 		log_critf("failed to initialize state change mutex: %d", err);
 		return EDB_ECRIT;
 	}
+	err = pthread_mutex_lock(&host.bootup);
+	if(err) {
+		log_critf("failed to lock bootup mutex: %d", err);
+		pthread_mutex_destroy(&host.bootup);
+		return EDB_ECRIT;
+	}
 
-	// past this point we need pthread_mutex_destroy(&(host.statechange));
+	// we are now in the opening state: we have work to do but we can be hostclose
+	// will work even before we're done
+	host.state = HOST_OPENING;
+
+	err = pthread_mutex_init(&host.retlock, 0);
+	if(err) {
+		log_critf("failed to initialize state change mutex: %d", err);
+		pthread_mutex_destroy(&host.bootup);
+		return EDB_ECRIT;
+	}
+
+	// past this point we need pthread_mutex_destroy(&(host.bootup));
 
 	// open and lock the file
 	eerr = edb_fileopen(&(host.file), path, hostops.flags);
-	if(eerr) return eerr;
+	if(eerr) {
+		goto clean_mutex;
+	}
 
-	// past this point, if we get an error we must close the file via edb_fileclose + pthread_mutex_destroy(&(host.statechange))
+	// past this point, if we get an error we must close the file via edb_fileclose + pthread_mutex_destroy(&(host.bootup))
 
 	eerr = createshm(&host.shm, hostops);
 	if(eerr) {
-		edb_fileclose(&(host.file));
-		pthread_mutex_destroy(&(host.statechange));
-		return eerr;
+		goto clean_file;
 	}
 
-	// past this point, we must deleteshm + edb_fileclose + pthread_mutex_destroy(&(host.statechange))
+	// past this point, we must deleteshm + edb_fileclose + pthread_mutex_destroy(&(host.bootup))
 
 	// page buffers
 	// TODO: I probably need to start working on the jobs to fully understand what needs to go here.
@@ -253,16 +254,14 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	host.workerc = host.config.worker_poolsize;
 	host.workerv = malloc(host.workerc * sizeof(edb_worker_t)); //todo: free
 	if(host.workerv == 0) {
-		int errnotmp = errno;
-		deleteshm(&host.shm);
-		edb_fileclose(&(host.file));
-		pthread_mutex_destroy(&(host.statechange));
-		if (errnotmp == ENOMEM) {
-			return EDB_ENOMEM;
+		if (errno == ENOMEM) {
+			eerr = EDB_ENOMEM;
+		} else {
+			preserved_errno = errno;
+			log_critf("malloc(3) returned an unexpected error: %d", errno);
+			eerr = EDB_ECRIT;
 		}
-		errno = errnotmp;
-		log_critf("malloc(3) returned an unexpected error: %d", errno);
-		return EDB_ECRIT;
+		goto clean_shm;
 	}
 	for(int i = 0; i < host.workerc; i++) {
 		eerr = edb_workerinit(&host, &(host.workerv[i]));
@@ -272,44 +271,77 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 			for(int j = i-1; j >= 0; j--) {
 				edb_workerdecom(&(host.workerv[j]));
 			}
-			free(host.workerv);
-			deleteshm(&host.shm);
-			edb_fileclose(&(host.file));
-			pthread_mutex_destroy(&(host.statechange));
-			return eerr;
+			goto clean_freepool;
 		}
 	}
+
+	// before we start the workers, lets lock the finished
+	pthread_mutex_lock(&host.retlock);
+	// todo: error handling
 
 	// from this point on, all we need to do is edb_hostclose to fully clean up everything.
 
 	// at this point we have an open state.
 	// this by definition means clients can start filling up the job buffer even
-	// though there's no workers to satsify the jobs yet...
+	// though there's no workers to satsify the jobs yet.
 	host.state = HOST_OPEN;
+	pthread_mutex_unlock(&host.bootup);
+	// todo: error handling
 
 	// enter hosting cycle
 	// start all the async workers. Note we do int i = 1 because the first one
 	// will be the sync worker.
-	for(int i = 1; i < host.workerc; i++) {
+	for(int i = 0; i < host.workerc; i++) {
 		eerr = edb_workerasync(&(host.workerv[i]));
 		if(eerr) {
-			hostclose(&host);
-			return eerr;
+			goto clean_stopwork;
 		}
 	}
-	// now start the sync worker and let the magic happen.
-	eerr = edb_workersync(&(host.workerv[0]));
-	if(eerr) {
-		hostclose(&host);
-		return eerr;
+
+	// double-lock the retlock. this will freeze this calling thread until
+	// the closer is called to unlock us.
+	pthread_mutex_lock(&host.retlock);
+
+	log_infof("closing %s...", host.file.path);
+
+	// clean up everything
+	// stop all the workers.
+	clean_stopwork:
+	pthread_mutex_unlock(&host.retlock);
+	log_infof("stopping %d workers...", host.workerc);
+	for(int i = 0; i < host.workerc; i++) {
+		edb_workerstop(&(host.workerv[i]));
+	}
+	for(int i = 0; i < host.workerc; i++) {
+		edb_workerjoin(&(host.workerv[i]));
+		edb_workerdecom(&(host.workerv[i]));
+		log_infof("  ...worker %d joined", i);
 	}
 
-	// at this point, someone had called edb_hoststop.
-	// this inherantly means that hostclose() was called.
-	// so there's really nothing for us to do but to return a successful
-	// exeuction.
-	hostclose(&host);
-	return 0;
+	// unallocate the worker space
+	clean_freepool:
+	log_infof("freeing worker pool...");
+	free(host.workerv);
+
+	// todo: deallocating the page buffer here.
+
+	// unallocate the shared memory
+	clean_shm:
+	log_infof("deleting shared memory...");
+	deleteshm(&host.shm);
+
+	// close the file
+	clean_file:
+	log_infof("closing database file...");
+	edb_fileclose(&(host.file));
+
+	clean_mutex:
+	log_infof("destroying mutexes...");
+	pthread_mutex_destroy(&host.retlock);
+	pthread_mutex_destroy(&host.bootup);
+
+	errno = preserved_errno;
+	return eerr;
 }
 
 // must NOT be called from a worker thread.
