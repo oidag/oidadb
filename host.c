@@ -78,7 +78,7 @@ static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 // this must be called before edb_fileclose(&(host->file))
 static void deleteshm(edb_shm_t *host) {
 	if(host->shm == 0) {
-		log_critf("attempting to delete shared memory that is not linked / initialized. prepare for errors.")
+		log_critf("attempting to delete shared memory that is not linked / initialized. prepare for errors.");
 	}
 	munmap(host->shm, host->shmc);
 	shm_unlink(host->shm_name);
@@ -364,7 +364,7 @@ void edb_host_shmunlink(edb_shm_t *outptr) {
 	return deleteshm(outptr);
 }
 
-edb_err edb_host_shmlink(pid_t hostpid, edb_shm_t *outptr) {
+edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 	shmname(hostpid, outptr->shm_name);
 	int shmfd = shm_open(outptr->shm_name, O_RDWR,
 	                     0666);
