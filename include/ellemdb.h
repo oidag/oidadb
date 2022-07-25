@@ -126,6 +126,8 @@ typedef enum edb_err_em {
 
 	// something is already open
 	EDB_EOPEN,
+
+	// no host present
 	EDB_ENOHOST,
 
 	// system error, check errno.

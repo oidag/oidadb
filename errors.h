@@ -11,6 +11,8 @@ void log_critf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 void log_error(const char *log);
 void log_errorf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
+void log_noticef(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+
 void log_info(const char *log);
 void log_infof(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 

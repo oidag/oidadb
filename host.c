@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "host.h"
 #include "file.h"
@@ -32,22 +33,11 @@ typedef struct edb_host_st {
 	edb_file_t       file;
 	edb_hostconfig_t config;
 
-	// static memory
-	char     shm_name[32];
-	void    *alloc_static;
-	uint64_t alloc_static_size;
-
-	// job buffer
-	off_t      jobc;
-	edb_job_t *jobv; // in alloc_static
-
-	// event buffer
-	off_t        eventc;
-	edb_event_t *eventv; // in alloc_static
+	edb_shm_t shm;
 
 	// workers
 	unsigned int  workerc;
-	edb_worker_t *workerv; // in alloc_static
+	edb_worker_t *workerv; // in shm
 
 	// page buffer
 	off_t pagec_max;
@@ -81,12 +71,18 @@ static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 	return 0;
 }
 
-// helper function to hostclose and createshm.
-// only works after createshm returned successfully.
+// helper function to hostclose, createshm, edb_host_shmunlink, edb_host_shmlink
+//
+//
+// when calling from host: only works after createshm returned successfully.
 // this must be called before edb_fileclose(&(host->file))
-static void deleteshm(edb_host_t *host) {
-	munmap(host->alloc_static,host->alloc_static_size);
+static void deleteshm(edb_shm_t *host) {
+	if(host->shm == 0) {
+		log_critf("attempting to delete shared memory that is not linked / initialized. prepare for errors.")
+	}
+	munmap(host->shm, host->shmc);
 	shm_unlink(host->shm_name);
+	host->shm = 0;
 }
 
 // closes the host. syncs and closes all descriptors and buffers.
@@ -122,7 +118,7 @@ static void hostclose(edb_host_t *host) {
 	// todo: deallocating the page buffer here.
 
 	// unallocate the shared memory
-	deleteshm(host);
+	deleteshm(&host->shm);
 
 	// close the file
 	edb_fileclose(&(host->file));
@@ -140,19 +136,25 @@ static void hostclose(edb_host_t *host) {
 }
 
 
+// generates the file name for the shared memory
+// buff should be at least 32bytes.
+static inline shmname(pid_t pid, char *buff) {
+	sprintf(buff, "/EDB_HOST-%d", pid);
+}
 
 // helper function for edb_host
-// builds and allocates the static shared memory region.
-static edb_err createshm(edb_host_t *host, edb_hostconfig_t hostops) {
+// builds, allocates, and initializes the static shared memory region.
+static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 
 	// calculate the size we need upfront.
-	host->alloc_static_size = host->config.job_buffersize
-	                          + host->config.event_buffersize;
+	host->shmc = (sizeof (uint64_t) * 4) // all the counts
+	              + config.job_buffersize
+	              + config.event_buffersize;
 
 	// run shm_open(3) using the file name schema of opening /EDB_HOST-[pid]
-	sprintf(host->shm_name, "/EDB_HOST-%d", getpid());
+	shmname(getpid(), host->shm_name);
 	int shmfd = shm_open(host->shm_name, O_RDWR | O_CREAT | O_EXCL,
-						 0666);
+	                     0666);
 	if (shmfd == -1) {
 		// shm_open should have no reason to fail sense we already have the
 		// file opened and locked.
@@ -161,7 +163,7 @@ static edb_err createshm(edb_host_t *host, edb_hostconfig_t hostops) {
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
-	int err = ftruncate64(shmfd, host->alloc_static_size);
+	int err = ftruncate64(shmfd, host->shmc);
 	if(err == -1) {
 		// no reason ftruncate should fail...
 		int errnotmp = errno;
@@ -171,10 +173,10 @@ static edb_err createshm(edb_host_t *host, edb_hostconfig_t hostops) {
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
-	host->alloc_static = mmap(0, host->alloc_static_size,
+	host->shm = mmap(0, host->shmc,
 	                         PROT_READ | PROT_WRITE,
-	                         MAP_SHARED,
-	                         shmfd,0);
+	                MAP_SHARED,
+	                shmfd, 0);
 
 	// sense it is documented in the manual, so long that we have it
 	// mmap'd, we can close the descriptor. We'll do that now
@@ -182,7 +184,7 @@ static edb_err createshm(edb_host_t *host, edb_hostconfig_t hostops) {
 	close(shmfd);
 
 	// /now/ we check for errors from the mmap
-	if (host->alloc_static == 0) {
+	if (host->shm == 0) {
 		int errnotmp = errno;
 		shm_unlink(host->shm_name);
 		if (errno == ENOMEM) {
@@ -194,12 +196,19 @@ static edb_err createshm(edb_host_t *host, edb_hostconfig_t hostops) {
 		log_critf("mmap(2) failed to map shared memory: %d", errno);
 		return EDB_ECRIT;
 	}
-	// assign pointers
-	host->jobv    = (edb_job_t *)(host->alloc_static);
-	host->eventv  = (edb_event_t *)(host->jobv + host->config.job_buffersize);
-	// assign counts
-	host->jobc    = host->config.job_buffersize / sizeof(edb_job_t);
-	host->eventc  = host->config.event_buffersize / sizeof (edb_event_t);
+
+	// initialize counts
+	bzero(host->shm, host->shmc);
+	uint64_t *countstart = (uint64_t *)(host->shm);
+	countstart[0] = EDB_SHM_MAGIC_NUM;
+	countstart[1] = host->shmc;
+	countstart[2] = host->jobc   = config.job_buffersize / sizeof (edb_job_t);
+	countstart[3] = host->eventc = config.event_buffersize / sizeof (edb_event_t);
+
+	// assign buffer pointers
+	void *bufferstart = (host->shm + sizeof(uint64_t)*4);
+	host->jobv     = (edb_job_t *)(bufferstart);
+	host->eventv   = (edb_event_t *)(host->jobv + host->jobc*sizeof(edb_job_t));
 	return 0;
 }
 
@@ -228,7 +237,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 
 	// past this point, if we get an error we must close the file via edb_fileclose + pthread_mutex_destroy(&(host.statechange))
 
-	eerr = createshm(&host, hostops);
+	eerr = createshm(&host.shm, hostops);
 	if(eerr) {
 		edb_fileclose(&(host.file));
 		pthread_mutex_destroy(&(host.statechange));
@@ -245,7 +254,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	host.workerv = malloc(host.workerc * sizeof(edb_worker_t)); //todo: free
 	if(host.workerv == 0) {
 		int errnotmp = errno;
-		deleteshm(&host);
+		deleteshm(&host.shm);
 		edb_fileclose(&(host.file));
 		pthread_mutex_destroy(&(host.statechange));
 		if (errnotmp == ENOMEM) {
@@ -264,7 +273,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 				edb_workerdecom(&(host.workerv[j]));
 			}
 			free(host.workerv);
-			deleteshm(&host);
+			deleteshm(&host.shm);
 			edb_fileclose(&(host.file));
 			pthread_mutex_destroy(&(host.statechange));
 			return eerr;
@@ -348,5 +357,100 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid) {
 	}
 	// host successfully found.
 	*outpid = dblock.l_pid;
+	return 0;
+}
+
+void edb_host_shmunlink(edb_shm_t *outptr) {
+	return deleteshm(outptr);
+}
+
+edb_err edb_host_shmlink(pid_t hostpid, edb_shm_t *outptr) {
+	shmname(hostpid, outptr->shm_name);
+	int shmfd = shm_open(outptr->shm_name, O_RDWR,
+	                     0666);
+	if(shmfd == -1) {
+		// probably a bad pid or file is not hosted?
+		int errnotmp = errno;
+		if(errno == ENOENT) {
+			// no host probably.
+			errno = errnotmp;
+			return EDB_ENOHOST;
+		}
+		log_critf("shm_open(3) returned errno: %d", errnotmp);
+		errno = errnotmp;
+		return EDB_EERRNO;
+	}
+
+	// truncate it enough to make sure we have the counts
+	int err = ftruncate64(shmfd, sizeof(uint64_t) * 4);
+	if(err == -1) {
+		// no reason ftruncate should fail...
+		int errnotmp = errno;
+		log_critf("ftruncate64(2) returned unexpected errno: %d", errnotmp);
+		shm_unlink(outptr->shm_name);
+		close(shmfd);
+		errno = errnotmp;
+		return EDB_ECRIT;
+	}
+
+	// get all the counts
+	ssize_t n = read(shmfd, &(outptr->magnum), sizeof (uint64_t) * 4);
+	if (n == -1) {
+		// no reason read should fail...
+		int errnotmp = errno;
+		log_critf("read(2) on shared memory returned unexpected errno: %d", errnotmp);
+		shm_unlink(outptr->shm_name);
+		close(shmfd);
+		errno = errnotmp;
+		return EDB_ECRIT;
+	}
+	if (outptr->magnum != EDB_SHM_MAGIC_NUM) {
+		// failed to read in the shared memeory head.
+		shm_unlink(outptr->shm_name);
+		close(shmfd);
+		log_noticef("shared memory does not contain magic number: expecting %lx, got %lx",
+					EDB_SHM_MAGIC_NUM,
+					outptr->magnum);
+		return EDB_ENOTDB;
+	}
+
+	// now retruncate with the full size now that we know what it is.
+	err = ftruncate64(shmfd, outptr->shmc);
+	if(err == -1) {
+		// no reason ftruncate should fail...
+		int errnotmp = errno;
+		log_critf("ftruncate64(2) returned unexpected errno while truncating shm to %ld: %d", outptr->shmc, errnotmp);
+		shm_unlink(outptr->shm_name);
+		close(shmfd);
+		errno = errnotmp;
+		return EDB_ECRIT;
+	}
+
+	// map it
+	outptr->shm = mmap(0, outptr->shmc,
+	                 PROT_READ | PROT_WRITE,
+	                 MAP_SHARED,
+	                 shmfd, 0);
+
+
+	// see the comment in createshm regarding the closing of the fd.
+	close(shmfd);
+
+	// /now/ we check for errors from the mmap
+	if (outptr->shm == 0) {
+		// we cannot handle nomem because the memory should have already
+		// been allocated by the host.
+		int errnotmp = errno;
+		shm_unlink(outptr->shm_name);
+		errno = errnotmp;
+		log_critf("mmap(2) failed to map shared memory: %d", errno);
+		return EDB_ECRIT;
+	}
+
+	// assign buffer pointers
+	void *bufferstart = (outptr->shm + sizeof(uint64_t)*4);
+	outptr->jobv     = (edb_job_t *)(bufferstart);
+	outptr->eventv   = (edb_event_t *)(outptr->jobv + outptr->jobc*sizeof(edb_job_t));
+
 	return 0;
 }
