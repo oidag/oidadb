@@ -9,8 +9,12 @@
 
 typedef struct edb_host_st edb_host_t;
 
-typedef struct edb_job_st {
+typedef enum _edb_jobclass {
+	EDB_JCLOSE;
+} edb_jobclass;
 
+typedef struct edb_job_st {
+	edb_jobclass class;
 } edb_job_t;
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22

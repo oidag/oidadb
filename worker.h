@@ -6,7 +6,6 @@
 typedef enum _edb_workerstate {
 	EDB_WWORKNONE = 0,
 	EDB_WWORKASYNC,
-	EDB_WWORKSYNC,
 	EDB_WWORKSTOP,
 } edb_workerstate;
 
