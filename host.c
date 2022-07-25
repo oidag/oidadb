@@ -340,7 +340,9 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	pthread_mutex_destroy(&host.retlock);
 	pthread_mutex_destroy(&host.bootup);
 
-	errno = preserved_errno;
+	if(preserved_errno) {
+		errno = preserved_errno;
+	}
 	return eerr;
 }
 

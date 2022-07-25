@@ -3,9 +3,24 @@
 #include "worker.h"
 
 
+// helper func to workermain
+//
+// return an error if you need the thread to restart.
+void workerexec(edb_worker_t *self) {
 
-void static workermain(edb_worker_t *self) {
+	// listen for changes in job.
+	// todo: use futex
 
+	// find an outstanding job
+}
+
+
+void static *workermain(void *_selfv) {
+	edb_worker_t *self = _selfv;
+	log_infof("worker %lx starting...", self->pthread);
+	while(self->state == EDB_WWORKASYNC) {
+		 workerexec(self);
+	}
 }
 
 
