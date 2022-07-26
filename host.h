@@ -4,56 +4,58 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "sharedmem.h"
 #include "include/ellemdb.h"
 #include "errors.h"
-
-typedef struct edb_host_st edb_host_t;
-
-typedef enum _edb_jobclass {
-	EDB_JCLOSE;
-} edb_jobclass;
-
-typedef struct edb_job_st {
-	edb_jobclass class;
-} edb_job_t;
+#include "host.h"
+#include "file.h"
+#include "worker.h"
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22
 
-typedef struct edb_shmhead_st {
-	uint64_t magnum; // magicnumber (EDB_SHM_MAGIC_NUM)
-	uint64_t shmc;   // total bytes in the shm
-	uint64_t jobc;   // total count of jobs in jobv.
-	uint64_t eventc; // total count of events in eventv.
 
-	uint32_t futex_job;
-	uint32_t futex_event;
-} edb_shmhead_t;
 
-typedef struct edb_shm_st {
+enum hoststate {
+	HOST_NONE = 0,
+	HOST_CLOSED,
+	HOST_CLOSING,
+	HOST_OPEN,
+	HOST_OPENING,
+	HOST_FAILED,
+};
 
-	// the shared memory itself.
-	// This shared memoeyr stores the following in this order:
-	//   - magnum
-	//   - shmc
-	//   - jobc
-	//   - eventc
-	//   - jobv
-	//   - eventv
-	//
-	// You shouldn't really use this field in leu of the helper pointers.
-	void *shm; // if 0, that means the shm is unlinked.
+typedef struct edb_host_st {
 
-	// sizes of the buffers
-	edb_shmhead_t *head; // head will be == shm.
+	enum hoststate state;
 
-	// helper pointers
-	edb_job_t   *jobv;   // job buffer
-	edb_event_t *eventv; // events buffer
+	// todo: these locks may not be needed sense the only thing
+	//       allowed to acces host structures directly are the
+	//       workers... and they only exist after HOST_OPEN is true
+	// bootup - edb_host locks this until its in the HOST_OPEN state.
+	pthread_mutex_t bootup;
+	// retlock - locked before switching to HOST_OPEN and double locked.
+	// unlock this to have edb_host return.
+	pthread_mutex_t retlock;
 
-	// shared memory file name. not stored in the shm itself.
-	char shm_name[32];
+	// the file it is hosting
+	edb_file_t       file;
 
-} edb_shm_t;
+	// configuration it has when starting up
+	edb_hostconfig_t config;
+
+	// shared memory with handles
+	edb_shm_t shm;
+
+	// worker buffer
+	unsigned int  workerc;
+	edb_worker_t *workerv;
+
+	// page buffer // todo: hmm... pages will be different sizes.
+	off_t pagec_max;
+	off_t pagec;
+
+
+} edb_host_t;
 
 // stored the pid of the host for a given database file.
 // does not validate the file itself.

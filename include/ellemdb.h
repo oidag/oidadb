@@ -137,6 +137,8 @@ typedef enum edb_err_em {
 	EDB_EHW,
 
 	EDB_ENOMEM,
+
+	EDB_ESTOPPING,
 } edb_err;
 
 // All of these functions will work regardless of the open state of
@@ -312,6 +314,7 @@ edb_err edb_hoststop(const char *path);
 //   EDB_EINVAL - params.path is null
 //   EDB_EERRNO - error with open(2), (ie, file does not exist, permssions)
 //   EDB_ENOHOST - file is not being hosted (see edb_host)
+//   EDB_ENOTDB - file/host is not edb format/protocol
 //
 // These functions provide access to a database provided by the
 // instrunctions set forth in params. edb_open will write to edbh and

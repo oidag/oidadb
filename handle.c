@@ -3,7 +3,10 @@
 #include "include/ellemdb.h"
 #include "handle.h"
 #include "errors.h"
-#include "host.h"
+#include "sharedmem.h"
+
+
+
 
 edb_err edb_open(edbh *handle, edb_open_t params) {
 

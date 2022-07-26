@@ -16,38 +16,7 @@
 #include "worker.h"
 #include "include/ellemdb.h"
 
-enum hoststate {
-	HOST_NONE = 0,
-	HOST_CLOSED,
-	HOST_CLOSING,
-	HOST_OPEN,
-	HOST_OPENING,
-	HOST_FAILED,
-};
 
-typedef struct edb_host_st {
-
-	enum hoststate state;
-	pthread_mutex_t bootup;
-
-	pthread_mutex_t retlock;
-
-
-	edb_file_t       file;
-	edb_hostconfig_t config;
-
-	edb_shm_t shm;
-
-	// workers
-	unsigned int  workerc;
-	edb_worker_t *workerv; // in shm
-
-	// page buffer
-	off_t pagec_max;
-	off_t pagec;
-	// todo: hmm... pages will be different sizes.
-
-} edb_host_t;
 
 // helper function for edb_host to Check for EDB_EINVALs
 static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
@@ -83,6 +52,8 @@ static void deleteshm(edb_shm_t *host) {
 	if(host->shm == 0) {
 		log_critf("attempting to delete shared memory that is not linked / initialized. prepare for errors.");
 	}
+	pthread_mutex_destroy(&host->head->jobinstall);
+	pthread_mutex_destroy(&host->head->jobaccept);
 	munmap(host->shm, host->head->shmc);
 	shm_unlink(host->shm_name);
 	host->shm = 0;
@@ -128,7 +99,11 @@ static inline shmname(pid_t pid, char *buff) {
 
 // helper function for edb_host
 // builds, allocates, and initializes the static shared memory region.
+//
+//
 static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
+
+	edb_err eerr;
 
 	// calculate the size we need upfront.
 	ssize_t shmc = sizeof (edb_shmhead_t)
@@ -189,6 +164,41 @@ static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 	host->head->jobc   = config.job_buffersize / sizeof (edb_job_t);
 	host->head->eventc = config.event_buffersize / sizeof (edb_event_t);
 
+	// initialize mutexes.
+	pthread_mutexattr_t mutexattr;
+	if((err = pthread_mutexattr_init(&mutexattr))) {
+		munmap(host->shm, host->head->shmc);
+		shm_unlink(host->shm_name);
+		host->shm = 0;
+		if (err == ENOMEM) eerr = EDB_ENOMEM;
+		else eerr = EDB_ECRIT;
+		log_critf("pthread_mutexattr_init(3): %d", err);
+		return eerr;
+	}
+	pthread_mutexattr_setpshared(&mutexattr, PTHREAD_PROCESS_SHARED);
+	if((err = pthread_mutex_init(&host->head->jobaccept, &mutexattr))) {
+		pthread_mutexattr_destroy(&mutexattr);
+		munmap(host->shm, host->head->shmc);
+		shm_unlink(host->shm_name);
+		host->shm = 0;
+		if (err == ENOMEM) eerr = EDB_ENOMEM;
+		else eerr = EDB_ECRIT;
+		log_critf("pthread_mutex_init(3): %d", err);
+		return eerr;
+	}
+	if((err = pthread_mutex_init(&host->head->jobinstall, &mutexattr))) {
+		pthread_mutex_destroy(&host->head->jobaccept);
+		pthread_mutexattr_destroy(&mutexattr);
+		munmap(host->shm, host->head->shmc);
+		shm_unlink(host->shm_name);
+		host->shm = 0;
+		if (err == ENOMEM) eerr = EDB_ENOMEM;
+		else eerr = EDB_ECRIT;
+		log_critf("pthread_mutex_init(3): %d", err);
+		return eerr;
+	}
+	pthread_mutexattr_destroy(&mutexattr);
+
 	// assign buffer pointers
 	void *bufferstart = (host->shm + sizeof(edb_shmhead_t));
 	host->jobv     = (edb_job_t *)(bufferstart);
@@ -230,6 +240,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 		return EDB_ECRIT;
 	}
 
+
 	// past this point we need pthread_mutex_destroy(&(host.bootup));
 
 	// open and lock the file
@@ -264,7 +275,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 		goto clean_shm;
 	}
 	for(int i = 0; i < host.workerc; i++) {
-		eerr = edb_workerinit(&host, &(host.workerv[i]));
+		eerr = edb_workerinit(&host, i+1, &(host.workerv[i]));
 		if(eerr) {
 			// shit.
 			// okay we have to roll back through the ones we already initialized.
