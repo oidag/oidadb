@@ -14,14 +14,50 @@ typedef struct edb_worker_st {
 
 	edb_workerstate state;
 
+	// the functional purpose of workerid and pthread are synonymous.
+	// One is just an easier read. workerid is simply a plus-one index
+	// the worker is inside the host's worker pool.
+	//
+	// pthread is also unique but a much larger number.
+	unsigned int workerid;
 	pthread_t pthread;
 
+	// this is an index inside of the job buffer. Note that
+	// this doesn't mean that its currently executing the job at this pos. You
+	// must look at the job itself for that information.
+	//
+	// Once a job is complete, the worker will attempt to find a new job by
+	// incrementing from its last position.
+	unsigned int jobpos;
+
 }edb_worker_t;
+
+typedef enum _edb_jobclass {
+
+	// means that whatever job was there is now complete and ready
+	// for a handle to come in and install another job.
+	EDB_JCLOSE = 0;
+
+} edb_jobclass;
+
+typedef struct edb_job_st {
+	edb_jobclass class;
+
+	// used by the worker pool.
+	// only matters if class != EDB_JCLOSE.
+	// 0 means its not owned.
+	unsigned int owner;
+
+	// this is reassigned by the handles everytime they
+	// install it. uses edb_shmhead_st.nextjobid.
+	unsigned long int jobid;
+
+} edb_job_t;
 
 // _init initializs a new worker and _decom decommissions it.
 //
 // edb_workerdecom will only crit out.
-edb_err edb_workerinit(edb_host_t *host, edb_worker_t *worker);
+edb_err edb_workerinit(edb_host_t *host, unsigned int workerid, edb_worker_t *worker);
 void edb_workerdecom(edb_worker_t *worker);
 
 // once initialized, a worker can be started with either of these functions.
