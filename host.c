@@ -143,7 +143,7 @@ static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 	close(shmfd);
 
 	// /now/ we check for errors from the mmap
-	if (host->shm == 0) {
+	if (host->shm == MAP_FAILED) {
 		int errnotmp = errno;
 		shm_unlink(host->shm_name);
 		if (errno == ENOMEM) {
@@ -482,7 +482,7 @@ edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 	close(shmfd);
 
 	// /now/ we check for errors from the mmap
-	if (outptr->shm == 0) {
+	if (outptr->shm == MAP_FAILED) {
 		// we cannot handle nomem because the memory should have already
 		// been allocated by the host.
 		int errnotmp = errno;
