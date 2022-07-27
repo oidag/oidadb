@@ -28,11 +28,10 @@ typedef struct edb_job_st edb_job_t;
 //
 // Function groups that use this conjugation all have 2 parameters,
 // the first parameter being a pointer to the handle and the second
-// being a structure of the specific item (either object or data).
-// -load and -free will be pass-by-refrence in the second parameter.
+// being a structure of the specific item. -copy will be
+// pass-by-refrence in the second parameter.
 //
-//  -load(*handle, *struct)
-//  -free(*handle, *struct)
+//  -copy(*handle, *struct)
 //  -write(*handle, struct)
 //
 // The second parameter's structure will contain a void pointer named
@@ -41,26 +40,31 @@ typedef struct edb_job_st edb_job_t;
 // description. But the behaviour of binv will be dictated by the
 // choice of the conjugation.
 //
-// This conjugation contains -load, -free. and -write.
+// This conjugation contains -copy and -write.
 //
-//   -load will have binv point to internal memory and cannot be
-//   modified, once done you must use the -free function. 
+//   -copy will copy binc bytes into memory pointed by binv. Thus, it
+//   is up to the caller to manage that memory. Obtaining the proper
+//   binc varies depending on the use of this conjugation.
 //
-//   -write will not modify binv but instead binv should point to the
-//   data to which will be written to the database. Write also takes
-//   into account id to determain the nature of the operation:
+//   -write binv should point to the data to which will be written to
+//   the database. Write also takes into account id to determain the
+//   nature of the operation:
 //
 //     - creating: id  = 0, binv != 0
 //     - updating: id != 0, binv != 0
 //     - deleting: id != 0, binv  = 0
 //
-// THREADING: It is important that if you need to perform extensive
-//   operations to the data returned by -load, you must copy binv to a
-//   seperate space in memory and then free it. As long as binv's have
-//   not been free'd they are read-locked, meaning write operations
-//   will be blocked until their respective -free is called. -write
-//   operations will be done attomically and all -load functions will
-//   be blocked until the -write is complete.
+// THREADING: -copy and -write are both threadsafe. The exact
+//   mechanics of how this obtained depends on the use of this
+//   conjugation. But the caller can rest assured that they are thread
+//   safe.
+//
+//   Note that subsequent -copy calls can yeild different results due
+//   to interweaving -write calls. Furthermore, structure values
+//   passed through -write are not guarnteed to be returned by
+//   subsequent -read calls, even on the same thread. As long as the
+//   -write call is valid, it will only be scheduled, it may take time
+//   for it to fully process.
 
 
 
@@ -394,8 +398,7 @@ typedef struct edb_struct_st {
 //
 // Reads and writes structures.
 //
-edb_err edb_structload (edbh *handle, const edb_struct_t *strct);
-edb_err edb_structfree (edbh *handle, const edb_struct_t *strct);
+edb_err edb_structcopy (edbh *handle, const edb_struct_t *strct);
 edb_err edb_structwrite(edbh *handle, const edb_struct_t strct);
 
 
@@ -421,8 +424,7 @@ typedef struct edb_obj_st {
 // Reads and writes objects to the database. Leaves non-fixed data
 // untouched.
 //
-edb_err edb_objload (edbh *handle, edb_obj_t *obj);
-edb_err edb_objfree (edbh *handle, edb_obj_t *obj);
+edb_err edb_objcopy (edbh *handle, edb_obj_t *obj);
 edb_err edb_objwrite(edbh *handle, edb_obj_t obj);
 
 
@@ -455,25 +457,9 @@ typedef struct edb_data_st {
 //
 // Reads and writes data to the database.
 //
-edb_err edb_datload (edbh *handle, edb_data_t *data);
-edb_err edb_datfree (edbh *handle, edb_data_t *data);
+edb_err edb_datcopy (edbh *handle, edb_data_t *data);
 edb_err edb_datwrite(edbh *handle, edb_data_t data);
 
-// between calling edb_datload and edb_datfree, if you want to read
-// the contents of data.binv or data.binc you must use edb_datnext.
-//
-// When initially returned by edb_datload, data.binc will be 0 and
-// data.binv will be null. In order to see the actual data you must
-// use this function, which will set data.binc and data.binv to the
-// "next part".
-//
-// You may need to call edb_datnext multiple times. Only when
-// data.binc is once again 0 is when you know that you've read through
-// all the data.
-//
-// The purpose of this function is becuase a datarange may strattle
-// across multiple pages.
-edb_err edb_datnext (edbh *handle, edb_data_t *data);
 
 
 
