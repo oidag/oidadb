@@ -198,6 +198,23 @@ typedef struct edb_hostconfig_st {
 	//
 	uint64_t job_buffersize;
 
+	// the amount of buffer that is allocated for each job to which it
+	// said buffer to transfer the input/output of the job between the
+	// host and the handles.
+	//
+	// This must be at least 1... but that is very much not
+	// recommended. For maximum efficiency, it's recommened that this
+	// be an multiple of the system page size
+	// (sysconf(_SC_PAGE_SIZE)). For databases that will experiance
+	// larger amounts of data transfer, this number should be bigger.
+	// There's no drawback for having this number too big other than
+	// unessacary allocation of memory.
+	//
+	// For the most part, 1 * sysconf(_SC_PAGE_SIZE) will be suitable
+	// for most applications both big and small. Unless you expect
+	// data to be transfered between host and handle to exceed that.
+	uint32_t job_transfersize;
+
 	// Whilest hosting, the host will manage memory that will be
 	// shared between handles known as the event buffer. And
 	// distributed to handles via edb_select.
@@ -378,6 +395,8 @@ edb_err edb_index(edbh *handle, const int *entryc, edb_entry_t *const *entryv);
 
 
 
+
+
 /********************************************************************
  *
  * Structures
@@ -394,14 +413,18 @@ typedef struct edb_struct_st {
 	const void *binv;    // arbitrary configuration
 } edb_struct_t;
 
-// See [[RW Conjugation]]
-//
-// Reads and writes structures.
-//
+
 edb_err edb_structcopy (edbh *handle, const edb_struct_t *strct);
 edb_err edb_structwrite(edbh *handle, const edb_struct_t strct);
 
 
+
+typedef enum edb_cmd_em {
+	EDB_COPY,
+	EDB_WRITE,
+} edb_cmd;
+
+edb_err edb_struct(edbh *handle, edb_cmd cmd, ...);
 
 
 /********************************************************************
@@ -410,13 +433,16 @@ edb_err edb_structwrite(edbh *handle, const edb_struct_t strct);
  *
  ********************************************************************/
 
-typedef struct edb_obj_st {
-	edb_oid id;
-
-	// fixed-length data of the row. The length is found in the
-	// structure.
-	void *binv;
-} edb_obj_t;
+typedef struct _edb_data {
+	unsigned long int id;
+	
+	// note to self: while transversing between processes, the pointer
+	// must be somewhere in the shared memory.
+	void        *binv;
+	
+	unsinged int binc;
+	unsigned int binoff;
+} edb_data_t;
 
 
 // See [[RW Conjugation]]
@@ -424,8 +450,50 @@ typedef struct edb_obj_st {
 // Reads and writes objects to the database. Leaves non-fixed data
 // untouched.
 //
-edb_err edb_objcopy (edbh *handle, edb_obj_t *obj);
-edb_err edb_objwrite(edbh *handle, edb_obj_t obj);
+//
+// note to self: for binv, mmap binv as shared memory using mmaps first
+// argument, and use binc as mmaps 2nd. map it using MAP_SHARED.
+
+// What this function does and its arguments depend on arg.
+//
+//
+// EDB_CCOPY (edb_data_t *)
+//
+//  Copy the contents of the object into binv up too binc bytes
+//  starting at binoff.
+//
+//  Note that to properly get the exact binc needed to copy the whole
+//  object (given binoff is 0) you must look at the object's
+//  structure. Setting binc to a higher value that it needs to be will
+//  result in undefined behaviour.
+//
+//
+// EDB_CWRITE (edb_data_t *)
+//
+//  Create, update, or delete an object. Creation takes place when id
+//  is 0 but binv is not null. Updates take place when id is not 0 and
+//  binv is not null. Deletion takes place when id is not 0 and binv
+//  is null.
+//
+//  During creation, the new object is written starting at binoff and
+//  writes binc bytes and all other bytes are initializes as 0. During
+//  updating, only the range from binoff to binoff+binc is modified.
+//  binoff and binc are ignored for deletion.
+//
+//  Upon successful creation, id is set.
+//
+//  During writes, the object is placed under a write lock, preventing
+//  any read operations from taking place on this same id.
+//
+// Future ideas: EDB_CREADLOCK, EDB_CWRITELOCK, EDB_CGETLOCK,
+// EDB_CDELLOCK
+//
+// ERRORS:
+//
+//  EDB_EINVAL - handle is null or uninitialized
+//  EDB_EINVAL - cmd is not recongized
+//  EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
+edb_err edb_obj (edbh *handle, edb_cmd cmd, ... /* arg */);
 
 
 
