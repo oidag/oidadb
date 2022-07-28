@@ -19,6 +19,7 @@ typedef enum {
 	EDB_FUTEX_CLOSE = 2,
 } futexops;
 
+
 // helper func to selectjob.
 //
 // executes the job only. does not mark the job as complete nor relinquish ownership.
@@ -27,6 +28,39 @@ typedef enum {
 // returns 1 on critical error
 static int execjob(edb_worker_t * const self, edb_job_t * const job) {
 
+	// note to self: inside this function we have our own thread to ourselves.
+	// its slightly better to be organized than efficient in here sense we have
+	// nothing serious waiting on us. All the other jobs that are being submitted
+	// are being handled elsewhere.
+	// Take your time Kev :-)
+
+	switch (job->class) {
+
+
+		case EDB_JSRTWRITE:
+			break;
+		case EDB_JSRTCOPY:
+			break;
+
+		case EDB_JOBJWRITE:
+			// obtain a read lock.
+			break;
+		case EDB_JOBJCOPY:
+			break;
+
+		case EDB_JDATWRITE:
+			break;
+		case EDB_JDATCOPY:
+			break;
+
+		case EDB_JQUERY:
+			break;
+
+		case EDB_JNONE:
+		default:
+			log_critf("execjob was given an non-job: %d", job->class);
+			return 1;
+	}
 }
 
 // helper func to workermain
@@ -61,7 +95,7 @@ static edb_err selectjob(edb_worker_t * const self) {
 	// if there's no new jobs then we must wait. We do this by running futext_wait
 	// on the case that newjobs is 0. In which case a handle will eventually wake us after it increments
 	// newjobs.
-	err = syscall(SYS_futex, head->futex_newjobs, FUTEX_WAIT, 0, 0, 0, 0);
+	err = syscall(SYS_futex, &head->futex_newjobs, FUTEX_WAIT, 0, 0, 0, 0);
 	if(err == -1 && errno != EAGAIN) {
 		pthread_mutex_unlock(&head->jobaccept);
 		log_critf("critical error while waiting on new jobs: %d", errno);
@@ -73,7 +107,7 @@ static edb_err selectjob(edb_worker_t * const self) {
 		int i;
 		for (i = 0; i < jobc; i++) {
 
-			if (jobv[self->jobpos].owner != 0 || jobv[self->jobpos].class != EDB_JCLOSE) {
+			if (jobv[self->jobpos].owner != 0 || jobv[self->jobpos].class != EDB_JNONE) {
 				// this job is already owned.
 				// so this job is not owned however there's no job installed.
 				goto next;
@@ -117,16 +151,16 @@ static edb_err selectjob(edb_worker_t * const self) {
 
 	// job has been completed. relinquish ownership.
 	//
-	// we must do this by removing the owner, and then setting class to EDB_JCLOSE in that
+	// we must do this by removing the owner, and then setting class to EDB_JNONE in that
 	// exact order. This is because handles look exclusively at the class to determine
 	// its ability to load in another job and we don't want it loading another job into
 	// this position while its still owned.
 	jobv[self->jobpos].owner = 0;
-	jobv[self->jobpos].class = EDB_JCLOSE;
-	head->futex_emptyjobs++;
+	jobv[self->jobpos].class = EDB_JNONE;
 
 	// send out a broadcast letting at least 1 waiting handler know theres another empty job
-	err = syscall(SYS_futex, head->futex_emptyjobs, FUTEX_WAKE, 1, 0, 0, 0);
+	head->futex_emptyjobs++;
+	err = syscall(SYS_futex, &head->futex_emptyjobs, FUTEX_WAKE, 1, 0, 0, 0);
 	if(err == -1) {
 		log_critf("failed to wake futex_emptyjobs: %d", errno);
 	}

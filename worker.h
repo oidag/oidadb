@@ -32,28 +32,6 @@ typedef struct edb_worker_st {
 
 }edb_worker_t;
 
-typedef enum _edb_jobclass {
-
-	// means that whatever job was there is now complete and ready
-	// for a handle to come in and install another job.
-	EDB_JCLOSE = 0;
-
-} edb_jobclass;
-
-typedef struct edb_job_st {
-	edb_jobclass class;
-
-	// used by the worker pool.
-	// only matters if class != EDB_JCLOSE.
-	// 0 means its not owned.
-	unsigned int owner;
-
-	// this is reassigned by the handles everytime they
-	// install it. uses edb_shmhead_st.nextjobid.
-	unsigned long int jobid;
-
-} edb_job_t;
-
 // _init initializs a new worker and _decom decommissions it.
 //
 // edb_workerdecom will only crit out.

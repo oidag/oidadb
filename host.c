@@ -14,6 +14,7 @@
 #include "file.h"
 #include "errors.h"
 #include "worker.h"
+#include "jobs.h"
 #include "include/ellemdb.h"
 
 
@@ -27,6 +28,13 @@ static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 	if(hostops.job_buffersize <= 0 || hostops.job_buffersize % sizeof(edb_job_t) != 0) {
 		log_errorf("job buffer is either <=0 or not a multiple of edb_job_t");
 		return EDB_EINVAL;
+	}
+	if(hostops.job_transfersize == 0) {
+		log_errorf("transfer buffer cannot be 0");
+		return  EDB_EINVAL;
+	}
+	if(hostops.job_transfersize % sysconf(_SC_PAGE_SIZE) != 0) {
+		log_noticef("transfer buffer is not an multiple of system page size (%ld), this may hinder performance", sysconf(_SC_PAGE_SIZE));
 	}
 	if(hostops.event_buffersize <= 0 || hostops.event_buffersize % sizeof(edb_event_t) != 0) {
 		log_errorf("event buffer is either <=0 or not a multiple of edb_event_t");
@@ -48,12 +56,17 @@ static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 //
 // when calling from host: only works after createshm returned successfully.
 // this must be called before edb_fileclose(&(host->file))
-static void deleteshm(edb_shm_t *host) {
+static void deleteshm(edb_shm_t *host, int destroymutex) {
 	if(host->shm == 0) {
 		log_critf("attempting to delete shared memory that is not linked / initialized. prepare for errors.");
 	}
-	pthread_mutex_destroy(&host->head->jobinstall);
-	pthread_mutex_destroy(&host->head->jobaccept);
+	if (destroymutex) {
+		pthread_mutex_destroy(&host->head->jobinstall);
+		pthread_mutex_destroy(&host->head->jobaccept);
+		for(int i = 0; i < host->head->jobc; i++) {
+			pthread_mutex_destroy(&host->jobv[i].bufmutex);
+		}
+	}
 	munmap(host->shm, host->head->shmc);
 	shm_unlink(host->shm_name);
 	host->shm = 0;
@@ -105,10 +118,30 @@ static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 
 	edb_err eerr;
 
-	// calculate the size we need upfront.
-	ssize_t shmc = sizeof (edb_shmhead_t)
-	              + config.job_buffersize
-	              + config.event_buffersize;
+	// initialize a head on the stack to be later copied into the shared memeory
+	edb_shmhead_t stackhead = {0};
+	stackhead.magnum = EDB_SHM_MAGIC_NUM;
+
+	// initialize the head with counts and offsets.
+	{
+		stackhead.jobc   = config.job_buffersize / sizeof (edb_job_t);
+		stackhead.eventc = config.event_buffersize / sizeof (edb_event_t);
+		stackhead.jobtransc = config.job_transfersize * stackhead.jobc;
+
+		// we need to make sure that the transfer buffer gets place on a fresh page.
+		// so lets start by getting the size of the first page(s) and round up.
+		uint64_t p1 = sizeof (edb_shmhead_t)
+		              + config.job_buffersize
+		              + config.event_buffersize;
+		unsigned int p1padding = p1 % sysconf(_SC_PAGE_SIZE);
+		stackhead.shmc = p1 + p1padding + stackhead.jobtransc;
+
+		// offsets
+		stackhead.joboff      = sizeof(edb_shmhead_t);
+		stackhead.eventoff    = sizeof (edb_shmhead_t) + config.job_buffersize;
+		stackhead.jobtransoff = p1 + p1padding;
+	}
+
 
 	// run shm_open(3) using the file name schema of opening /EDB_HOST-[pid]
 	shmname(getpid(), host->shm_name);
@@ -117,22 +150,20 @@ static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 	if (shmfd == -1) {
 		// shm_open should have no reason to fail sense we already have the
 		// file opened and locked.
-		int errnotmp = errno;
-		log_critf("shm_open(3) returned errno: %d", errnotmp);
-		errno = errnotmp;
+		log_critf("shm_open(3) returned errno: %d", errno);
 		return EDB_ECRIT;
 	}
-	int err = ftruncate64(shmfd, shmc);
+	int err = ftruncate64(shmfd, stackhead.shmc);
 	if(err == -1) {
 		// no reason ftruncate should fail...
 		int errnotmp = errno;
 		log_critf("ftruncate(2) returned unexpected errno: %d", errnotmp);
-		shm_unlink(host->shm_name);
 		close(shmfd);
 		errno = errnotmp;
-		return EDB_ECRIT;
+		eerr = EDB_ECRIT;
+		goto clean_shm;
 	}
-	host->shm = mmap(0, shmc,
+	host->shm = mmap(0, stackhead.shmc,
 	                         PROT_READ | PROT_WRITE,
 	                MAP_SHARED,
 	                shmfd, 0);
@@ -148,62 +179,89 @@ static edb_err createshm(edb_shm_t *host, edb_hostconfig_t config) {
 		shm_unlink(host->shm_name);
 		if (errno == ENOMEM) {
 			// we handle this one.
-			return EDB_ENOMEM;
+			eerr= EDB_ECRIT;
+		} else {
+			// all others are criticals
+			errno = errnotmp;
+			log_critf("mmap(2) failed to map shared memory: %d", errno);
+			eerr= EDB_ECRIT;
 		}
-		// all others are criticals
-		errno = errnotmp;
-		log_critf("mmap(2) failed to map shared memory: %d", errno);
-		return EDB_ECRIT;
+		goto clean_shm;
 	}
 
-	// initialize counts
-	bzero(host->shm, shmc); // todo: we may not need this sense ftruncate(2) should zero it out
+	// initialize the memory to all 0s.
+	bzero(host->shm, stackhead.shmc);
+
+	// install the stackhead into the shared memory.
 	host->head = host->shm;
-	host->head->magnum = EDB_SHM_MAGIC_NUM;
-	host->head->shmc   = shmc;
-	host->head->jobc   = config.job_buffersize / sizeof (edb_job_t);
-	host->head->eventc = config.event_buffersize / sizeof (edb_event_t);
+	*host->head = stackhead;
+
+	// past this point, do not use stackhead. use host->head.
 
 	// initialize mutexes.
 	pthread_mutexattr_t mutexattr;
 	if((err = pthread_mutexattr_init(&mutexattr))) {
-		munmap(host->shm, host->head->shmc);
-		shm_unlink(host->shm_name);
-		host->shm = 0;
 		if (err == ENOMEM) eerr = EDB_ENOMEM;
 		else eerr = EDB_ECRIT;
 		log_critf("pthread_mutexattr_init(3): %d", err);
-		return eerr;
+		goto clean_map;
 	}
 	pthread_mutexattr_setpshared(&mutexattr, PTHREAD_PROCESS_SHARED);
 	if((err = pthread_mutex_init(&host->head->jobaccept, &mutexattr))) {
-		pthread_mutexattr_destroy(&mutexattr);
-		munmap(host->shm, host->head->shmc);
-		shm_unlink(host->shm_name);
-		host->shm = 0;
 		if (err == ENOMEM) eerr = EDB_ENOMEM;
 		else eerr = EDB_ECRIT;
 		log_critf("pthread_mutex_init(3): %d", err);
-		return eerr;
+		goto clean_mutex;
 	}
 	if((err = pthread_mutex_init(&host->head->jobinstall, &mutexattr))) {
-		pthread_mutex_destroy(&host->head->jobaccept);
-		pthread_mutexattr_destroy(&mutexattr);
-		munmap(host->shm, host->head->shmc);
-		shm_unlink(host->shm_name);
-		host->shm = 0;
 		if (err == ENOMEM) eerr = EDB_ENOMEM;
 		else eerr = EDB_ECRIT;
 		log_critf("pthread_mutex_init(3): %d", err);
-		return eerr;
+		goto clean_mutex;
+	}
+
+
+	// initialize the futexes in the head
+	host->head->futex_newjobs   = 0;
+	host->head->futex_emptyjobs = host->head->jobc;
+
+	// assign buffer pointers
+	host->jobv        = host->shm + host->head->joboff;
+	host->eventv      = host->shm + host->head->eventoff;
+	host->transbuffer = host->shm + host->head->jobtransoff;
+
+	// initialize job buffer
+	for(int i = 0; i < host->head->jobc; i++) {
+		host->jobv[i].transferbuffoff        = config.job_transfersize * i;
+		host->jobv[i].transferbuffcapacity   = config.job_transfersize;
+		if((err = pthread_mutex_init(&host->jobv[i].bufmutex, &mutexattr))) {
+			log_critf("pthread_mutex_init(3): %d", err);
+			goto clean_mutex;
+		}
 	}
 	pthread_mutexattr_destroy(&mutexattr);
 
-	// assign buffer pointers
-	void *bufferstart = (host->shm + sizeof(edb_shmhead_t));
-	host->jobv     = (edb_job_t *)(bufferstart);
-	host->eventv   = (edb_event_t *)(host->jobv + host->head->jobc*sizeof(edb_job_t));
+	// initialize event buffer
+	// todo
+
+
 	return 0;
+	// everything past here are bail-outs.
+
+	clean_mutex:
+	for(int i = 0; i < host->head->jobc; i++) pthread_mutex_destroy(&host->jobv[i].bufmutex);
+	pthread_mutex_destroy(&host->head->jobinstall);
+	pthread_mutex_destroy(&host->head->jobaccept);
+	pthread_mutexattr_destroy(&mutexattr);
+
+	clean_map:
+	munmap(host->shm, host->head->shmc);
+
+	clean_shm:
+	shm_unlink(host->shm_name);
+	host->shm = 0;
+
+	return eerr;
 }
 
 edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
@@ -339,7 +397,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	// unallocate the shared memory
 	clean_shm:
 	log_infof("deleting shared memory...");
-	deleteshm(&host.shm);
+	deleteshm(&host.shm, 1);
 
 	// close the file
 	clean_file:
@@ -406,7 +464,7 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid) {
 }
 
 void edb_host_shmunlink(edb_shm_t *outptr) {
-	return deleteshm(outptr);
+	return deleteshm(outptr, 0);
 }
 
 edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
@@ -427,7 +485,7 @@ edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 	}
 
 	// truncate it enough to make sure we have the counts
-	int err = ftruncate64(shmfd, sizeof(uint64_t) * 4);
+	int err = ftruncate64(shmfd, sizeof(edb_shmhead_t));
 	if(err == -1) {
 		// no reason ftruncate should fail...
 		int errnotmp = errno;
@@ -439,7 +497,7 @@ edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 	}
 
 	// get all the counts
-	ssize_t n = read(shmfd, &(outptr->head), sizeof (edb_shmhead_t));
+	ssize_t n = read(shmfd, outptr->head, sizeof (edb_shmhead_t));
 	if (n == -1) {
 		// no reason read should fail...
 		int errnotmp = errno;
@@ -476,6 +534,7 @@ edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 	                 PROT_READ | PROT_WRITE,
 	                 MAP_SHARED,
 	                 shmfd, 0);
+	outptr->head = outptr->shm;
 
 
 	// see the comment in createshm regarding the closing of the fd.
@@ -493,9 +552,9 @@ edb_err edb_host_shmlink(edb_shm_t *outptr, pid_t hostpid) {
 	}
 
 	// assign buffer pointers
-	void *bufferstart = (outptr->shm + sizeof(edb_shmhead_t));
-	outptr->jobv     = (edb_job_t *)(bufferstart);
-	outptr->eventv   = (edb_event_t *)(outptr->jobv + outptr->head->jobc*sizeof(edb_job_t));
+	outptr->jobv        = outptr->shm + outptr->head->joboff;
+	outptr->eventv      = outptr->shm + outptr->head->eventoff;
+	outptr->transbuffer = outptr->shm + outptr->head->jobtransoff;
 
 	return 0;
 }

@@ -19,7 +19,7 @@ static edb_err installjob(edb_job_t) {
 
 	// wait for empty jobs if there are none
 	// todo: better doc
-	err = syscall(SYS_futex, head->futex_emptyjobs, FUTEX_WAIT, 0, 0, 0, 0);
+	err = syscall(SYS_futex, &head->futex_emptyjobs, FUTEX_WAIT, 0, 0, 0, 0);
 	if(err == -1 && errno != EAGAIN) {
 		pthread_mutex_unlock(&head->jobinstall);
 		log_critf("critical error while waiting on new jobs: %d", errno);
@@ -42,7 +42,7 @@ static edb_err installjob(edb_job_t) {
 	// broadcast to the workers that a new job was just installed.
 	// send out a broadcast letting at least 1 waiting handler know theres another empty job
 	head->futex_newjobs++;
-	err = syscall(SYS_futex, head->futex_emptyjobs, FUTEX_WAKE, 1, 0, 0, 0);
+	err = syscall(SYS_futex, &head->futex_emptyjobs, FUTEX_WAKE, 1, 0, 0, 0);
 	if(err == -1) {
 		log_critf("failed to wake futex_emptyjobs: %d", errno);
 	}
