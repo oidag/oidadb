@@ -28,6 +28,7 @@ typedef enum {
 // returns 1 on critical error
 static int execjob(edb_worker_t * const self, edb_job_t * const job) {
 
+
 	// note to self: inside this function we have our own thread to ourselves.
 	// its slightly better to be organized than efficient in here sense we have
 	// nothing serious waiting on us. All the other jobs that are being submitted
@@ -36,31 +37,21 @@ static int execjob(edb_worker_t * const self, edb_job_t * const job) {
 
 	switch (job->class) {
 
+		case EDB_STRUCT:
+		case EDB_DYN:
+			implementme();
 
-		case EDB_JSRTWRITE:
-			break;
-		case EDB_JSRTCOPY:
-			break;
+		case EDB_OBJ:
 
-		case EDB_JOBJWRITE:
-			// obtain a read lock.
-			break;
-		case EDB_JOBJCOPY:
 			break;
 
-		case EDB_JDATWRITE:
-			break;
-		case EDB_JDATCOPY:
-			break;
-
-		case EDB_JQUERY:
-			break;
 
 		case EDB_JNONE:
 		default:
 			log_critf("execjob was given an non-job: %d", job->class);
 			return 1;
 	}
+
 }
 
 // helper func to workermain
@@ -151,15 +142,28 @@ static edb_err selectjob(edb_worker_t * const self) {
 
 	// job has been completed. relinquish ownership.
 	//
+	// to do this, we have to lock the job install mutex to avoid the possiblity of a
+	// handle trying to install a job mid-way through us relinqusihing it.
+	//
+	// (this can probably be done a bit more nicely if the jobinstall mutex was held per-job slot)
+	pthread_mutex_lock(&head->jobinstall);
+
 	// we must do this by removing the owner, and then setting class to EDB_JNONE in that
 	// exact order. This is because handles look exclusively at the class to determine
 	// its ability to load in another job and we don't want it loading another job into
 	// this position while its still owned.
 	jobv[self->jobpos].owner = 0;
 	jobv[self->jobpos].class = EDB_JNONE;
+	head->futex_emptyjobs++;
+
+	// close the transfer if it hasn't already.
+	// note that per edb_jobclose's documentation on threading, edb_jobclose and edb_jobopen must
+	// only be called inside the comfort of the jobinstall mutex.
+	edb_jobclose(&jobv[self->jobpos]);
+
+	pthread_mutex_unlock(&head->jobinstall);
 
 	// send out a broadcast letting at least 1 waiting handler know theres another empty job
-	head->futex_emptyjobs++;
 	err = syscall(SYS_futex, &head->futex_emptyjobs, FUTEX_WAKE, 1, 0, 0, 0);
 	if(err == -1) {
 		log_critf("failed to wake futex_emptyjobs: %d", errno);
@@ -210,7 +214,7 @@ edb_err edb_workerasync(edb_worker_t *worker) {
 void edb_workerstop(edb_worker_t *worker) {
 	if(worker->state != EDB_WWORKASYNC &&
 	   worker->state != EDB_WWORKSYNC) {
-		log_noticef("attempted to stop worker when not in working state");
+		log_noticef("attempted to stop worker when not in working transferstate");
 		return;
 	}
 	worker->state = EDB_WWORKSTOP;

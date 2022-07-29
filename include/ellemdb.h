@@ -145,7 +145,7 @@ typedef enum edb_err_em {
 	EDB_ESTOPPING,
 } edb_err;
 
-// All of these functions will work regardless of the open state of
+// All of these functions will work regardless of the open transferstate of
 // the handle so long that the handle was initialized with bzero(3).
 //
 // edb_errstr converts the relevant error into a string message.
@@ -435,25 +435,40 @@ edb_err edb_struct(edbh *handle, edb_cmd cmd, ...);
 
 typedef struct _edb_data {
 	unsigned long int id;
-	
-	// note to self: while transversing between processes, the pointer
-	// must be somewhere in the shared memory.
-	void        *binv;
-	
+
+		
 	unsinged int binc;
 	unsigned int binoff;
+	// note to self: while transversing between processes, the pointer
+	// must be somewhere in the shared memory.
+	// note to self: this will always be null inside of edb_job_t
+	//    what must happen is reading from jobdataread.
+	void        *binv;
+
 } edb_data_t;
 
 
 // See [[RW Conjugation]]
 //
-// Reads and writes objects to the database. Leaves non-fixed data
-// untouched.
+// Installs a job into the queue that is regarding an object in the
+// database. This leaves dynamic data untouched.
+//
+// This function will block the calling thread in the following
+// circumstances:
+//
+// - The job buffer is full and thus this function must wait until
+//   other jobs complete for a chance of getting into the buffer.
+// - (EDB_CCOPY, EDB_CWRITE) binc is larger than the database's
+//   configured job transfer buffer (see
+//   edb_hostconfig_t.job_transfersize). And thus the function must
+//   wait until the job is accepted by a worker and that worker is
+//   able to work the oposite side of the transfer buffer so the
+//   transfer can be complete.
 //
 //
 // note to self: for binv, mmap binv as shared memory using mmaps first
 // argument, and use binc as mmaps 2nd. map it using MAP_SHARED.
-
+//
 // What this function does and its arguments depend on arg.
 //
 //
@@ -493,7 +508,7 @@ typedef struct _edb_data {
 //  EDB_EINVAL - handle is null or uninitialized
 //  EDB_EINVAL - cmd is not recongized
 //  EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
-edb_err edb_obj (edbh *handle, edb_cmd cmd, ... /* arg */);
+edb_err edb_obj (edbh *handle, edb_cmd cmd, int flags, ... /* arg */);
 
 
 

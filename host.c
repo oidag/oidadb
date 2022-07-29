@@ -277,7 +277,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	host.config = hostops;
 	int err = pthread_mutex_init(&host.bootup, 0);
 	if(err) {
-		log_critf("failed to initialize state change mutex: %d", err);
+		log_critf("failed to initialize transferstate change mutex: %d", err);
 		return EDB_ECRIT;
 	}
 	err = pthread_mutex_lock(&host.bootup);
@@ -287,13 +287,13 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 		return EDB_ECRIT;
 	}
 
-	// we are now in the opening state: we have work to do but we can be hostclose
+	// we are now in the opening transferstate: we have work to do but we can be hostclose
 	// will work even before we're done
 	host.state = HOST_OPENING;
 
 	err = pthread_mutex_init(&host.retlock, 0);
 	if(err) {
-		log_critf("failed to initialize state change mutex: %d", err);
+		log_critf("failed to initialize transferstate change mutex: %d", err);
 		pthread_mutex_destroy(&host.bootup);
 		return EDB_ECRIT;
 	}
@@ -350,7 +350,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 
 	// from this point on, all we need to do is edb_hostclose to fully clean up everything.
 
-	// at this point we have an open state.
+	// at this point we have an open transferstate.
 	// this by definition means clients can start filling up the job buffer even
 	// though there's no workers to satsify the jobs yet.
 	host.state = HOST_OPEN;
