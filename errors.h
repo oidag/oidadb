@@ -19,4 +19,6 @@ void log_infof(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 void log_debug(const char *log);
 void log_debugf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
+void implementme();
+
 #endif
