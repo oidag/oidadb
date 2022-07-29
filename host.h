@@ -31,7 +31,7 @@ typedef struct edb_host_st {
 	// todo: these locks may not be needed sense the only thing
 	//       allowed to acces host structures directly are the
 	//       workers... and they only exist after HOST_OPEN is true
-	// bootup - edb_host locks this until its in the HOST_OPEN state.
+	// bootup - edb_host locks this until its in the HOST_OPEN transferstate.
 	pthread_mutex_t bootup;
 	// retlock - locked before switching to HOST_OPEN and double locked.
 	// unlock this to have edb_host return.
