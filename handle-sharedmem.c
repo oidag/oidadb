@@ -31,6 +31,7 @@ static edb_err installjob(edb_job_t) {
 	head->nextjobid++;
 
 	// todo: make sure to reset the job buffer:
+	//       but only do this if we're NOT deleting
 	edb_jobreset(&jobv[self->jobpos]);
 
 	// todo: install job (do NOT write to buffer, we don't need to do that this mutex)
