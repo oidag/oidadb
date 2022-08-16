@@ -3,34 +3,38 @@
 
 #include "include/ellemdb.h"
 
+// edb_jobclass must take only the first 4 bits. (to be xor'd with
+// edb_cmd).
 typedef enum _edb_jobclass {
 
 	// means that whatever job was there is now complete and ready
 	// for a handle to come in and install another job.
-	EDB_JNONE = 0,
+	EDB_JNONE = 0x0000,
 
 	// structure ops
-	EDB_STRUCT,
+	EDB_STRUCT = 0x0001,
 
 	// valuint64 - the objectid (0 for new)
 	// valuint   - the length of that data that is to be written.
 	// valbuff   - the name of the shared memory open via shm_open(3). this
 	//             will be open as read only and will contain the content
 	//             of the object. Can be null for deletion.
-	EDB_DYN,
+	EDB_DYN = 0x0002,
 
 	// valuint64 - the objectid (cannot be 0)
 	// valuint   - the amount of bytes to copy over. If this is zero, then it will
 	//             be set to total
 	// valbuff   - the name of the shared memeory via shm_open(3). This will
 	//             be opened as write. Leave null to just
-	EDB_OBJ,
+	EDB_OBJ = 0x0003,
 
 } edb_jobclass;
 
 typedef struct edb_job_st {
-	edb_jobclass class;
-	edb_cmd      command;
+
+	// Job desc is a xor'd value between 1 edb_jobclass, 1 edb_cmd.
+	// if 0 then empty job.
+	int jobdesc;
 
 	// the transfer buffer for this job.
 	// the offset from shm->transferbuff and how many bytes are there.
@@ -96,6 +100,9 @@ int edb_jobwrite(edb_job_t *job, void *transferbuf, const void *buff, int count)
 //   edb_jobclose is ok, multiple threads calling edb_jobreset is okay.)
 int edb_jobclose(edb_job_t *job);
 int edb_jobreset(edb_job_t *job);
+
+// returns 1 if the job is closed, or 0 if it is open.
+int edb_jobisclosed(edb_job_t *job);
 
 
 #endif

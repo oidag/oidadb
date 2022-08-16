@@ -5,7 +5,9 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include "include/ellemdb.h"
 #include "worker.h"
+#include "jobs.h"
 
 typedef enum {
 	// constantly keep retrying to wait on the futex until
@@ -25,6 +27,9 @@ typedef enum {
 // executes the job only. does not mark the job as complete nor relinquish ownership.
 // thats the callers responsibility.
 //
+// This function's only purpose is to route the information into the relevant execjob_...
+// function.
+//
 // returns 1 on critical error
 static int execjob(edb_worker_t * const self, edb_job_t * const job) {
 
@@ -35,20 +40,51 @@ static int execjob(edb_worker_t * const self, edb_job_t * const job) {
 	// are being handled elsewhere.
 	// Take your time Kev :-)
 
-	switch (job->class) {
+	// "FRH" - when you see this acroynm in the comments that means the referenced
+	// code is "function redundant to handle". This means that the code is redundant
+	// to what the handle checks for. It can be excluded, but just a safety check.
+	// Best to have this type of code wrapped in macros that can enable and disable
+	// "extra safety features"
 
+	// check for some common errors regarding the edb_jobclass
+	switch (job->jobdesc & 0x00FF) {
 		case EDB_STRUCT:
-		case EDB_DYN:
-			implementme();
-
 		case EDB_OBJ:
+			// FRH
+			// All objects commands need at least either the id or the transferbuffer.
+			if(job->data.id == 0 && edb_jobisclosed(job)) {
+				// invalid. this shouldn't have been installed.
+				log_critf("data id nor open stream was supplied in job");
+				return -1;
+			}
+	}
 
-			break;
+	// check for some common errors regarding the command
+	switch (job->jobdesc & 0xFF00) {
+	}
+
+	// do the routing
+	switch (job->jobdesc) {
+		case EDB_OBJ | EDB_CCOPY:
+			// no reouting needed.
+			return execjob_objcopy(self, job);
+
+		case EDB_OBJ | EDB_CWRITE:
+			// routing
+			if(edb_jobisclosed(job)) {
+				// deletion
+				return execjob_objdelete(self, job);
+			}
+			if(job->data.id == 0) {
+				// creation
+				return execjob_objcreate(self, job);
+			}
+			// we have an open stream and a id, thus, it is an edit.
+			return execjob_objedit(self, job);
 
 
-		case EDB_JNONE:
 		default:
-			log_critf("execjob was given an non-job: %d", job->class);
+			log_critf("execjob was given an non-job: %0x", job->jobdesc);
 			return 1;
 	}
 
@@ -98,7 +134,7 @@ static edb_err selectjob(edb_worker_t * const self) {
 		int i;
 		for (i = 0; i < jobc; i++) {
 
-			if (jobv[self->jobpos].owner != 0 || jobv[self->jobpos].class != EDB_JNONE) {
+			if (jobv[self->jobpos].owner != 0 || jobv[self->jobpos].jobdesc != 0) {
 				// this job is already owned.
 				// so this job is not owned however there's no job installed.
 				goto next;
@@ -152,8 +188,8 @@ static edb_err selectjob(edb_worker_t * const self) {
 	// exact order. This is because handles look exclusively at the class to determine
 	// its ability to load in another job and we don't want it loading another job into
 	// this position while its still owned.
-	jobv[self->jobpos].owner = 0;
-	jobv[self->jobpos].class = EDB_JNONE;
+	jobv[self->jobpos].jobdesc = 0;
+	jobv[self->jobpos].owner   = 0;
 	head->futex_emptyjobs++;
 
 	// close the transfer if it hasn't already.

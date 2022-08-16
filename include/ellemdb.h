@@ -252,6 +252,13 @@ typedef struct edb_hostconfig_st {
 	// edb_host.
 	unsigned int worker_poolsize;
 
+	// The maximum amount of structures that are allowed to be loaded
+	// into memory. Note that all structures must be in memory at all
+	// times, structure pages must always be loaded.
+	//
+	// 
+	uint16_t maxstructurepages;
+
 	// Jobs sent to the database will need to move pages to and from
 	// the underlying filesystem and memory. page_buffermax dicates
 	// the maximum amount of pages that can exist in memory. Some
@@ -275,6 +282,9 @@ typedef struct edb_hostconfig_st {
 	// Operating under a full buffer will cause jobs to slow, fail,
 	// and return early errors. So give this buffer plenty of space.
 	uint64_t page_buffermax;
+
+
+	todo: have them select a page replacement algo (https://en.wikipedia.org/wiki/Page_replacement_algorithm#:~:text=In%20a%20computer%20operating%20system,memory%20needs%20to%20be%20allocated.)
 	
 	// See EDB_H... family of constants
 	int flags;
@@ -372,6 +382,21 @@ typedef struct edb_entry_st {
 } edb_entry_t;
 
 
+typedef struct edb_struct_st {
+
+	uint16_t     id;   // structure id
+
+	uint16_t    fixedc;    // fixed length size
+	uint8_t     data_ptrc; // data pointer size
+	uint8_t     flags;     // flags
+
+	// arbitrary configuration:
+	unsigned int binc;
+	unsigned int binoff;
+	const void  *binv;
+} edb_struct_t;
+
+
 // shared-memory access functions
 //
 // The returned arrays from all these functions are pointers to parts
@@ -390,41 +415,25 @@ typedef struct edb_entry_st {
 //   change.
 //
 edb_err edb_index(edbh *handle, const int *entryc, edb_entry_t *const *entryv);
+edb_err edb_structs(edbh *handle,
+					const int *structc,
+					edb_struct_t *const *structv);
 
 
+/*edb_err edb_structcopy (edbh *handle, const edb_struct_t *strct);
+  edb_err edb_structwrite(edbh *handle, const edb_struct_t strct);*/
 
 
-
-
-
-/********************************************************************
- *
- * Structures
- *
- ********************************************************************/
-
-
-typedef struct edb_struct_st {
-	uint16_t    id;               // structure id
-	uint16_t    fixedc;            // fixed length size
-	uint8_t     data_ptrc;         // data pointer size
-	uint8_t     flags;             // flags
-	uint16_t    binc;    // configuration byte size
-	const void *binv;    // arbitrary configuration
-} edb_struct_t;
-
-
-edb_err edb_structcopy (edbh *handle, const edb_struct_t *strct);
-edb_err edb_structwrite(edbh *handle, const edb_struct_t strct);
-
-
-
+// All EDB_C... constants must take
+// only the first 2nd set of 4 bits (0xff00 mask)
 typedef enum edb_cmd_em {
-	EDB_COPY,
-	EDB_WRITE,
+	EDB_CNONE  = 0x0000,
+	EDB_CCOPY  = 0x0100,
+	EDB_CWRITE = 0x0200,
 } edb_cmd;
 
-edb_err edb_struct(edbh *handle, edb_cmd cmd, ...);
+
+
 
 
 /********************************************************************
@@ -434,8 +443,9 @@ edb_err edb_struct(edbh *handle, edb_cmd cmd, ...);
  ********************************************************************/
 
 typedef struct _edb_data {
-	unsigned long int id;
 
+	// note this id consists of the row and structure id.
+	uint64_t id;
 		
 	unsinged int binc;
 	unsigned int binoff;
@@ -448,8 +458,6 @@ typedef struct _edb_data {
 } edb_data_t;
 
 
-// See [[RW Conjugation]]
-//
 // Installs a job into the queue that is regarding an object in the
 // database. This leaves dynamic data untouched.
 //
@@ -462,7 +470,7 @@ typedef struct _edb_data {
 //   configured job transfer buffer (see
 //   edb_hostconfig_t.job_transfersize). And thus the function must
 //   wait until the job is accepted by a worker and that worker is
-//   able to work the oposite side of the transfer buffer so the
+//   able to execute the oposite side of the transfer buffer so the
 //   transfer can be complete.
 //
 //
@@ -509,6 +517,38 @@ typedef struct _edb_data {
 //  EDB_EINVAL - cmd is not recongized
 //  EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
 edb_err edb_obj (edbh *handle, edb_cmd cmd, int flags, ... /* arg */);
+
+
+// For reading structures, use edb_structs.
+//
+// EDB_CWRITE (edb_struct_t *)
+//
+//  Create, update, or delete structures. Creation takes place when id
+//  is 0 but binv is not null. Updates take place when id is not 0 and
+//  if one of the fields is different than the current value: binc,
+//  fixedc, data_ptrc. Deleteion takes place when id is not 0, fixedc
+//  is 0, and data_ptrc is 0.
+//
+//  During creation, the new structure's configuration is written
+//  starting at binoff and writes binc bytes and all other bytes are
+//  initializes as 0. During updating, only the range from binoff to
+//  binoff+binc is modified.  binoff and binc are ignored for
+//  deletion.
+//
+//  Upon successful creation, id is set.
+//
+//  During updates and deletes, the structure is placed under a write
+//  lock, preventing any read operations from taking place on this
+//  same id.
+//
+// ERRORS:
+//
+//  EDB_EINVAL - handle is null or uninitialized
+//  EDB_EINVAL - cmd is not recongized
+//  EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
+//
+edb_err edb_struct (edbh *handle, edb_cmd cmd, int flags, ... /* arg */);
+
 
 
 
