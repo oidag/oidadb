@@ -170,6 +170,13 @@ edb_err edb_setlogger(edbh *handle, int logmask,
 // if the file does not exist then create a new database.
 #define EDB_HCREAT O_CREAT
 
+typedef enum {
+	
+	// Least recently used. The perferend/best general algorythm.
+	EDB_PRA_LRU,
+	
+} edb_pra;
+
 typedef struct edb_hostconfig_st {
 
 	// The host will manage memeory that will be shared between
@@ -283,9 +290,10 @@ typedef struct edb_hostconfig_st {
 	// and return early errors. So give this buffer plenty of space.
 	uint64_t page_buffermax;
 
+	// Page replacement algorythm to use. See the EDB_PRA... constants
+	// for more details.
+	edb_pra pra_algo;
 
-	todo: have them select a page replacement algo (https://en.wikipedia.org/wiki/Page_replacement_algorithm#:~:text=In%20a%20computer%20operating%20system,memory%20needs%20to%20be%20allocated.)
-	
 	// See EDB_H... family of constants
 	int flags;
 	
@@ -447,7 +455,7 @@ typedef struct _edb_data {
 	// note this id consists of the row and structure id.
 	uint64_t id;
 		
-	unsinged int binc;
+	unsigned int binc;
 	unsigned int binoff;
 	// note to self: while transversing between processes, the pointer
 	// must be somewhere in the shared memory.
@@ -559,23 +567,6 @@ edb_err edb_struct (edbh *handle, edb_cmd cmd, int flags, ... /* arg */);
  *
  ********************************************************************/
 
-typedef struct edb_data_st {
-	edb_did id;
-	
-	uint16_t offset;
-	uint16_t size; // the overal size of the data.
-
-	// binc will be 0 binv will be null when returned from
-	// edb_datload!
-	//
-	// See edb_datnext!
-	uint16_t binc;
-	void    *binv;
-
-	// stream sense data can go across multiple pages
-	int (*nextrange)(void *buf);
-} edb_data_t;
-
 // See [[RW Conjugation]]
 //
 // Reads and writes data to the database.
@@ -628,7 +619,7 @@ typedef struct edb_query_st {
 	
 	int pagestart; // The page index to which to start
 	
-	int (*queryfunc)(edb_obj_t *row); // query function. the
+	int (*queryfunc)(edb_data_t *row); // query function. the
 										 // pointer to row is not safe
 										 // to save.
 } edb_query_t;
