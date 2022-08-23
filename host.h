@@ -10,6 +10,7 @@
 #include "host.h"
 #include "file.h"
 #include "worker.h"
+#include "pages.h"
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22
 
@@ -46,13 +47,12 @@ typedef struct edb_host_st {
 	// shared memory with handles
 	edb_shm_t shm;
 
-	// worker buffer
+	// worker buffer, see worker.h
 	unsigned int  workerc;
 	edb_worker_t *workerv;
 
-	// page buffer // todo: hmm... pages will be different sizes.
-	off_t pagec_max;
-	off_t pagec;
+	// page IO, see pages.h
+	edbpcache_t phandle;
 
 
 } edb_host_t;

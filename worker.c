@@ -219,15 +219,20 @@ void static *workermain(void *_selfv) {
 
 
 edb_err edb_workerinit(edb_host_t *host, unsigned int workerid, edb_worker_t *worker) {
+	edb_err eerr = 0;
 	//initialize
 	bzero(worker, sizeof (edb_worker_t));
 	worker->host = host;
 	worker->workerid = workerid;
+	eerr = edbp_newhandle(&host->phandle, &worker->edbphandle);
+	if(eerr) {
+		return eerr;
+	}
 	return 0;
 }
 
 void edb_workerdecom(edb_worker_t *worker) {
-
+	edbp_freehandle(&worker->edbphandle);
 }
 
 

@@ -143,6 +143,9 @@ typedef enum edb_err_em {
 	EDB_ENOMEM,
 
 	EDB_ESTOPPING,
+
+	// try again, something else is blocking
+	EDB_EAGAIN,
 } edb_err;
 
 // All of these functions will work regardless of the open transferstate of
