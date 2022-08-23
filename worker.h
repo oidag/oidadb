@@ -2,6 +2,7 @@
 #define _edbWORKER_H_ 1
 
 #include "host.h"
+#include "pages.h"
 
 typedef enum _edb_workerstate {
 	EDB_WWORKNONE = 0,
@@ -30,6 +31,8 @@ typedef struct edb_worker_st {
 	// incrementing from its last position.
 	unsigned int jobpos;
 
+	// see pages.h
+	edbphandle_t edbphandle;
 }edb_worker_t;
 
 // _init initializs a new worker and _decom decommissions it.

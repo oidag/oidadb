@@ -5,8 +5,30 @@
 #include <sys/user.h>
 
 #include "include/ellemdb.h"
+#include "host.h"
 #include "errors.h"
 #include "file.h"
+
+/*
+ * Quick overview of how pages.h works:
+ *
+ *  You have a page cache, this must be initialized first.
+ *  Then with that cache, you can create any number of handlers.
+ *  And with those handlers you can interact with the cache.
+ *
+ *  Thus, the cache is in the context of a host.
+ *  And the handles are in the context of a worker.
+ */
+
+// the cahce, installed in the host
+typedef struct _edbpcache_t {
+
+} edbpcache_t;
+
+// the handle, installed in the worker.
+typedef struct _edbphandle_t {
+
+} edbphandle_t;
 
 // EDBP_BODY_SIZE will always be a constant set at
 // build time.
@@ -14,33 +36,21 @@
 #define EDBP_HEAD_SIZE sizeof(edbp_head)
 #define EDBP_BODY_SIZE PAGE_SIZE - sizeof(edbp_head)
 
-typedef uint64_t edbp_id;
-
-/*
-| Name             | Type     | Definition                                                                                |
-|------------------+----------+-------------------------------------------------------------------------------------------|
-| Checksum         | uint32_t | Checksum of the page (consitutes everything except itself, including the head)            |
-| Host-Instance ID | uint32   | Written when first loaded into the host. Set to 0 when deloaded. See [[Host-Instance ID]]     |
-| PRA Data         | uint32_t | Page replacement algorythem data, which depends on the host (reserved)                    |
-| Flags            | uint8_t  | The page type as well as any flags.                                                       |
-| Page Type        | uint8_t  | The page type as reflected in the chapter                                                 |
-| rsvd0            | uint16_t |                                                                                           |
-| Page Left        | [[Page ID]]  | The previous page to navigate too                                                         |
-| Page Right       | [[Page ID]]  | The next page in the chapter to navigate too. If equal to =0= then there is no next page. |
-| rsvd1            | ...      | Page-type specific header information                                                     |
- */
-
-
 typedef struct _edbp_head {
-	uint32_t checksum;
-	uint32_t hiid;
-	uint32_t pradat;
-	uint8_t  pflags;
+
+	// Do not touch these fields outside of pages-*.c files:
+	uint32_t _checksum;
+	uint32_t _hiid;
+	uint32_t _pradat;
+	uint8_t  _pflags;
+
+	// all of thee other fields can be modified so long the caller
+	// has an exclusive lock on the page.
 	uint8_t  ptype;
 	uint16_t rsvd;
 	uint64_t pleft;
 	uint64_t pright;
-	uint8_t  psecf[16];
+	uint8_t  psecf[16]; // page spcific
 } edbp_head;
 
 // See database specification under page header for details.
@@ -49,21 +59,66 @@ typedef struct _edbp {
 	uint8_t   body[EDBP_BODY_SIZE];
 } edbp;
 
-// before you can start using pages, you must initialize the cache.
-// once completely done, use edbp_freecache.
-edb_err edbp_initcache(edb_pra algo);
-void edbp_freecache();
+// Initialize the cache
+//
+// note to self: all errors returned by edbp_init needs to be documented
+// in edb_host
+edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_cache);
+void    edbp_decom(edbpcache_t *cache);
 
-// Sets *o_page to the pointer of the page requested. The pointer will be
-// pointing to somewhere in the cache.
-// edbp_sync will save changes to the page.
-// edbp_free will NOT automatically call edbp_sync. Calling edbp_free without
-// edbp_sync will discard all of your changes.
-// todo: these may change when I start digging into how exactly the bookkeeping will work
-//       with managing the pages between the file, memeory, and cache. make sure to
-//       take memeory safety into account.
-edb_err edbp_load(const edbp_id id, edbp *const*o_page);
-edb_err edbp_sync(edbp *page);
-void    edbp_free(edbp *page);
+
+// create handles for the cache
+edb_err edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle);
+void    edbp_freehandle(edbphandle_t *handle);
+
+typedef enum {
+	EDBP_XLOCK,
+	EDBP_ULOCK,
+	EDBP_ECRYPT,
+} edbp_options;
+
+// edbp_start and edbp_finish allow workers to access pages in a file while managing
+// page caches, access, allocations, ect.
+//
+// Using a page id of (*edbp_id)(0) indicates a new page must be created. In this case,
+// id will be set to the newly created id.
+//
+// only 1 worker can have a single page opened at one time. These functions are
+// methods of starting and finishing operations on the pages, these functions
+// ARE NOT used for just normal locking mechanisms, only to ensure operations
+// are performed to their completeness without having the page kicked out of cache.
+//
+// When starting, the caller has the option to specify the lock type. Either shared
+// or exclusive. Shared locks are all-around useful 90% of the time. Exclusive locks
+// means that edbp_start will return only once the caller is the only caller to have
+// that page checked out, and all other calls will be blocked until the caller has
+// finished. Exclusive locks are only useful when the page header needs to be
+// changed.
+//
+// THREADING: edbp_start and edbp_finish must be called from the same thread per handle
+edb_err edbp_start (edbphandle_t *handle, edbp_id *id, int *pagec);
+void    edbp_finish(edbphandle_t *handle);
+
+// edbp_mod applies special modifiecations to the page. This function will effect the page
+// that was referenced in the most recent edbp_start and must be called before the
+// edbp_finish.
+//
+//   EDBP_XLOCK (void)
+//     Install an exclusive lock on this page, preventing all other workers from accessing
+//     this page by blocking all subseqent calls to edbp_start until the the calling worker
+//     sets EDBP_ULOCK mod on this page. If this page has already been locked then
+//     EDB_EAGAIN is returned, to which the errornous caller should finish the page
+//     and call edbp_start and wait until it stops blocking.
+//
+//   EDBP_ULOCK (void)
+//     Remove the locks on this page.
+//
+//   EDBP_ECRYPT (todo)
+//     Set this page to be encrypted.
+//     todo: need descrive the subseqent args
+//
+// THREADING: edbp_mod must be called on the same thread and inbetween edbp_start and edbp_finish
+//   per handle
+edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...);
 
 #endif

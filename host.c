@@ -16,6 +16,7 @@
 #include "worker.h"
 #include "jobs.h"
 #include "include/ellemdb.h"
+#include "pages.h"
 
 
 
@@ -317,7 +318,10 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	// past this point, we must deleteshm + edb_fileclose + pthread_mutex_destroy(&(host.bootup))
 
 	// page buffers
-	// TODO: I probably need to start working on the jobs to fully understand what needs to go here.
+	eerr = edbp_init(host.config, &host.file, &host.phandle);
+	if(eerr) {
+		goto clean_shm;
+	}
 
 	// configure all the workers.
 	host.workerc = host.config.worker_poolsize;
@@ -330,17 +334,12 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 			log_critf("malloc(3) returned an unexpected error: %d", errno);
 			eerr = EDB_ECRIT;
 		}
-		goto clean_shm;
+		goto clean_pages;
 	}
 	for(int i = 0; i < host.workerc; i++) {
 		eerr = edb_workerinit(&host, i+1, &(host.workerv[i]));
 		if(eerr) {
-			// shit.
-			// okay we have to roll back through the ones we already initialized.
-			for(int j = i-1; j >= 0; j--) {
-				edb_workerdecom(&(host.workerv[j]));
-			}
-			goto clean_freepool;
+			goto clean_decomworkers;
 		}
 	}
 
@@ -383,8 +382,13 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	}
 	for(int i = 0; i < host.workerc; i++) {
 		edb_workerjoin(&(host.workerv[i]));
-		edb_workerdecom(&(host.workerv[i]));
 		log_infof("  ...worker %d joined", i);
+	}
+
+	clean_decomworkers:
+	// decomission all the workers
+	for(int i = 0; i < host.workerc; i++) {
+		edb_workerdecom(&(host.workerv[i]));
 	}
 
 	// unallocate the worker space
@@ -392,7 +396,9 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	log_infof("freeing worker pool...");
 	free(host.workerv);
 
-	// todo: deallocating the page buffer here.
+	clean_pages:
+	log_infof("freeing page cache...");
+	edbp_decom(&host.phandle);
 
 	// unallocate the shared memory
 	clean_shm:
