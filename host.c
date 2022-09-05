@@ -45,8 +45,8 @@ static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 		log_errorf("worker_poolsize is 0 or not a multiple of edb_event_t");
 		return EDB_EINVAL;
 	}
-	if(hostops.page_buffermax % sysconf(_SC_PAGE_SIZE) != 0) {
-		log_errorf("page buffer maximum is not a multiple of system page size");
+	if(hostops.page_buffer < hostops.worker_poolsize) {
+		log_errorf("page buffer is smaller than worker_poolsize");
 		return  EDB_EINVAL;
 	}
 	return 0;

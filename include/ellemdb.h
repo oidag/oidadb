@@ -270,28 +270,47 @@ typedef struct edb_hostconfig_st {
 	uint16_t maxstructurepages;
 
 	// Jobs sent to the database will need to move pages to and from
-	// the underlying filesystem and memory. page_buffermax dicates
+	// the underlying filesystem and memory. page_buffer dicates
 	// the maximum amount of pages that can exist in memory. Some
 	// frequently accessed pages are also cached to improve
 	// efficiency. In short, the database will operate better the more
 	// ram you throw at it.
 	//
-	// There is a critical minimum that page_buffermax must be
-	// otherwise the database cannot be hosted. This minimum is not
-	// defined here but will be returned as an error by edb_host.
+	// The minimum value is the number of workers. There is no maximum
+	// number.
 	// 
-	// page_buffermax must be a multiple of the system's page size as
-	// returned by sysconf(_SC_PAGE_SIZE). Setting page_buffermax to 0
-	// means there is no maximum: the buffer can grow as long as there
-	// is memory available.
-	//
-	// Unlike some of the other buffers, this number dicates a maximum
-	// size, not a static size. The buffer will allocate as needed up
-	// too the maximum.
+	// multiply page_buffer by your systems page size and that will
+	// give you the amount of memory you're demanding here.
 	//
 	// Operating under a full buffer will cause jobs to slow, fail,
 	// and return early errors. So give this buffer plenty of space.
-	uint64_t page_buffermax;
+	uint32_t page_buffer;
+
+	// In addition to page_buffer, you have the option to set up special slots
+	// of buffer that will only be used so long that the pages that need to
+	// be loaded into memory are in a page-strait.
+	//
+	// page_bufferX means that it will only be used with straits that are
+	// a minium of X pages in length.
+	//
+	// For example, if a query would to require 8 pages that are found in a
+	// strait that would result in 16 I/O ops (loading and deloading). But if
+	// used in a buffer8 slot, this would cut it down to only 2 I/O ops.
+	//
+	// You should only use strait-buffers if you plan to keep fragmentation
+	// to a low and/or have proper minimum page straits set up and expect
+	// large multi-page jobs to be submitted such as queries or mass updates.
+	//
+	// Lastly, the amount of memeory stait buffers consume is large. (ie 4x/8x
+	// the size of normal slots).
+	//
+	// Honestly, when in doubt, don't use these until you know exactly what
+	// they do for you. Even then, I would recommend only around 2-6% of your
+	// pages be allocated into strait buffers.
+	//
+	// todo: NOT IMPLEMENTED
+	uint32_t page_buffer4;
+	uint32_t page_buffer8;
 
 	// Page replacement algorythm to use. See the EDB_PRA... constants
 	// for more details.
