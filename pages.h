@@ -114,7 +114,10 @@ typedef struct _edbphandle_t {
 // Initialize the cache
 //
 // note to self: all errors returned by edbp_init needs to be documented
-// in edb_host
+// in edb_host.
+//
+// THREADING: calling edbp_decom whilest edbphandle's are out using cache will result
+// in undefined behaviour.
 edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_cache);
 void    edbp_decom(edbpcache_t *cache);
 

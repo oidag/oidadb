@@ -220,12 +220,20 @@ void    edbp_decom(edbpcache_t *cache) {
 	pthread_mutex_destroy(&cache->eofmutext);
 	pthread_mutex_destroy(&cache->mutexpagelock);
 
+	// munmap all slots that have data in them.
+	for(int i = 0; i < cache->pagebufc; i++) {
+		if(cache->slots[i].page != 0) {
+			msync(cache->slots[i].page, cache->slots[i].strait * EDBP_SIZE, MS_SYNC);
+			munmap(cache->slots[i].page, cache->slots[i].strait * EDBP_SIZE);
+			cache->slots[i].page = 0;
+		}
+	}
+
 	// free memory
-	if(cache->pagebufv) free(cache->pagebufv);
-	if(cache->idv) free(cache->idv);
+	if(cache->slots) free(cache->slots);
 
 	// null out pointers
-	cache->pagebufv = 0;
+	cache->slots = 0;
 	cache->pagebufc = 0;
 	cache->file = 0;
 }
