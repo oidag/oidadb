@@ -28,7 +28,8 @@ edbp_id static inline off2pid(off64_t off);
 //
 // todo: right now we'll only ever return 1 page at a time. in the future we
 //       can do strait-loading.
-static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid len, edbp_slotid *o_len, edbp_slotid *o_pageslots) {
+static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
+						 edbp_slotid len, edbp_slotid *o_len, edbp_slotid *o_pageslots) {
 	// quick invals
 	if(len == 0) {
 		*o_len = 0;
@@ -267,7 +268,7 @@ edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_
 	}
 
 	// calculations
-	o_cache->slotboostCc = 0.10f; // 10%
+	o_cache->slotboostCc = EDBP_SLOTBOOSTPER;
 	o_cache->slotboost = (unsigned int)(o_cache->slotboostCc * (float)o_cache->pagebufc);
 
 	return 0;
@@ -298,14 +299,18 @@ void    edbp_decom(edbpcache_t *cache) {
 
 // create handles for the cache
 edb_err edbp_newhandle(edbpcache_t *cache, edbphandle_t *o_handle) {
+	bzero(o_handle, sizeof(edbphandle_t));
 	o_handle->parent = cache;
 }
-void    edbp_freehandle(edbphandle_t *handle);
+void    edbp_freehandle(edbphandle_t *handle); // todo: unlock anything
 
 edb_err edbp_start (edbphandle_t *handle, edbp_id *id, unsigned int straits) {
 	if(straits == 0) return EDB_EINVAL;
 	if(id == 0 || *id == 0) return EDB_EINVAL;
-	if(handle->checkedc != 0) return EDB_EINVAL;
+	if(handle->lockedslotc != 0) {
+		log_errorf("cache handle attempt to double-lock");
+		return EDB_EINVAL;
+	}
 
 	// easy vars
 	edbpcache_t *parent = handle->parent;
@@ -333,12 +338,14 @@ edb_err edbp_start (edbphandle_t *handle, edbp_id *id, unsigned int straits) {
 	}
 
 	// lock in the pages
-	handle->checkedv = lockpages(parent, *id, straits, &handle->checkedc);
-	return 0;
+	err = lockpages(parent, *id, straits,
+					&handle->lockedslotc,
+					handle->lockedslotv);
+	return err;
 }
 void    edbp_finish(edbphandle_t *handle) {
-
-	// todo: calculate pra score and calculation
-
-	unlockpage(handle->parent, handle->checkedv, handle->checkedc);
+	for(; handle->lockedslotc > 0; handle->lockedslotc--) {
+		unlockpage(handle->parent,
+				   handle->lockedslotv[handle->lockedslotc-1]);
+	}
 }
