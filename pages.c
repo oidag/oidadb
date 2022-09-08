@@ -63,7 +63,6 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid len, 
 	unsigned int lowestscore;
 
 	// lock the page mutex until we have our slot locked.
-	// todo: make sure this is unlocked promptly
 	pthread_mutex_lock(&cache->mutexpagelock);
 	cache->opcoutner++; // increase the op counter
 
@@ -84,7 +83,7 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid len, 
 		}
 
 		// we found our page in the cache at slot i. Add a lock so it doesn't deload
-		slot->locks++; // todo: decrement this in the unlock method
+		slot->locks++;
 
 		// rotate the LRU-1/LRU-2 history.
 		slot->pra_k[1] = slot->pra_k[0];
@@ -164,9 +163,64 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid len, 
 	slot->futex_swap = 0;
 	syscall(SYS_futex, &slot->futex_swap, FUTEX_WAKE, INT_MAX, 0, 0, 0);
 	return 0;
-
 }
-unlockpage(edbpcache_t *cache, edbp_t **pages, unsigned int len); //todo: see todos in lockpage
+
+// using pra_k and pra_hints this function will calculate and set pra_score
+// before unlocking the page. The calculation is not technically thread-safe,
+// but this is okay. The calculation will be a bit sloppy when doing intense
+// multithreading but nonetheless will often result in similar results in
+// terms of setting pra_score.
+//
+// Note to self: make sure that sloppyness doesn't impact performace too much
+// by testing moving the calculation inside the lock.
+//
+// if the slot is already unlocked, nothing happens (logs will tho)
+// will only ever return critical errors.
+edb_err static unlockpage(edbpcache_t *cache, edbp_slotid slotid) {
+	edb_err eerr = 0;
+	edbp_slot *slot = &cache->slots[slotid];
+
+	// calculate the pra_score
+	//
+	// This is a complex operation that has a good degree
+	// of statsitical guess-work and will never be perfect.
+	// Let me note this step by step:
+	//
+	// EDBP_HUSESOON - this will cause the LRU-K algo to use
+	// LRU-1 instead of LRU-2.
+	//
+	// EDBP_HDIRTY and EDBP_HINDEX... will be added after the HINDEX is
+	// shifted over 4 bits. After added, it will be devided by the MAXLIF
+	// (which will always be bigger) and then multiplied by slotboost.
+	if(slot->pra_hints & EDBP_HRESET) {
+		slot->pra_score = 0;
+	} else {
+		slot->pra_score = slot->pra_k[1 - slot->pra_hints & 1] // see EDBP_HUSESOON
+				+ (
+						(slot->pra_score&EDBP_HDIRTY) + (slot->pra_score >> 4)
+				   )
+				   * cache->slotboost
+				   / EDBP_HMAXLIF; // see EDBP_HINDEX...
+
+	}
+
+	pthread_mutex_lock(&cache->mutexpagelock);
+	unsigned int locknum = slot->locks;
+	if(slot->locks == 0) {
+		// they're trying to unlock a page thats already unlocked.
+		// return early.
+		log_debugf("attempted to unlock a cache slot that was already completely unlocked (slot %d)", slot->locks);
+		goto unlock;
+	}
+
+	// decrement the locknum.
+	slot->locks--;
+
+	// clean up
+	unlock:
+	pthread_mutex_unlock(&cache->mutexpagelock);
+	return eerr;
+}
 
 // locks/unlocks the endoffile for new entries
 void static lockeof(edbpcache_t *caache) {
@@ -211,6 +265,10 @@ edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_
 		edbp_decom(o_cache);
 		return EDB_ECRIT;
 	}
+
+	// calculations
+	o_cache->slotboostCc = 0.10f; // 10%
+	o_cache->slotboost = (unsigned int)(o_cache->slotboostCc * (float)o_cache->pagebufc);
 
 	return 0;
 }
@@ -279,5 +337,8 @@ edb_err edbp_start (edbphandle_t *handle, edbp_id *id, unsigned int straits) {
 	return 0;
 }
 void    edbp_finish(edbphandle_t *handle) {
+
+	// todo: calculate pra score and calculation
+
 	unlockpage(handle->parent, handle->checkedv, handle->checkedc);
 }

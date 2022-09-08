@@ -25,114 +25,6 @@
 #define EDBP_SIZE PAGE_SIZE
 #define EDBP_HEAD_SIZE sizeof(edbp_head)
 #define EDBP_BODY_SIZE PAGE_SIZE - sizeof(edbp_head)
-
-
-// Page id: simply the offset as to where to find it in
-// the database.
-typedef uint64_t edbp_id;
-
-typedef struct _edbp_head {
-
-	// Do not touch these fields outside of pages-*.c files:
-	uint32_t _checksum;
-	uint32_t _hiid;
-	uint32_t _pradat;
-	uint8_t  _pflags;
-
-	// all of thee other fields can be modified so long the caller
-	// has an exclusive lock on the page.
-	uint8_t  ptype;
-	uint16_t rsvd;
-	uint64_t pleft;
-	uint64_t pright;
-	uint8_t  psecf[16]; // page spcific
-} edbp_head;
-
-// the raw content of the page. This is byte-by-byte what is
-// in the database.
-//
-// See database specification under page header for details.
-typedef struct _edbp {
-	edbp_head head;
-	uint8_t   body[EDBP_BODY_SIZE];
-} edbp_t;
-
-// a slot is an index within the cache to where the page is.
-typedef unsigned int edbp_slotid;
-typedef struct {
-	edbp_t *page;
-	edbp_id id; // cache's mutexpagelock must be locked to access
-
-	// the amount of workers that have this page locked. 0 for none.
-	// you must use a futex call to wait until the swap is complete.
-	// must have the caches pagelock locked to access
-	unsigned int locks;
-
-	// if 1 that means its currently undergoing a swap.
-	// if 0 then no swap in process
-	// if 2 then swap had failed critically.
-	uint32_t futex_swap;
-
-	unsigned int pra_k[2]; // [0]=LRU-1 and [1]=LRU-2
-	unsigned int pra_score; // page replacement score
-
-	// not used yet:
-	unsigned int width;
-	unsigned int strait;
-} edbp_slot;
-
-// the cahce, installed in the host
-typedef struct _edbpcache_t {
-	edb_file_t *file;
-
-	// slots
-	edbp_slot     *slots;
-	edbp_slotid    pagebufc; // the total amount of slots regardless of width
-	edbp_slotid    pagebufc_w1; // width 1 slot count
-	edbp_slotid    pagebufc_w4; // width 4 slot count
-	edbp_slotid    pagebufc_w8; // width 8 slot count
-
-	pthread_mutex_t eofmutext;
-	pthread_mutex_t mutexpagelock;
-
-
-	// mutexpagelock must be locked to access opcounter;
-	unsigned long int opcoutner;
-
-} edbpcache_t;
-
-// the handle, installed in the worker.
-typedef struct _edbphandle_t {
-	edbpcache_t *parent;
-
-	// modified via edbp_start and edbp_finish.
-	unsigned int   checkedc;
-	edbp_t       **checkedv; // array of pointers checkedc long.
-	edbp_slotid     *checked_slotsv; // assoc. to checkedv
-} edbphandle_t;
-
-// Initialize the cache
-//
-// note to self: all errors returned by edbp_init needs to be documented
-// in edb_host.
-//
-// THREADING: calling edbp_decom whilest edbphandle's are out using cache will result
-// in undefined behaviour.
-edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_cache);
-void    edbp_decom(edbpcache_t *cache);
-
-
-// create handles for the cache
-edb_err edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle);
-void    edbp_freehandle(edbphandle_t *handle);
-
-typedef enum {
-	EDBP_XLOCK,
-	EDBP_ULOCK,
-	EDBP_ECRYPT,
-	EDBP_CACHEHINT,
-} edbp_options;
-
 typedef enum {
 
 	// This page will be used soon by the same worker in a given
@@ -177,6 +69,143 @@ typedef enum {
 	EDBP_HINDEX3 = 0x40, // 0100 0000
 
 } edbp_hint;
+
+// idk how to explain this. Make it bigger to make the
+// hints less effective. Must be a minimum of the biggest
+// possibile hint score.
+#define EDBP_HMAXLIF 0x7 // 0000 1001
+
+// Page id: simply the offset as to where to find it in
+// the database.
+typedef uint64_t edbp_id;
+
+typedef struct _edbp_head {
+
+	// Do not touch these fields outside of pages-*.c files:
+	uint32_t _checksum;
+	uint32_t _hiid;
+	uint32_t _pradat;
+	uint8_t  _pflags;
+
+	// all of thee other fields can be modified so long the caller
+	// has an exclusive lock on the page.
+	uint8_t  ptype;
+	uint16_t rsvd;
+	uint64_t pleft;
+	uint64_t pright;
+	uint8_t  psecf[16]; // page spcific
+} edbp_head;
+
+// the raw content of the page. This is byte-by-byte what is
+// in the database.
+//
+// See database specification under page header for details.
+typedef struct _edbp {
+	edbp_head head;
+	uint8_t   body[EDBP_BODY_SIZE];
+} edbp_t;
+
+// a slot is an index within the cache to where the page is.
+typedef unsigned int edbp_slotid;
+typedef struct {
+	edbp_t *page;
+	edbp_id id; // cache's mutexpagelock must be locked to access
+
+	// the amount of workers that have this page locked. 0 for none.
+	// you must use a futex call to wait until the swap is complete.
+	// must have the caches pagelock locked to access
+	unsigned int locks;
+
+	// if 1 that means its currently undergoing a swap.
+	// if 0 then no swap in process / ready to be locked
+	// if 2 then swap had failed critically.
+	uint32_t futex_swap;
+
+	// the pra_k is the LRU-K algo that will be set to 1 or 2 numbers to which
+	// symbolize the opcouter to when they were locked. See LRU-K for more
+	// information. pra_k is only modified inside lockpages.
+	//
+	// pra_hints are a bitmask to modify the behaviour of what happens to
+	// the LRU-K algorythem. This must be set before unlockpages.
+	//
+	// pra_score is calculated inside of unlockpages based off of
+	// pra_hints and pra_k and what ultimiately determains the
+	// swapability of a particular slot.
+	unsigned int pra_k[2]; // [0]=LRU-1 and [1]=LRU-2
+	edbp_hint pra_hints;
+	unsigned int pra_score;
+
+	// not used yet:
+	unsigned int width;
+	unsigned int strait;
+} edbp_slot;
+
+// the cahce, installed in the host
+typedef struct _edbpcache_t {
+	edb_file_t *file;
+
+	// slots
+	edbp_slot     *slots;
+	edbp_slotid    pagebufc; // the total amount of slots regardless of width
+	edbp_slotid    pagebufc_w1; // width 1 slot count
+	edbp_slotid    pagebufc_w4; // width 4 slot count
+	edbp_slotid    pagebufc_w8; // width 8 slot count
+
+	// slotboostCc is a number from 0 to 1 that is multipled by
+	// pagebufc and the result is stored in slotboost. This is done
+	// once during cache startup.
+	//
+	// slotboostCc is what is used to assign the power of the edbp_hints.
+	// whereas 1 is halfing a slot's chances of being swapped out whereas
+	// 0 is no impact at all with all positive hints.
+	//
+	// The exact details of this are murky. Honestly you should only play with
+	// these numbers for expermiental reaons.
+	float slotboostCc; //(assigned to constant on startup)
+	unsigned int   slotboost;
+
+	pthread_mutex_t eofmutext;
+	pthread_mutex_t mutexpagelock;
+
+
+	// mutexpagelock must be locked to access opcounter;
+	unsigned long int opcoutner;
+
+} edbpcache_t;
+
+// the handle, installed in the worker.
+typedef struct _edbphandle_t {
+	edbpcache_t *parent;
+
+	// modified via edbp_start and edbp_finish.
+	unsigned int   checkedc;
+	edbp_t       **checkedv; // array of pointers checkedc long.
+	edbp_slotid     *checked_slotsv; // assoc. to checkedv
+} edbphandle_t;
+
+// Initialize the cache
+//
+// note to self: all errors returned by edbp_init needs to be documented
+// in edb_host.
+//
+// THREADING: calling edbp_decom whilest edbphandle's are out using cache will result
+// in undefined behaviour.
+edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_cache);
+void    edbp_decom(edbpcache_t *cache);
+
+
+// create handles for the cache
+edb_err edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle);
+void    edbp_freehandle(edbphandle_t *handle);
+
+typedef enum {
+	EDBP_XLOCK,
+	EDBP_ULOCK,
+	EDBP_ECRYPT,
+	EDBP_CACHEHINT,
+} edbp_options;
+
+
 
 // edbp_start and edbp_finish allow workers to access pages in a file while managing
 // page caches, access, allocations, ect.
