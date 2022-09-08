@@ -74,6 +74,7 @@ typedef enum {
 // hints less effective. Must be a minimum of the biggest
 // possibile hint score.
 #define EDBP_HMAXLIF 0x7 // 0000 1001
+#define EDBP_SLOTBOOSTPER 0.10f // 10% of page capacity
 
 // Page id: simply the offset as to where to find it in
 // the database.
@@ -178,10 +179,15 @@ typedef struct _edbphandle_t {
 	edbpcache_t *parent;
 
 	// modified via edbp_start and edbp_finish.
-	unsigned int   checkedc;
-	edbp_t       **checkedv; // array of pointers checkedc long.
-	edbp_slotid     *checked_slotsv; // assoc. to checkedv
+	edbp_slotid  lockedslotc;
+
+	// todo: this will remain one until I get strait-pras in.
+	//       but just assume this is always an array lockedslotc in size.
+	edbp_slotid lockedslotv[1];
 } edbphandle_t;
+
+
+#define EDBP_HANDLE_MAXSLOTS 1
 
 // Initialize the cache
 //
@@ -219,13 +225,15 @@ typedef enum {
 // straits is the amount of pages that
 // will be loaded in, must be at least 1. This is the
 // best way to load multiple pages in a strait at once. The actual amount of
-// pages loaded may be less than straits (see edbphandle_t.checkedc)... but
+// pages loaded may be less than straits (see edbphandle_t.lockedslotc)... but
 // will always be at least 1.
 //
 // only 1 handle can have a single page opened at one time. These functions are
 // methods of starting and finishing operations on the pages, these functions
 // ARE NOT used for just normal locking mechanisms, only to ensure operations
 // are performed to their completeness without having the page kicked out of cache.
+//
+// calling edbp_finish without having started a lock will do nothing.
 //
 // THREADING: edbp_start and edbp_finish must be called from the same thread per handle. Note
 // that multiple handles can lock the same page and it's up to them to negitionate what happens
