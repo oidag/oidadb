@@ -9,13 +9,20 @@
 #include <linux/futex.h>
 #include <sys/syscall.h>
 #include <limits.h>
+#include <errno.h>
+#include <stdarg.h>
 
 
 #include "file.h"
 #include "pages.h"
 
-off64_t static inline pid2off(edbp_id id);
-edbp_id static inline off2pid(off64_t off);
+// changes the pid into a file offset.
+off64_t static inline pid2off(edbp_id id) {
+	return (off64_t)id * EDBP_SIZE;
+}
+edbp_id static inline off2pid(off64_t off) {
+	return off / EDBP_SIZE;
+}
 
 // gets thee pages from either the cache or the file and returns an array of
 // pointers to those pages. Will try to get up to len (at least 1 is guarenteed)
@@ -26,8 +33,8 @@ edbp_id static inline off2pid(off64_t off);
 //
 // returns only critical errors
 //
-// todo: right now we'll only ever return 1 page at a time. in the future we
-//       can do strait-loading.
+// later: right now we'll only ever return 1 page at a time. in the future we
+//        can do strait-loading.
 static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 						 edbp_slotid len, edbp_slotid *o_len, edbp_slotid *o_pageslots) {
 	// quick invals
@@ -47,10 +54,6 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 	// ALL WHILE we do not over engineer this function to the point where
 	// it would be more efficient to be dumb about this whole process.
 
-	edbp_id il = starting;
-	unsigned int pagebuflen = cache->pagebufc;
-	unsigned int i;
-
 	// if we have a page fault this is the index of the slot we must replace
 	// These will be fully set after the for loop.
 	//
@@ -69,6 +72,7 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 
 	// lets loop through our cache and see if we have any of these pages loaded already.
 	// We can also take this time to find what pages we can likely replace.
+	unsigned int i;
 	for(i = 0; i < cache->pagebufc_w1; i++) {
 		edbp_slot *slot = &cache->slots[i];
 
@@ -100,12 +104,15 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 
 		// if the swap failed for whatever reason, we'll casecade fail. Sure we can try
 		// to do the swap again, but frankly if we're out of memory then we're out of memory.
-		if(slot->futex_swap == 2) {
-			log_critf("fail-cascading because waiting on swap to finish had failed");
-			return EDB_ECRIT;
+		switch (slot->futex_swap) {
+			case 3:
+				return EDB_ENOMEM;
+			case 2:
+				log_critf("fail-cascading because waiting on swap to finish had failed");
+				return EDB_ECRIT;
+			default:
+				return 0;
 		}
-
-		return 0;
 	}
 
 	// At this point: Page fault.
@@ -134,29 +141,37 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 	if(slot->page != 0) {// (if there was antyhing there)
 
 		// I invoke a explicit sync here.
-		// todo: hmmm... is this needed with O_DIRECT? would this be faster without while still in our
-		//       risk tolerance?
+		// later: hmmm... is this needed with O_DIRECT? would this be faster without while still in our
+		//        risk tolerance?
 		msync(slot->page, slot->strait*EDBP_SIZE, MS_SYNC);
 
 		// do the actual unmap
 		munmap(slot->page, slot->strait * EDBP_SIZE);
 	}
-	slot->page = mmap(0, slot->strait * EDBP_SIZE,
+	slot->page = mmap64(0, slot->strait * EDBP_SIZE,
 		 PROT_READ | PROT_WRITE,
 		 MAP_SHARED, fd, pid2off(starting));
 
 	if(slot->page == (void *)-1) {
 		// out of memory/some other critical error: bail out.
+		log_critf("failed to map page(s) into slot");
+		int eno = errno;
+		edb_err err;
 		pthread_mutex_lock(&cache->mutexpagelock);
 		slot->page = 0;
 		slot->pra_score = 0;
-		// set swap to failure.
-		slot->futex_swap = 2;
+		// handle nomem.
+		if(eno == ENOMEM) {
+			slot->futex_swap = 3;
+			err = EDB_ENOMEM;
+		} else {
+			slot->futex_swap = 2;
+			err = EDB_ECRIT;
+		}
 		syscall(SYS_futex, &slot->futex_swap, FUTEX_WAKE, INT_MAX, 0, 0, 0);
 		pthread_mutex_unlock(&cache->mutexpagelock);
-
-		log_critf("failed to map page(s) into slot");
-		return EDB_ECRIT;
+		errno = eno;
+		return err;
 	}
 
 
@@ -201,12 +216,11 @@ edb_err static unlockpage(edbpcache_t *cache, edbp_slotid slotid) {
 						(slot->pra_score&EDBP_HDIRTY) + (slot->pra_score >> 4)
 				   )
 				   * cache->slotboost
-				   / EDBP_HMAXLIF; // see EDBP_HINDEX...
+				   / EDBP_HMAXLIF;
 
 	}
 
 	pthread_mutex_lock(&cache->mutexpagelock);
-	unsigned int locknum = slot->locks;
 	if(slot->locks == 0) {
 		// they're trying to unlock a page thats already unlocked.
 		// return early.
@@ -233,11 +247,19 @@ void static unlockeof(edbpcache_t *caache) {
 
 // see conf->pra_algo
 edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_cache) {
+
+	// invals
+	if(!file) return EDB_EINVAL;
+	if(!o_cache) return EDB_EINVAL;
+
+	// initialize
 	bzero(o_cache, sizeof(edbpcache_t)); // initilize 0
 	int err = 0;
 
-	// pointers
+	// parent file
 	o_cache->file = file;
+
+	// page cache metrics
 	o_cache->pagebufc    = conf.page_buffer + conf.page_buffer4 + conf.page_buffer8;
 	o_cache->pagebufc_w1 = conf.page_buffer;
 	o_cache->pagebufc_w4 = conf.page_buffer4;
@@ -299,10 +321,17 @@ void    edbp_decom(edbpcache_t *cache) {
 
 // create handles for the cache
 edb_err edbp_newhandle(edbpcache_t *cache, edbphandle_t *o_handle) {
+	if (!cache || !o_handle) return EDB_EINVAL;
 	bzero(o_handle, sizeof(edbphandle_t));
 	o_handle->parent = cache;
+	return 0;
 }
-void    edbp_freehandle(edbphandle_t *handle); // todo: unlock anything
+void    edbp_freehandle(edbphandle_t *handle) {
+	if(!handle) return;
+	if(!handle->parent) return;
+	edbp_finish(handle);
+	handle->parent = 0;
+}
 
 edb_err edbp_start (edbphandle_t *handle, edbp_id *id, unsigned int straits) {
 	if(straits == 0) return EDB_EINVAL;
@@ -348,4 +377,33 @@ void    edbp_finish(edbphandle_t *handle) {
 		unlockpage(handle->parent,
 				   handle->lockedslotv[handle->lockedslotc-1]);
 	}
+}
+
+edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...) {
+	if(handle->lockedslotc == 0)
+		return EDB_ENOENT;
+
+	edb_err err = 0;
+	edbp_hint hints;
+	va_list args;
+	va_start(args, opts);
+	switch (opts) {
+		case EDBP_XLOCK:
+		case EDBP_ULOCK:
+			// todo...
+		case EDBP_CACHEHINT:
+			hints = va_arg(args, edbp_hint);
+			for(int i = 0; i < handle->lockedslotc; i++) {
+				handle->parent->slots[handle->lockedslotv[i]].pra_hints = hints;
+			}
+			err = 0;
+			break;
+		case EDBP_ECRYPT:
+		default:
+			err = EDB_EINVAL;
+			break;
+	}
+	va_end(args);
+	return err;
+
 }
