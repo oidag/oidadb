@@ -60,13 +60,11 @@ typedef enum {
 	// means 0 has the highest priority to be in cache, and 3 being
 	// the loweset.
 	//
-	// You may only use one of these in a bitmask.
-	//
-	// These will always be sequencial in value (ie. EDBP_HINDEX0 + 3 = EDBP_HINDEX3)
-	EDBP_HINDEX0 = 0x10, // 0001 0000
-	EDBP_HINDEX1 = 0x20, // 0010 0000
-	EDBP_HINDEX2 = 0x30, // 0011 0000
-	EDBP_HINDEX3 = 0x40, // 0100 0000
+	// Only one of these may be xord at once.
+	EDBP_HINDEX0 = 0x40, // 0100 0000
+	EDBP_HINDEX1 = 0x30, // 0011 0000
+	EDBP_HINDEX2 = 0x20, // 0010 0000
+	EDBP_HINDEX3 = 0x10, // 0001 0000
 
 } edbp_hint;
 
@@ -120,6 +118,7 @@ typedef struct {
 	// if 1 that means its currently undergoing a swap.
 	// if 0 then no swap in process / ready to be locked
 	// if 2 then swap had failed critically.
+	// if 3 then swap had failed due to ENOMEM
 	uint32_t futex_swap;
 
 	// the pra_k is the LRU-K algo that will be set to 1 or 2 numbers to which
@@ -181,26 +180,40 @@ typedef struct _edbphandle_t {
 	// modified via edbp_start and edbp_finish.
 	edbp_slotid  lockedslotc;
 
-	// todo: this will remain one until I get strait-pras in.
-	//       but just assume this is always an array lockedslotc in size.
+	// later: this will remain one until I get strait-pras in.
+	//        but just assume this is always an array lockedslotc in size.
 	edbp_slotid lockedslotv[1];
 } edbphandle_t;
 
 
 #define EDBP_HANDLE_MAXSLOTS 1
 
-// Initialize the cache
+// Initialize a cache into o_cache
 //
 // note to self: all errors returned by edbp_init needs to be documented
 // in edb_host.
 //
-// THREADING: calling edbp_decom whilest edbphandle's are out using cache will result
-// in undefined behaviour.
-edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_cache);
+// ERRORS:
+//   EDB_EINVAL - file is null
+//   EDB_EINVAL - o_cache is null
+//   EDB_NOMEM - not enough memory
+//   EDB_ECRIT - unprecidiented critical error
+//
+// THREADING:
+//
+// UNDEFINED: calling edbp_decom whilest edbphandle's are out using cache will result
+// in undefined behaviour. If you wish to clean up a cache, make sure to free
+// the handlers of the cache first.
+edb_err edbp_init(edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_cache);
 void    edbp_decom(edbpcache_t *cache);
 
 
-// create handles for the cache
+// create handles for the cache.
+//
+// calling freehandle will unlock all slots.
+//
+// ERRORS:
+//   EINVAL - o_cache / o_handle is null
 edb_err edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle);
 void    edbp_freehandle(edbphandle_t *handle);
 
@@ -235,15 +248,23 @@ typedef enum {
 //
 // calling edbp_finish without having started a lock will do nothing.
 //
-// THREADING: edbp_start and edbp_finish must be called from the same thread per handle. Note
-// that multiple handles can lock the same page and it's up to them to negitionate what happens
-// where.
+// THREADING:
+//   edbp_start and edbp_finish must be called from the same thread per handle.
+//   Async calls to edbp_start with the same pageid is handled nicely. Note that
+//   if a swap is needed for a page to be loaded, and multiple threads all attempt
+//   to access that same page, they will all return at once with the same result
+//   but only the first call would have actually performed the swap.
 //
 // ERRORS:
 //   EDB_EINVAL - edbp_start straits was 0.
 //   EDB_EINVAL - edbp_start id was null or *id was 0.
 //   EDB_EINVAL - edbp_start was called twice without calling edbp_finish
-edb_err edbp_start (edbphandle_t *handle, edbp_id *id, unsigned int straits, int mode);
+//   EDB_ENOMEM - no memory left
+//   EDB_ECRIT
+//
+// UNDEFINED:
+//   - using an unitialized handle / uninitialized cache
+edb_err edbp_start (edbphandle_t *handle, edbp_id *id, unsigned int straits);
 void    edbp_finish(edbphandle_t *handle);
 
 // edbp_mod applies special modifiecations to the page. This function will effect the page
@@ -260,15 +281,29 @@ void    edbp_finish(edbphandle_t *handle);
 //   EDBP_ULOCK (void)
 //     Remove the exclusive lock on this page.
 //
-//   EDBP_ECRYPT (todo)
+//   EDBP_ECRYPT todo: not implemented
 //     Set this page to be encrypted.
 //     todo: need descrive the subseqent args
 //
 //   EDBP_CACHEHINT (edbp_hint)
-//     Set hints to this page in how the cacher should treat it.
+//     Set hints to this slot in how the cacher should treat it. See EDBP_H... constants
+//     For full details. The first argument is a xor'd value of what hints you want.
+//     Note that once a hint has been set, it cannot be removed.
 //
-// THREADING: edbp_mod must be called on the same thread and inbetween edbp_start and edbp_finish
-//   per handle
+// ERRORS:
+//   EDB_INVAL - opts not recognized
+//   EDB_ENOENT - edbp_mod was not called between successful edbp_start
+//                and edbp_finish.
+//
+// THREADING:
+//   edbp_mod must be called on the same thread and inbetween edbp_start and edbp_finish
+//   per-handle.
+//
+//   If multiple handles are calling this function with the same page(s) locked
+//   than that can cause some issues.
+//
+// UNDEFINED:
+//   - calling with an unitialized handle/cache
 edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...);
 
 #endif
