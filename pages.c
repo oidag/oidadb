@@ -306,6 +306,7 @@ edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_
 	return 0;
 }
 void    edbp_decom(edbpcache_t *cache) {
+	if(!cache || !cache->file) return;
 
 	// kill mutexes
 	pthread_mutex_destroy(&cache->eofmutext);
