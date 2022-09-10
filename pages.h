@@ -81,9 +81,10 @@ typedef uint64_t edbp_id;
 typedef struct _edbp_head {
 
 	// Do not touch these fields outside of pages-*.c files:
+	// these can only be modified by edbp_mod
 	uint32_t _checksum;
 	uint32_t _hiid;
-	uint32_t _pradat;
+	uint32_t _rsvd2; // used to set data regarding who has the exclusive lock.
 	uint8_t  _pflags;
 
 	// all of thee other fields can be modified so long the caller
@@ -183,6 +184,8 @@ typedef struct _edbphandle_t {
 	// later: this will remain one until I get strait-pras in.
 	//        but just assume this is always an array lockedslotc in size.
 	edbp_slotid lockedslotv[1];
+
+	unsigned int id; // unique id for each handle assigned at newhandle time.
 } edbphandle_t;
 
 
@@ -218,10 +221,12 @@ edb_err edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle);
 void    edbp_freehandle(edbphandle_t *handle);
 
 typedef enum {
-	EDBP_XLOCK,
-	EDBP_ULOCK,
-	EDBP_ECRYPT,
-	EDBP_CACHEHINT,
+	// note that some of these enums are used as both args in
+	// edbp_mod and also insidde the edb specification itself.
+	EDBP_XLOCK = 0x1,
+	EDBP_ECRYPT = 0x10,
+	EDBP_ULOCK = 0x1001,
+	EDBP_CACHEHINT = 0x1002,
 } edbp_options;
 
 
@@ -271,14 +276,19 @@ void    edbp_finish(edbphandle_t *handle);
 // that was referenced in the most recent edbp_start and must be called before the
 // edbp_finish.
 //
-//   EDBP_XLOCK (void)
-//     Install an exclusive lock on this page, preventing all other workers from accessing
-//     this page by blocking all subseqent calls to edbp_start until the the calling worker
+//   EDBP_XLOCK (void) later: not implemented: no reason to have this at this level.
+//     Install an exclusive lock on this page(s) that last between locks and unlocks,
+//     preventing all other workers from accessing this page by blocking all
+//     subseqent calls to edbp_start until the the calling worker
 //     sets EDBP_ULOCK mod on this page. If this page has already been locked then
 //     EDB_EAGAIN is returned, to which the errornous caller should finish the page
 //     and call edbp_start and wait until it stops blocking.
 //
-//   EDBP_ULOCK (void)
+//     edbp_mod will not return until all other locks on the pages are unlocked such
+//     that when edbp_mod returns non-error it ensures the caller is indeed the only
+//     caller that can access this page until its unlocked
+//
+//   EDBP_ULOCK (void) later: no xlock.
 //     Remove the exclusive lock on this page.
 //
 //   EDBP_ECRYPT todo: not implemented
@@ -294,6 +304,7 @@ void    edbp_finish(edbphandle_t *handle);
 //   EDB_INVAL - opts not recognized
 //   EDB_ENOENT - edbp_mod was not called between successful edbp_start
 //                and edbp_finish.
+//   EDB_EAGAIN - see EDBP_XLOCK later:
 //
 // THREADING:
 //   edbp_mod must be called on the same thread and inbetween edbp_start and edbp_finish
