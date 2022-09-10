@@ -140,6 +140,16 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 	// deload the page that was already there.
 	if(slot->page != 0) {// (if there was antyhing there)
 
+		// recalculate checksum.
+		// note w=1 because the first word of the page is the checksum itself.
+		uint32_t sum = 0;
+		for(int w = 1; w < EDBP_SIZE / sizeof(uint32_t); w++) {
+			sum += ((uint32_t *)(&slot->page))[w];
+		}
+		slot->page->head._checksum = sum;
+
+		// later: encrypt the body if page is supposed to be encrypted.
+
 		// I invoke a explicit sync here.
 		// later: hmmm... is this needed with O_DIRECT? would this be faster without while still in our
 		//        risk tolerance?
@@ -319,11 +329,14 @@ void    edbp_decom(edbpcache_t *cache) {
 	cache->file = 0;
 }
 
+static unsigned int nexthandleid = 0;
+
 // create handles for the cache
 edb_err edbp_newhandle(edbpcache_t *cache, edbphandle_t *o_handle) {
 	if (!cache || !o_handle) return EDB_EINVAL;
 	bzero(o_handle, sizeof(edbphandle_t));
 	o_handle->parent = cache;
+	o_handle->id = ++nexthandleid;
 	return 0;
 }
 void    edbp_freehandle(edbphandle_t *handle) {
@@ -383,22 +396,24 @@ edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...) {
 	if(handle->lockedslotc == 0)
 		return EDB_ENOENT;
 
+	// easy pointers
+	edbpcache_t *cache = handle->parent;
+
 	edb_err err = 0;
 	edbp_hint hints;
 	va_list args;
 	va_start(args, opts);
 	switch (opts) {
-		case EDBP_XLOCK:
-		case EDBP_ULOCK:
-			// todo...
 		case EDBP_CACHEHINT:
 			hints = va_arg(args, edbp_hint);
 			for(int i = 0; i < handle->lockedslotc; i++) {
-				handle->parent->slots[handle->lockedslotv[i]].pra_hints = hints;
+				cache->slots[handle->lockedslotv[i]].pra_hints = hints;
 			}
 			err = 0;
 			break;
 		case EDBP_ECRYPT:
+		case EDBP_XLOCK:
+		case EDBP_ULOCK:
 		default:
 			err = EDB_EINVAL;
 			break;
