@@ -36,7 +36,7 @@ edbp_id static inline off2pid(const edbpcache_t *c, off64_t off) {
 // todo: update documentation to reflect signature
 static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid *o_pageslots) {
 	// quick vars
-	int fd = cache->file->descriptor;
+	int fd = cache->fd;
 	unsigned int pagesize = edbp_size(cache);
 
 	// we need to get smart here...
@@ -257,10 +257,9 @@ void static unlockeof(edbpcache_t *caache) {
 }
 
 // see conf->pra_algo
-edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_cache) {
+edb_err edbp_init(edbp_slotid slotcount, unsigned int pagesize, int fd, edbpcache_t *o_cache) {
 
 	// invals
-	if(!file) return EDB_EINVAL;
 	if(!o_cache) return EDB_EINVAL;
 
 	// initialize
@@ -268,11 +267,11 @@ edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_
 	int err = 0;
 
 	// parent file
-	o_cache->file = file;
+	o_cache->fd = fd;
 
 	// page cache metrics
-	o_cache->slot_count    = conf.slot_count;
-	o_cache->page_size    = file->head->intro.pagemul * file->head->intro.pagesize;
+	o_cache->slot_count    = slotcount;
+	o_cache->page_size    = pagesize;
 
 	// buffers
 	// individual slots
@@ -303,11 +302,11 @@ edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_
 	// calculations
 	o_cache->slotboostCc = EDBP_SLOTBOOSTPER;
 	o_cache->slotboost = (unsigned int)(o_cache->slotboostCc * (float)o_cache->slot_count);
-
+	o_cache->initialized = 1;
 	return 0;
 }
 void    edbp_decom(edbpcache_t *cache) {
-	if(!cache || !cache->file) return;
+	if(!cache || !cache->initialized) return;
 
 	// kill mutexes
 	pthread_mutex_destroy(&cache->eofmutext);
@@ -328,7 +327,7 @@ void    edbp_decom(edbpcache_t *cache) {
 	// null out pointers
 	cache->slots = 0;
 	cache->slot_count = 0;
-	cache->file = 0;
+	cache->initialized = 0;
 }
 
 static unsigned int nexthandleid = 0;
@@ -357,7 +356,7 @@ edb_err edbp_start (edbphandle_t *handle, edbp_id id) {
 
 	// easy vars
 	edbpcache_t *parent = handle->parent;
-	int fd = handle->parent->file->descriptor;
+	int fd = handle->parent->fd;
 	int err = 0;
 
 	// are they trying to create a new page?

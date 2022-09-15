@@ -7,7 +7,6 @@
 
 #include "include/ellemdb.h"
 #include "errors.h"
-#include "file.h"
 
 /*
  * Quick overview of how pages.h works:
@@ -139,7 +138,8 @@ typedef struct {
 
 // the cahce, installed in the host
 typedef struct _edbpcache_t {
-	edb_file_t *file;
+	int initialized; // 0 for not, 1 for yes.
+	int fd;
 
 	// slots
 	edbp_slot     *slots;
@@ -203,7 +203,9 @@ typedef struct _edbphandle_t {
 // UNDEFINED: calling edbp_decom whilest edbphandle's are out using cache will result
 // in undefined behaviour. If you wish to clean up a cache, make sure to free
 // the handlers of the cache first.
-edb_err edbp_init(edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_cache);
+//
+// todo: update the above documentation
+edb_err edbp_init(edbp_slotid slotcount, unsigned int pagesize, int fd, edbpcache_t *o_cache);
 void    edbp_decom(edbpcache_t *cache);
 
 
