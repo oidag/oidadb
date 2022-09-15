@@ -11,17 +11,17 @@
 #include <limits.h>
 #include <errno.h>
 #include <stdarg.h>
-
-
 #include "file.h"
 #include "pages.h"
 
+
+
 // changes the pid into a file offset.
-off64_t static inline pid2off(edbp_id id) {
-	return (off64_t)id * EDBP_SIZE;
+off64_t static inline pid2off(const edbpcache_t *c, edbp_id id) {
+	return (off64_t)id * edbp_size(c);
 }
-edbp_id static inline off2pid(off64_t off) {
-	return off / EDBP_SIZE;
+edbp_id static inline off2pid(const edbpcache_t *c, off64_t off) {
+	return off / edbp_size(c);
 }
 
 // gets thee pages from either the cache or the file and returns an array of
@@ -33,18 +33,11 @@ edbp_id static inline off2pid(off64_t off) {
 //
 // returns only critical errors
 //
-// later: right now we'll only ever return 1 page at a time. in the future we
-//        can do strait-loading.
-static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
-						 edbp_slotid len, edbp_slotid *o_len, edbp_slotid *o_pageslots) {
-	// quick invals
-	if(len == 0) {
-		*o_len = 0;
-		return 0;
-	}
-
+// todo: update documentation to reflect signature
+static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid *o_pageslots) {
 	// quick vars
 	int fd = cache->file->descriptor;
+	unsigned int pagesize = edbp_size(cache);
 
 	// we need to get smart here...
 	// Theres a chance that some of our pages in our desired array are loaded and
@@ -73,7 +66,7 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 	// lets loop through our cache and see if we have any of these pages loaded already.
 	// We can also take this time to find what pages we can likely replace.
 	unsigned int i;
-	for(i = 0; i < cache->pagebufc_w1; i++) {
+	for(i = 0; i < cache->slot_count; i++) {
 		edbp_slot *slot = &cache->slots[i];
 
 		if(slot->id != starting) {
@@ -95,8 +88,7 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 		slot->pra_k[0] = cache->opcoutner;
 		// quickly unlock the mutex because that's all we need to use it for.
 		pthread_mutex_unlock(&cache->mutexpagelock);
-		*o_len = 1;
-		o_pageslots[0] = i;
+		*o_pageslots = i;
 
 		// before we return: in the case that the page was currently undergoing a swap
 		// we'll wait for it here.
@@ -126,8 +118,6 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 	slot->pra_k[0] = cache->opcoutner;
 	// assign the new id
 	slot->id = starting;
-	// set the strait size
-	slot->strait = 1;
 	// with the lock field set we can unlock the mutex and perform the
 	// rest of our work in peace. Even though we didn't do the swap yet,
 	// we're not going to slow everyone else down by keeping this page mutex
@@ -135,40 +125,46 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 	// locks from returning until the swap is complete.
 	slot->futex_swap = 1;
 	pthread_mutex_unlock(&cache->mutexpagelock);
+	*o_pageslots = slotswap;
 
 	// perform the actual swap.
 	// deload the page that was already there.
-	if(slot->page != 0) {// (if there was antyhing there)
+	if(slot->page.head != 0) {// (if there was antyhing there)
 
-		// recalculate checksum.
+		// recalculate checksum only when the page has been marked
+		// as dirty.
 		// note w=1 because the first word of the page is the checksum itself.
-		uint32_t sum = 0;
-		for(int w = 1; w < EDBP_SIZE / sizeof(uint32_t); w++) {
-			sum += ((uint32_t *)(&slot->page))[w];
+		if(slot->pra_hints & EDBP_HDIRTY) {
+			uint32_t sum = 0;
+			for (int w = 1; w < pagesize / sizeof(uint32_t); w++) {
+				sum += ((uint32_t *) (&slot->page))[w];
+			}
+			slot->page.head->_checksum = sum;
 		}
-		slot->page->head._checksum = sum;
 
 		// later: encrypt the body if page is supposed to be encrypted.
 
 		// I invoke a explicit sync here.
 		// later: hmmm... is this needed with O_DIRECT? would this be faster without while still in our
 		//        risk tolerance?
-		msync(slot->page, slot->strait*EDBP_SIZE, MS_SYNC);
+		msync(slot->page.head, pagesize, MS_SYNC);
 
 		// do the actual unmap
-		munmap(slot->page, slot->strait * EDBP_SIZE);
+		munmap(slot->page.head, pagesize);
 	}
-	slot->page = mmap64(0, slot->strait * EDBP_SIZE,
-		 PROT_READ | PROT_WRITE,
-		 MAP_SHARED, fd, pid2off(starting));
 
-	if(slot->page == (void *)-1) {
+	// load in the new page
+	void *newpage = mmap64(0, pagesize,
+		 PROT_READ | PROT_WRITE,
+		 MAP_SHARED, fd, pid2off(cache, starting));
+
+	if(newpage == (void *)-1) {
 		// out of memory/some other critical error: bail out.
 		log_critf("failed to map page(s) into slot");
 		int eno = errno;
 		edb_err err;
 		pthread_mutex_lock(&cache->mutexpagelock);
-		slot->page = 0;
+		slot->page.head = 0;
 		slot->pra_score = 0;
 		// handle nomem.
 		if(eno == ENOMEM) {
@@ -183,6 +179,11 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting,
 		errno = eno;
 		return err;
 	}
+
+	// assign other memebers of the page data
+	slot->page.head = newpage;
+	slot->page.bodyv = newpage + sizeof(edbp_head);
+	slot->page.bodyc = pagesize - sizeof(edbp_head);
 
 
 	// swap is complete. let the futex know the page is loaded in now
@@ -270,20 +271,20 @@ edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_
 	o_cache->file = file;
 
 	// page cache metrics
-	o_cache->pagebufc    = conf.page_buffer + conf.page_buffer4 + conf.page_buffer8;
-	o_cache->pagebufc_w1 = conf.page_buffer;
-	o_cache->pagebufc_w4 = conf.page_buffer4;
-	o_cache->pagebufc_w8 = conf.page_buffer8;
+	o_cache->slot_count    = conf.slot_count;
+	o_cache->page_size    = file->head->intro.pagemul * file->head->intro.pagesize;
 
 	// buffers
-	// pageref array
-	o_cache->slots = malloc(sizeof(edbp_slot) * o_cache->pagebufc);
+	// individual slots
+	o_cache->slots = malloc(sizeof(edbp_slot) * o_cache->slot_count);
 	if(o_cache->slots == 0) {
 		log_critf("cannot allocate page buffer");
 		edbp_decom(o_cache);
 		return EDB_ENOMEM;
 	}
-	bzero(o_cache->slots, sizeof(edbp_slot) * o_cache->pagebufc); // 0-out
+	bzero(o_cache->slots, sizeof(edbp_slot) * o_cache->slot_count); // 0-out
+
+
 
 	// mutexes
 	err = pthread_mutex_init(&o_cache->eofmutext, 0);
@@ -301,7 +302,7 @@ edb_err edbp_init(const edb_hostconfig_t conf, edb_file_t *file, edbpcache_t *o_
 
 	// calculations
 	o_cache->slotboostCc = EDBP_SLOTBOOSTPER;
-	o_cache->slotboost = (unsigned int)(o_cache->slotboostCc * (float)o_cache->pagebufc);
+	o_cache->slotboost = (unsigned int)(o_cache->slotboostCc * (float)o_cache->slot_count);
 
 	return 0;
 }
@@ -313,11 +314,11 @@ void    edbp_decom(edbpcache_t *cache) {
 	pthread_mutex_destroy(&cache->mutexpagelock);
 
 	// munmap all slots that have data in them.
-	for(int i = 0; i < cache->pagebufc; i++) {
-		if(cache->slots[i].page != 0) {
-			msync(cache->slots[i].page, cache->slots[i].strait * EDBP_SIZE, MS_SYNC);
-			munmap(cache->slots[i].page, cache->slots[i].strait * EDBP_SIZE);
-			cache->slots[i].page = 0;
+	for(int i = 0; i < cache->slot_count; i++) {
+		if(cache->slots[i].page.head != 0) {
+			msync(cache->slots[i].page.head, edbp_size(cache), MS_SYNC);
+			munmap(cache->slots[i].page.head, edbp_size(cache));
+			cache->slots[i].page.head = 0;
 		}
 	}
 
@@ -326,7 +327,7 @@ void    edbp_decom(edbpcache_t *cache) {
 
 	// null out pointers
 	cache->slots = 0;
-	cache->pagebufc = 0;
+	cache->slot_count = 0;
 	cache->file = 0;
 }
 
@@ -347,10 +348,9 @@ void    edbp_freehandle(edbphandle_t *handle) {
 	handle->parent = 0;
 }
 
-edb_err edbp_start (edbphandle_t *handle, edbp_id *id, unsigned int straits) {
-	if(straits == 0) return EDB_EINVAL;
-	if(id == 0 || *id == 0) return EDB_EINVAL;
-	if(handle->lockedslotc != 0) {
+edb_err edbp_start (edbphandle_t *handle, edbp_id id) {
+	if(id == 0) return EDB_EINVAL;
+	if(handle->lockedslotv != -1) {
 		log_errorf("cache handle attempt to double-lock");
 		return EDB_EINVAL;
 	}
@@ -361,40 +361,45 @@ edb_err edbp_start (edbphandle_t *handle, edbp_id *id, unsigned int straits) {
 	int err = 0;
 
 	// are they trying to create a new page?
-	if(*id == -1) {
+	if(id == -1) {
 		// new page must be created.
 		lockeof(parent);
-		//seek to the end
-		*id = off2pid(lseek64(fd, SEEK_END, 0));
+		//seek to the end and grab the next page id while we're there.
+		off64_t fsize = lseek64(fd, 0, SEEK_END);
+		id = off2pid(parent, fsize + 1); // +1 to put us at the start of the next page id.
+		// we HAVE to make sure that fsize/id is set properly. Otherwise
+		// we end up truncating the entire file, and thus deleting the
+		// entire database lol.
+		if(id == 0 || fsize == -1) {
+			log_critf("failed to seek to end of file");
+			unlockeof(parent);
+			return EDB_ECRIT;
+		}
 		// do old-fasioned writes(2)s of some fresh pages
-		for(int i = 0; i < straits; i++) {
-			edbp_t newpage = {0};
-			err = write(fd, &newpage, sizeof(edbp_t));
-			if(err == -1) {
-				log_critf("failed to write new pages");
-				unlockeof(parent);
-				return EDB_ECRIT;
-			}
+		size_t werr = ftruncate64(fd, fsize + edbp_size(parent));
+		if(werr == -1) {
+			log_critf("failed to truncate-extend for new pages");
+			unlockeof(parent);
+			return EDB_ECRIT;
 		}
 		unlockeof(parent);
 		// new pages created.
 	}
 
 	// lock in the pages
-	err = lockpages(parent, *id, straits,
-					&handle->lockedslotc,
-					handle->lockedslotv);
+	err = lockpages(parent, id,
+					&handle->lockedslotv);
 	return err;
 }
 void    edbp_finish(edbphandle_t *handle) {
-	for(; handle->lockedslotc > 0; handle->lockedslotc--) {
+	if(handle->lockedslotv != -1) {
 		unlockpage(handle->parent,
-				   handle->lockedslotv[handle->lockedslotc-1]);
+		           handle->lockedslotv);
 	}
 }
 
 edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...) {
-	if(handle->lockedslotc == 0)
+	if(handle->lockedslotv == -1)
 		return EDB_ENOENT;
 
 	// easy pointers
@@ -407,9 +412,7 @@ edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...) {
 	switch (opts) {
 		case EDBP_CACHEHINT:
 			hints = va_arg(args, edbp_hint);
-			for(int i = 0; i < handle->lockedslotc; i++) {
-				cache->slots[handle->lockedslotv[i]].pra_hints = hints;
-			}
+			cache->slots[handle->lockedslotv].pra_hints = hints;
 			err = 0;
 			break;
 		case EDBP_ECRYPT:

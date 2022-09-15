@@ -20,11 +20,6 @@
  *  And the handles are in the context of a worker.
  */
 
-// EDBP_BODY_SIZE will always be a constant set at
-// build time.
-#define EDBP_SIZE PAGE_SIZE
-#define EDBP_HEAD_SIZE sizeof(edbp_head)
-#define EDBP_BODY_SIZE PAGE_SIZE - sizeof(edbp_head)
 typedef enum {
 
 	// This page will be used soon by the same worker in a given
@@ -93,6 +88,7 @@ typedef struct _edbp_head {
 	uint16_t rsvd;
 	uint64_t pleft;
 	uint64_t pright;
+
 	uint8_t  psecf[16]; // page spcific
 } edbp_head;
 
@@ -101,14 +97,18 @@ typedef struct _edbp_head {
 //
 // See database specification under page header for details.
 typedef struct _edbp {
-	edbp_head head;
-	uint8_t   body[EDBP_BODY_SIZE];
+	// will also be the pointer to the page in general.
+	edbp_head   *head;
+
+	// will always edbp_size(cache) - sizeof(edbp_head) in size.
+	unsigned int bodyc; // todo: avoid using this when can insteand of using edbp_cache(cache) - sizeof...
+	void              *bodyv;
 } edbp_t;
 
 // a slot is an index within the cache to where the page is.
 typedef unsigned int edbp_slotid;
 typedef struct {
-	edbp_t *page;
+	edbp_t page;
 	edbp_id id; // cache's mutexpagelock must be locked to access
 
 	// the amount of workers that have this page locked. 0 for none.
@@ -135,10 +135,6 @@ typedef struct {
 	unsigned int pra_k[2]; // [0]=LRU-1 and [1]=LRU-2
 	edbp_hint pra_hints;
 	unsigned int pra_score;
-
-	// not used yet:
-	unsigned int width;
-	unsigned int strait;
 } edbp_slot;
 
 // the cahce, installed in the host
@@ -147,13 +143,14 @@ typedef struct _edbpcache_t {
 
 	// slots
 	edbp_slot     *slots;
-	edbp_slotid    pagebufc; // the total amount of slots regardless of width
-	edbp_slotid    pagebufc_w1; // width 1 slot count
-	edbp_slotid    pagebufc_w4; // width 4 slot count
-	edbp_slotid    pagebufc_w8; // width 8 slot count
+	edbp_slotid    slot_count; // the total amount of slots regardless of width
+
+	// calculated by native page size by page mutliplier.
+	// doesn't change after init.
+	uint16_t       page_size;
 
 	// slotboostCc is a number from 0 to 1 that is multipled by
-	// pagebufc and the result is stored in slotboost. This is done
+	// slot_count and the result is stored in slotboost. This is done
 	// once during cache startup.
 	//
 	// slotboostCc is what is used to assign the power of the edbp_hints.
@@ -179,11 +176,10 @@ typedef struct _edbphandle_t {
 	edbpcache_t *parent;
 
 	// modified via edbp_start and edbp_finish.
-	edbp_slotid  lockedslotc;
-
+	// -1 means nothing is locked.
 	// later: this will remain one until I get strait-pras in.
 	//        but just assume this is always an array lockedslotc in size.
-	edbp_slotid lockedslotv[1];
+	edbp_slotid lockedslotv;
 
 	unsigned int id; // unique id for each handle assigned at newhandle time.
 } edbphandle_t;
@@ -229,7 +225,10 @@ typedef enum {
 	EDBP_CACHEHINT = 0x1002,
 } edbp_options;
 
-
+// simply returns the size of the pages found in this cache.
+// note: this can be replaced with a hardcoded macro in builds
+// that only support a single page multiplier
+unsigned int inline edbp_size(const edbpcache_t *c) {return c->page_size;}
 
 // edbp_start and edbp_finish allow workers to access pages in a file while managing
 // page caches, access, allocations, ect.
@@ -269,7 +268,7 @@ typedef enum {
 //
 // UNDEFINED:
 //   - using an unitialized handle / uninitialized cache
-edb_err edbp_start (edbphandle_t *handle, edbp_id *id, unsigned int straits);
+edb_err edbp_start (edbphandle_t *handle, edbp_id id);
 void    edbp_finish(edbphandle_t *handle);
 
 // edbp_mod applies special modifiecations to the page. This function will effect the page
