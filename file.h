@@ -13,7 +13,7 @@ struct _edb_fhead_intro {
 	uint8_t intsize;
 	uint8_t entrysize;
 	uint16_t pagesize;
-	uint16_t flags;
+	uint16_t pagemul;
 	char rsvd[24];
 	char id[32];
 } __attribute__((__packed__)); // we pack the intro to make it more universal.
