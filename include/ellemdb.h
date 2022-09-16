@@ -2,6 +2,7 @@
 #define _EDB_H_ 1
 
 #include <stdint.h>
+#include <sys/fcntl.h>
 
 
 // easy typedefs.

@@ -9,7 +9,7 @@
 #include "include/ellemdb.h"
 
 struct _edb_fhead_intro {
-	char magic[2];
+	uint8_t magic[2];
 	uint8_t intsize;
 	uint8_t entrysize;
 	uint16_t pagesize;
@@ -65,7 +65,7 @@ typedef struct edb_file_st {
 //
 // edb_fileclose will preserve errno.
 //
-edb_err edb_fileopen(edb_file_t *file, const char *path, int flags);
+edb_err edb_fileopen(edb_file_t *file, const char *path, unsigned int pagemul, int flags);
 void edb_fileclose(edb_file_t *file);
 
 #endif

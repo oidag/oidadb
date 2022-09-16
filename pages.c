@@ -14,7 +14,9 @@
 #include "file.h"
 #include "pages.h"
 
-
+unsigned int edbp_size(const edbpcache_t *c) {
+	return c->page_size;
+}
 
 // changes the pid into a file offset.
 off64_t static inline pid2off(const edbpcache_t *c, edbp_id id) {
@@ -34,7 +36,9 @@ edbp_id static inline off2pid(const edbpcache_t *c, off64_t off) {
 // returns only critical errors
 //
 // todo: update documentation to reflect signature
-static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid *o_pageslots) {
+static edb_err lockpages(edbpcache_t *cache,
+						 edbp_id starting,
+						 edbp_slotid *o_pageslots) {
 	// quick vars
 	int fd = cache->fd;
 	unsigned int pagesize = edbp_size(cache);
@@ -57,7 +61,7 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid *o_pa
 	// each worker can only lock a slot at a time. Thus, all workers will
 	// always have call this function with 1 page unlocked.
 	unsigned int slotswap;
-	unsigned int lowestscore;
+	unsigned int lowestscore = (unsigned int)(-1);
 
 	// lock the page mutex until we have our slot locked.
 	pthread_mutex_lock(&cache->mutexpagelock);
@@ -137,7 +141,7 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid *o_pa
 		if(slot->pra_hints & EDBP_HDIRTY) {
 			uint32_t sum = 0;
 			for (int w = 1; w < pagesize / sizeof(uint32_t); w++) {
-				sum += ((uint32_t *) (&slot->page))[w];
+				sum += ((uint32_t *) (slot->page.head))[w];
 			}
 			slot->page.head->_checksum = sum;
 		}
@@ -147,7 +151,10 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid *o_pa
 		// I invoke a explicit sync here.
 		// later: hmmm... is this needed with O_DIRECT? would this be faster without while still in our
 		//        risk tolerance?
-		msync(slot->page.head, pagesize, MS_SYNC);
+		//msync(slot->page.head, pagesize, MS_SYNC);
+
+		// reset the slot hints
+		slot->pra_hints = 0;
 
 		// do the actual unmap
 		munmap(slot->page.head, pagesize);
@@ -203,8 +210,7 @@ static edb_err lockpages(edbpcache_t *cache, edbp_id starting, edbp_slotid *o_pa
 //
 // if the slot is already unlocked, nothing happens (logs will tho)
 // will only ever return critical errors.
-edb_err static unlockpage(edbpcache_t *cache, edbp_slotid slotid) {
-	edb_err eerr = 0;
+void static unlockpage(edbpcache_t *cache, edbp_slotid slotid) {
 	edbp_slot *slot = &cache->slots[slotid];
 
 	// calculate the pra_score
@@ -224,7 +230,7 @@ edb_err static unlockpage(edbpcache_t *cache, edbp_slotid slotid) {
 	} else {
 		slot->pra_score = slot->pra_k[1 - slot->pra_hints & 1] // see EDBP_HUSESOON
 				+ (
-						(slot->pra_score&EDBP_HDIRTY) + (slot->pra_score >> 4)
+						(slot->pra_hints&EDBP_HDIRTY) + (slot->pra_hints >> 4)
 				   )
 				   * cache->slotboost
 				   / EDBP_HMAXLIF;
@@ -245,7 +251,7 @@ edb_err static unlockpage(edbpcache_t *cache, edbp_slotid slotid) {
 	// clean up
 	unlock:
 	pthread_mutex_unlock(&cache->mutexpagelock);
-	return eerr;
+	return;
 }
 
 // locks/unlocks the endoffile for new entries
@@ -257,7 +263,7 @@ void static unlockeof(edbpcache_t *caache) {
 }
 
 // see conf->pra_algo
-edb_err edbp_init(edbp_slotid slotcount, unsigned int pagesize, int fd, edbpcache_t *o_cache) {
+edb_err edbp_init(edbpcache_t *o_cache, const edb_file_t *file, edbp_slotid slotcount) {
 
 	// invals
 	if(!o_cache) return EDB_EINVAL;
@@ -267,11 +273,11 @@ edb_err edbp_init(edbp_slotid slotcount, unsigned int pagesize, int fd, edbpcach
 	int err = 0;
 
 	// parent file
-	o_cache->fd = fd;
+	o_cache->fd = file->descriptor;
 
 	// page cache metrics
 	o_cache->slot_count    = slotcount;
-	o_cache->page_size    = pagesize;
+	o_cache->page_size    = file->head->intro.pagemul * file->head->intro.pagesize;
 
 	// buffers
 	// individual slots
@@ -338,6 +344,7 @@ edb_err edbp_newhandle(edbpcache_t *cache, edbphandle_t *o_handle) {
 	bzero(o_handle, sizeof(edbphandle_t));
 	o_handle->parent = cache;
 	o_handle->id = ++nexthandleid;
+	o_handle->lockedslotv = -1;
 	return 0;
 }
 void    edbp_freehandle(edbphandle_t *handle) {
@@ -347,12 +354,13 @@ void    edbp_freehandle(edbphandle_t *handle) {
 	handle->parent = 0;
 }
 
-edb_err edbp_start (edbphandle_t *handle, edbp_id id) {
-	if(id == 0) return EDB_EINVAL;
+edb_err edbp_start (edbphandle_t *handle, edbp_id *id) {
+	if(id == 0 || *id == 0) return EDB_EINVAL;
 	if(handle->lockedslotv != -1) {
 		log_errorf("cache handle attempt to double-lock");
 		return EDB_EINVAL;
 	}
+	edbp_id setid = *id;
 
 	// easy vars
 	edbpcache_t *parent = handle->parent;
@@ -360,16 +368,16 @@ edb_err edbp_start (edbphandle_t *handle, edbp_id id) {
 	int err = 0;
 
 	// are they trying to create a new page?
-	if(id == -1) {
+	if(setid == -1) {
 		// new page must be created.
 		lockeof(parent);
 		//seek to the end and grab the next page id while we're there.
 		off64_t fsize = lseek64(fd, 0, SEEK_END);
-		id = off2pid(parent, fsize + 1); // +1 to put us at the start of the next page id.
+		setid = off2pid(parent, fsize + 1); // +1 to put us at the start of the next page id.
 		// we HAVE to make sure that fsize/id is set properly. Otherwise
 		// we end up truncating the entire file, and thus deleting the
 		// entire database lol.
-		if(id == 0 || fsize == -1) {
+		if(setid == 0 || fsize == -1) {
 			log_critf("failed to seek to end of file");
 			unlockeof(parent);
 			return EDB_ECRIT;
@@ -382,12 +390,14 @@ edb_err edbp_start (edbphandle_t *handle, edbp_id id) {
 			return EDB_ECRIT;
 		}
 		unlockeof(parent);
-		// new pages created.
+		*id = setid;
 	}
 
 	// lock in the pages
-	err = lockpages(parent, id,
+	err = lockpages(parent, setid,
 					&handle->lockedslotv);
+
+	// later: HIID stuff should go here.
 	return err;
 }
 void    edbp_finish(edbphandle_t *handle) {
@@ -395,6 +405,16 @@ void    edbp_finish(edbphandle_t *handle) {
 		unlockpage(handle->parent,
 		           handle->lockedslotv);
 	}
+	handle->lockedslotv = -1;
+}
+
+edbp_t edbp_page(edbphandle_t *handle) {
+	if (handle->lockedslotv == -1) {
+		log_errorf("call attempted to edbp_page without having one locked");
+		edbp_t phoney = {0};
+		return phoney;
+	}
+	return handle->parent->slots[handle->lockedslotv].page;
 }
 
 edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...) {

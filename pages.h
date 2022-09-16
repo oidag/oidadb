@@ -6,6 +6,7 @@
 #include <pthread.h>
 
 #include "include/ellemdb.h"
+#include "file.h"
 #include "errors.h"
 
 /*
@@ -184,6 +185,10 @@ typedef struct _edbphandle_t {
 	unsigned int id; // unique id for each handle assigned at newhandle time.
 } edbphandle_t;
 
+// simply returns the size of the pages found in this cache.
+// note: this can be replaced with a hardcoded macro in builds
+// that only support a single page multiplier
+unsigned int edbp_size(const edbpcache_t *c);
 
 #define EDBP_HANDLE_MAXSLOTS 1
 
@@ -205,7 +210,7 @@ typedef struct _edbphandle_t {
 // the handlers of the cache first.
 //
 // todo: update the above documentation
-edb_err edbp_init(edbp_slotid slotcount, unsigned int pagesize, int fd, edbpcache_t *o_cache);
+edb_err edbp_init(edbpcache_t *o_cache, const edb_file_t *file, edbp_slotid slotcount);
 void    edbp_decom(edbpcache_t *cache);
 
 
@@ -226,11 +231,6 @@ typedef enum {
 	EDBP_ULOCK = 0x1001,
 	EDBP_CACHEHINT = 0x1002,
 } edbp_options;
-
-// simply returns the size of the pages found in this cache.
-// note: this can be replaced with a hardcoded macro in builds
-// that only support a single page multiplier
-unsigned int inline edbp_size(const edbpcache_t *c) {return c->page_size;}
 
 // edbp_start and edbp_finish allow workers to access pages in a file while managing
 // page caches, access, allocations, ect.
@@ -270,8 +270,15 @@ unsigned int inline edbp_size(const edbpcache_t *c) {return c->page_size;}
 //
 // UNDEFINED:
 //   - using an unitialized handle / uninitialized cache
-edb_err edbp_start (edbphandle_t *handle, edbp_id id);
+edb_err edbp_start (edbphandle_t *handle, edbp_id *id);
 void    edbp_finish(edbphandle_t *handle);
+
+// called between edbp_start and edbp_finish. Simply returns the
+// page that was locked successfully by edbp_start.
+//
+// If you attempt to call this without having a page locked, null
+// is returned (which you should never do).
+const edbp_t edbp_page(edbphandle_t *handle);
 
 // edbp_mod applies special modifiecations to the page. This function will effect the page
 // that was referenced in the most recent edbp_start and must be called before the
