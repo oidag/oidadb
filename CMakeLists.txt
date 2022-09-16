@@ -10,3 +10,4 @@ include_directories(include)
 add_library(edb ${sources})
 
 add_executable(test_pages tests/page_main.c pages.c file-io.c errors.c)
+TARGET_LINK_LIBRARIES(test_pages pthread)

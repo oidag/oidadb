@@ -21,7 +21,7 @@
 // it is assumed that path does not exist.
 //
 // can return EDB_EERRNO from open(2)
-static edb_err createfile(const char *path, int flags) {
+static edb_err createfile(const char *path, unsigned int pagemul, int flags) {
 	int err = 0;
 	int minpagesize = sysconf(_SC_PAGE_SIZE);
 
@@ -32,7 +32,7 @@ static edb_err createfile(const char *path, int flags) {
 	}
 
 	// truncate the file to the full length of a page.
-	err = ftruncate(fd, minpagesize);
+	err = ftruncate(fd, minpagesize * pagemul);
 	if(err == -1) {
 		int errnotmp = errno;
 		close(fd);
@@ -48,6 +48,7 @@ static edb_err createfile(const char *path, int flags) {
 	intro.intsize  = sizeof(int);
 	intro.entrysize = sizeof(edb_entry_t);
 	intro.pagesize = minpagesize;
+	intro.pagemul  = pagemul;
 	edb_fhead newhead = {.intro = intro};
 	// zero out the rest of the structure explicitly
 	bzero(&(newhead.newest), sizeof(edb_fhead) - sizeof(edb_fhead_intro));
@@ -112,6 +113,16 @@ static edb_err validateheadintro(edb_fhead_intro head) {
 				   sysconf(_SC_PAGE_SIZE));
 		return EDB_EHW;
 	}
+	if(head.pagemul != 1 &&
+	   head.pagemul != 2 &&
+	   head.pagemul != 4 &&
+	   head.pagemul != 8 &&
+	   head.pagemul != 16 &&
+	   head.pagemul != 32) {
+		log_errorf("page multiplier is not an acceptable number: got %d",
+		           head.pagemul);
+		return EDB_EHW;
+	}
 	return 0;
 }
 
@@ -137,7 +148,7 @@ void edb_fileclose(edb_file_t *file) {
 	}
 }
 
-edb_err edb_fileopen(edb_file_t *dbfile, const char *path, int flags) {
+edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul, int flags) {
 
 	// initialize memeory.
 	bzero(dbfile, sizeof(edb_file_t));
@@ -153,7 +164,7 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, int flags) {
 		int errnotmp = errno;
 		if(errno == ENOENT && trycreate) {
 			// file does not exist and they would like to create it.
-			edb_err createrr = createfile(path, flags);
+			edb_err createrr = createfile(path, pagemul, flags);
 			if(createrr != 0) {
 				// failed to create
 				return createrr;
@@ -213,13 +224,13 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, int flags) {
 	// file open and locked. load in the head.
 	int psize = sysconf(_SC_PAGE_SIZE);
 	dbfile->head = mmap(0, psize, PROT_READ | PROT_WRITE,
-						   MAP_SHARED_VALIDATE | MAP_SYNC,
+						   MAP_SHARED_VALIDATE,
 						   dbfile->descriptor,
 						   0);
 	if(dbfile->head == MAP_FAILED) {
 		int errnotmp = errno;
-		close(dbfile->descriptor);
 		log_critf("failed to call mmap(2) due to unpredictable errno: %d", errnotmp);
+		close(dbfile->descriptor);
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
