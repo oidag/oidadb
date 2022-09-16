@@ -8,9 +8,6 @@
 #include "include/ellemdb.h"
 #include "errors.h"
 #include "host.h"
-#include "file.h"
-#include "worker.h"
-#include "pages.h"
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22
 
@@ -25,37 +22,7 @@ enum hoststate {
 	HOST_FAILED,
 };
 
-typedef struct edb_host_st {
-
-	enum hoststate state;
-
-	// todo: these locks may not be needed sense the only thing
-	//       allowed to acces host structures directly are the
-	//       workers... and they only exist after HOST_OPEN is true
-	// bootup - edb_host locks this until its in the HOST_OPEN transferstate.
-	pthread_mutex_t bootup;
-	// retlock - locked before switching to HOST_OPEN and double locked.
-	// unlock this to have edb_host return.
-	pthread_mutex_t retlock;
-
-	// the file it is hosting
-	edb_file_t       file;
-
-	// configuration it has when starting up
-	edb_hostconfig_t config;
-
-	// shared memory with handles
-	edb_shm_t shm;
-
-	// worker buffer, see worker.h
-	unsigned int  workerc;
-	edb_worker_t *workerv;
-
-	// page IO, see pages.h
-	edbpcache_t phandle;
-
-
-} edb_host_t;
+typedef struct edb_host_st edb_host_t;
 
 // stored the pid of the host for a given database file.
 // does not validate the file itself.

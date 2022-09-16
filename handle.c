@@ -6,7 +6,7 @@
 #include "sharedmem.h"
 
 
-
+/*
 
 edb_err edb_open(edbh *handle, edb_open_t params) {
 
@@ -28,4 +28,4 @@ edb_err edb_open(edbh *handle, edb_open_t params) {
 }
 
 
-edb_err edb_close(edbh *handle);
+edb_err edb_close(edbh *handle);*/

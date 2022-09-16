@@ -1,7 +1,7 @@
 #define _GNU_SOURCE 1
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -18,6 +18,38 @@
 #include "include/ellemdb.h"
 #include "pages.h"
 
+
+typedef struct edb_host_st {
+
+	enum hoststate state;
+
+	// todo: these locks may not be needed sense the only thing
+	//       allowed to acces host structures directly are the
+	//       workers... and they only exist after HOST_OPEN is true
+	// bootup - edb_host locks this until its in the HOST_OPEN transferstate.
+	pthread_mutex_t bootup;
+	// retlock - locked before switching to HOST_OPEN and double locked.
+	// unlock this to have edb_host return.
+	pthread_mutex_t retlock;
+
+	// the file it is hosting
+	edb_file_t       file;
+
+	// configuration it has when starting up
+	edb_hostconfig_t config;
+
+	// shared memory with handles
+	edb_shm_t shm;
+
+	// worker buffer, see worker.h
+	unsigned int  workerc;
+	edb_worker_t *workerv;
+
+	// page IO, see pages.h
+	edbpcache_t pcache;
+
+
+} edb_host_t;
 
 
 // helper function for edb_host to Check for EDB_EINVALs
@@ -107,7 +139,7 @@ static void hostclose(edb_host_t *host) {
 
 // generates the file name for the shared memory
 // buff should be at least 32bytes.
-static inline shmname(pid_t pid, char *buff) {
+void static inline shmname(pid_t pid, char *buff) {
 	sprintf(buff, "/EDB_HOST-%d", pid);
 }
 
@@ -303,7 +335,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	// past this point we need pthread_mutex_destroy(&(host.bootup));
 
 	// open and lock the file
-	eerr = edb_fileopen(&(host.file), path, hostops.flags);
+	eerr = edb_fileopen(&(host.file), path, hostops.page_multiplier, hostops.flags);
 	if(eerr) {
 		goto clean_mutex;
 	}
@@ -318,7 +350,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	// past this point, we must deleteshm + edb_fileclose + pthread_mutex_destroy(&(host.bootup))
 
 	// page buffers
-	eerr = edbp_init(host.config, &host.file, &host.phandle);
+	eerr = edbp_init(&host.pcache, &host.file, host.config.slot_count);
 	if(eerr) {
 		goto clean_shm;
 	}
@@ -337,7 +369,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 		goto clean_pages;
 	}
 	for(int i = 0; i < host.workerc; i++) {
-		eerr = edb_workerinit(&host, i+1, &(host.workerv[i]));
+		eerr = edb_workerinit(&(host.workerv[i]), &host.pcache, &host.shm);
 		if(eerr) {
 			goto clean_decomworkers;
 		}
@@ -398,7 +430,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 
 	clean_pages:
 	log_infof("freeing page cache...");
-	edbp_decom(&host.phandle);
+	edbp_decom(&host.pcache);
 
 	// unallocate the shared memory
 	clean_shm:

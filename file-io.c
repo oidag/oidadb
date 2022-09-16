@@ -88,7 +88,7 @@ static edb_err createfile(const char *path, unsigned int pagemul, int flags) {
 // validates the headintro with the current system. returns
 // EDB_ENOTDB if bad magic number (probably meaning not a edb file)
 // EDB_EHW if invalid hardware.
-static edb_err validateheadintro(edb_fhead_intro head) {
+static edb_err validateheadintro(edb_fhead_intro head, int pagemul) {
 	if(head.magic[0] != 0xA6 || head.magic[1] != 0xF0) {
 		log_errorf("invalid magic number: got {0x%02X, 0x%02X} but expecting {0x%02X, 0x%02X}",
 				   head.magic[0], head.magic[1],
@@ -121,6 +121,12 @@ static edb_err validateheadintro(edb_fhead_intro head) {
 	   head.pagemul != 32) {
 		log_errorf("page multiplier is not an acceptable number: got %d",
 		           head.pagemul);
+		return EDB_EHW;
+	}
+	if(head.pagemul != pagemul) {
+		log_errorf("page multiplier of database does not match host: database is %d, host is %d",
+		           head.pagemul,
+				   pagemul);
 		return EDB_EHW;
 	}
 	return 0;
@@ -241,7 +247,7 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul,
 	// validate the head intro on the system to make sure
 	// it can run on this architecture.
 	{
-		edb_err valdationerr = validateheadintro(dbfile->head->intro);
+		edb_err valdationerr = validateheadintro(dbfile->head->intro, pagemul);
 		if(valdationerr != 0) {
 			edb_fileclose(dbfile);
 			return valdationerr;
