@@ -99,10 +99,9 @@ static edb_err selectjob(edb_worker_t * const self) {
 	int err;
 
 	// save some pointers to the stack for easier access.
-	edb_host_t    * const host = self->host;
-	edb_shmhead_t * const head = self->host->shm.head;
+	edb_shmhead_t * const head = self->shm->head;
 	const uint64_t        jobc = head->jobc;
-	edb_job_t     * const jobv = host->shm.jobv;
+	edb_job_t     * const jobv = self->shm->jobv;
 
 
 	// now we need to find a new job.
@@ -217,14 +216,14 @@ void static *workermain(void *_selfv) {
 	}
 }
 
-
-edb_err edb_workerinit(edb_host_t *host, unsigned int workerid, edb_worker_t *worker) {
+unsigned int nextworkerid = 1;
+edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, const edb_shm_t *shm) {
 	edb_err eerr = 0;
 	//initialize
-	bzero(worker, sizeof (edb_worker_t));
-	worker->host = host;
-	worker->workerid = workerid;
-	eerr = edbp_newhandle(&host->phandle, &worker->edbphandle);
+	bzero(o_worker, sizeof (edb_worker_t));
+	o_worker->workerid = nextworkerid++;
+	o_worker->shm = shm;
+	eerr = edbp_newhandle(edbpcache, &o_worker->edbphandle);
 	if(eerr) {
 		return eerr;
 	}
@@ -253,8 +252,7 @@ edb_err edb_workerasync(edb_worker_t *worker) {
 
 
 void edb_workerstop(edb_worker_t *worker) {
-	if(worker->state != EDB_WWORKASYNC &&
-	   worker->state != EDB_WWORKSYNC) {
+	if(worker->state != EDB_WWORKASYNC) {
 		log_noticef("attempted to stop worker when not in working transferstate");
 		return;
 	}

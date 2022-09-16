@@ -596,6 +596,7 @@ edb_err edb_datwrite(edbh *handle, edb_data_t data);
  ********************************************************************/
 
 typedef struct edb_event_st {
+	int filler;
 } edb_event_t;
 
 

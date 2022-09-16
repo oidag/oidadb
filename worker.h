@@ -1,7 +1,7 @@
 #ifndef _edbWORKER_H_
 #define _edbWORKER_H_ 1
 
-#include "host.h"
+#include "sharedmem.h"
 #include "pages.h"
 
 typedef enum _edb_workerstate {
@@ -11,7 +11,8 @@ typedef enum _edb_workerstate {
 } edb_workerstate;
 
 typedef struct edb_worker_st {
-	edb_host_t *host;
+	edbpcache_t *cache;
+	const edb_shm_t *shm;
 
 	edb_workerstate state;
 
@@ -38,7 +39,7 @@ typedef struct edb_worker_st {
 // _init initializs a new worker and _decom decommissions it.
 //
 // edb_workerdecom will only crit out.
-edb_err edb_workerinit(edb_host_t *host, unsigned int workerid, edb_worker_t *worker);
+edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, const edb_shm_t *shm);
 void edb_workerdecom(edb_worker_t *worker);
 
 // once initialized, a worker can be started with either of these functions.
