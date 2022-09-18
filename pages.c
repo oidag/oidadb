@@ -19,10 +19,10 @@ unsigned int edbp_size(const edbpcache_t *c) {
 }
 
 // changes the pid into a file offset.
-off64_t static inline pid2off(const edbpcache_t *c, edbp_id id) {
+off64_t static inline pid2off(const edbpcache_t *c, edb_pid id) {
 	return (off64_t)id * edbp_size(c);
 }
-edbp_id static inline off2pid(const edbpcache_t *c, off64_t off) {
+edb_pid static inline off2pid(const edbpcache_t *c, off64_t off) {
 	return off / edbp_size(c);
 }
 
@@ -37,8 +37,8 @@ edbp_id static inline off2pid(const edbpcache_t *c, off64_t off) {
 //
 // todo: update documentation to reflect signature
 static edb_err lockpages(edbpcache_t *cache,
-						 edbp_id starting,
-						 edbp_slotid *o_pageslots) {
+                         edb_pid starting,
+                         edbp_slotid *o_pageslots) {
 	// quick vars
 	int fd = cache->fd;
 	unsigned int pagesize = edbp_size(cache);
@@ -69,9 +69,9 @@ static edb_err lockpages(edbpcache_t *cache,
 
 	// lets loop through our cache and see if we have any of these pages loaded already.
 	// We can also take this time to find what pages we can likely replace.
-	unsigned int i;
-	for(i = 0; i < cache->slot_count; i++) {
-		edbp_slot *slot = &cache->slots[i];
+	for(unsigned int i = 0; i < cache->slot_count; i++) {
+		unsigned int mslot = (cache->slot_nextstart + i) % cache->slot_count;
+		edbp_slot *slot = &cache->slots[mslot];
 
 		if(slot->id != starting) {
 			// not the page we're looking for.
@@ -79,7 +79,7 @@ static edb_err lockpages(edbpcache_t *cache,
 			// replace on the cance of a page fault.
 			if(slot->locks == 0 && slot->pra_score < lowestscore) {
 				lowestscore = slot->pra_score;
-				slotswap = i;
+				slotswap = mslot;
 			}
 			continue;
 		}
@@ -92,7 +92,7 @@ static edb_err lockpages(edbpcache_t *cache,
 		slot->pra_k[0] = cache->opcoutner;
 		// quickly unlock the mutex because that's all we need to use it for.
 		pthread_mutex_unlock(&cache->mutexpagelock);
-		*o_pageslots = i;
+		*o_pageslots = mslot;
 
 		// before we return: in the case that the page was currently undergoing a swap
 		// we'll wait for it here.
@@ -112,6 +112,10 @@ static edb_err lockpages(edbpcache_t *cache,
 	}
 
 	// At this point: Page fault.
+
+	// increment the next start to decrease the chance of having page faults
+	// happening on the same slot with equal scores.
+	cache->slot_nextstart = (cache->slot_nextstart + 1) % cache->slot_count;
 
 	// At this point, however we have which slot we can swap stored in slotswap.
 	// So swap the slot with slotswap.
@@ -133,7 +137,7 @@ static edb_err lockpages(edbpcache_t *cache,
 
 	// perform the actual swap.
 	// deload the page that was already there.
-	if(slot->page.head != 0) {// (if there was antyhing there)
+	if(slot->page != 0) {// (if there was antyhing there)
 
 		// recalculate checksum only when the page has been marked
 		// as dirty.
@@ -141,9 +145,10 @@ static edb_err lockpages(edbpcache_t *cache,
 		if(slot->pra_hints & EDBP_HDIRTY) {
 			uint32_t sum = 0;
 			for (int w = 1; w < pagesize / sizeof(uint32_t); w++) {
-				sum += ((uint32_t *) (slot->page.head))[w];
+				sum += ((uint32_t *) (slot->page))[w];
 			}
-			slot->page.head->_checksum = sum;
+			_edbp_stdhead *head = (_edbp_stdhead *)(slot->page);
+			head->_checksum = sum;
 		}
 
 		// later: encrypt the body if page is supposed to be encrypted.
@@ -157,7 +162,7 @@ static edb_err lockpages(edbpcache_t *cache,
 		slot->pra_hints = 0;
 
 		// do the actual unmap
-		munmap(slot->page.head, pagesize);
+		munmap(slot->page, pagesize);
 	}
 
 	// load in the new page
@@ -171,7 +176,7 @@ static edb_err lockpages(edbpcache_t *cache,
 		int eno = errno;
 		edb_err err;
 		pthread_mutex_lock(&cache->mutexpagelock);
-		slot->page.head = 0;
+		slot->page = 0;
 		slot->pra_score = 0;
 		// handle nomem.
 		if(eno == ENOMEM) {
@@ -188,9 +193,7 @@ static edb_err lockpages(edbpcache_t *cache,
 	}
 
 	// assign other memebers of the page data
-	slot->page.head = newpage;
-	slot->page.bodyv = newpage + sizeof(edbp_head);
-	slot->page.bodyc = pagesize - sizeof(edbp_head);
+	slot->page = newpage;
 
 
 	// swap is complete. let the futex know the page is loaded in now
@@ -354,13 +357,13 @@ void    edbp_freehandle(edbphandle_t *handle) {
 	handle->parent = 0;
 }
 
-edb_err edbp_start (edbphandle_t *handle, edbp_id *id) {
+edb_err edbp_start (edbphandle_t *handle, edb_pid *id) {
 	if(id == 0 || *id == 0) return EDB_EINVAL;
 	if(handle->lockedslotv != -1) {
 		log_errorf("cache handle attempt to double-lock");
 		return EDB_EINVAL;
 	}
-	edbp_id setid = *id;
+	edb_pid setid = *id;
 
 	// easy vars
 	edbpcache_t *parent = handle->parent;
@@ -408,11 +411,10 @@ void    edbp_finish(edbphandle_t *handle) {
 	handle->lockedslotv = -1;
 }
 
-edbp_t edbp_page(edbphandle_t *handle) {
+edbp_t *edbp_graw(edbphandle_t *handle) {
 	if (handle->lockedslotv == -1) {
-		log_errorf("call attempted to edbp_page without having one locked");
-		edbp_t phoney = {0};
-		return phoney;
+		log_errorf("call attempted to edbp_graw without having one locked");
+		return 0;
 	}
 	return handle->parent->slots[handle->lockedslotv].page;
 }
