@@ -1,9 +1,9 @@
 #ifndef _edbWORKER_H_
 #define _edbWORKER_H_ 1
 
-#include "sharedmem.h"
-#include "pages.h"
-#include "locks.h"
+#include "edbs.h"
+#include "edbp.h"
+#include "edbl.h"
 
 typedef enum _edb_workerstate {
 	EDB_WWORKNONE = 0,

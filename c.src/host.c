@@ -10,11 +10,11 @@
 #include "host.h"
 #include "file.h"
 #include "errors.h"
-#include "worker.h"
-#include "jobs.h"
+#include "edbw.h"
+#include "edbs-jobs.h"
 #include "include/ellemdb.h"
-#include "pages.h"
-#include "sharedmem.h"
+#include "edbp.h"
+#include "edbs.h"
 
 
 typedef struct edb_host_st {

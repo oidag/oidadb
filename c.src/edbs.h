@@ -1,8 +1,8 @@
 #ifndef _edbSHAREDMEM_H_
 #define _edbSHAREDMEM_H_
 
-#include "jobs.h"
-#include "pages.h"
+#include "edbs-jobs.h"
+#include "edbp.h"
 
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22

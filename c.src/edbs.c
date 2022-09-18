@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <strings.h>
 
-#include "sharedmem.h"
+#include "edbs.h"
 
 
 // generates the file name for the shared memory

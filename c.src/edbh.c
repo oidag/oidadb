@@ -1,9 +1,9 @@
 
 
 #include "include/ellemdb.h"
-#include "handle.h"
+#include "edbh.h"
 #include "errors.h"
-#include "sharedmem.h"
+#include "edbs.h"
 
 
 /*

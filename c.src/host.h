@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "sharedmem.h"
+#include "edbs.h"
 #include "include/ellemdb.h"
 #include "errors.h"
 #include "host.h"

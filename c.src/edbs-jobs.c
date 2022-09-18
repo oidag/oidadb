@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <pthread.h>
 
-#include "jobs.h"
+#include "edbs-jobs.h"
 #include "errors.h"
 
 int edb_jobclose(edb_job_t *job) {
