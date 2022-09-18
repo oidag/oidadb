@@ -2,10 +2,10 @@
 #include <errno.h>
 #include <stdlib.h>
 #include "../include/ellemdb.h"
-#include "../pages.h"
+#include "../edbp.h"
 #include "../file.h"
 #include <pthread.h>
-#include "../handle.h"
+#include "../edbh.h"
 
 int createapage(edbphandle_t *handle) {
 	int err = 0;

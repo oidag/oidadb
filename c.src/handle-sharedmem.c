@@ -4,10 +4,10 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "sharedmem.h"
+#include "edbs.h"
 #include "ellemdb.h"
 #include "errors.h"
-#include "jobs.h"
+#include "edbs-jobs.h"
 
 // todo: the args need to be class, command, and edb_obj
 /*

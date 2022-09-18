@@ -6,11 +6,11 @@
 #include <errno.h>
 
 #include "include/ellemdb.h"
-#include "worker.h"
-#include "jobs.h"
-#include "edb.h"
-#include "locks.h"
-#include "pages-types.h"
+#include "edbw.h"
+#include "edbs-jobs.h"
+#include "file.h"
+#include "edbl.h"
+#include "edbp-types.h"
 
 typedef enum {
 	// constantly keep retrying to wait on the futex until

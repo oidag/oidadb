@@ -2,7 +2,7 @@
 #define _edbtypes_h_
 
 #include "include/ellemdb.h"
-#include "pages.h"
+#include "edbp.h"
 #include "stdint.h"
 
 typedef struct {

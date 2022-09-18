@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include "file.h"
-#include "pages.h"
+#include "edbp.h"
 
 unsigned int edbp_size(const edbpcache_t *c) {
 	return c->page_size;
