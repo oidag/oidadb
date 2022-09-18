@@ -1,0 +1,1000 @@
+#+TITLE: AGF (database technology)
+#+AUTHOR: Kevin Marschke
+
+
+* Intro
+** Intelleganice By Ignorance
+
+*** pmaint jobs
+All preventative maintence jobs are not done automatically. But
+instead the user must perform them at their own time.
+
+The reason for this is pmain jobs can be very expenseive and the risk
+and importance of various jobs depends on the use of the database
+technology that cannot be assumed.
+
+*** No datatypes
+AGF is a databse file that is optimized for arbitrary data and
+arbitrary types. Unlike SQL, their are no data types.
+
+** Parallel Queries
+This is the highest principle in AGF is the fact that it operates on
+an asyncronous based system that uses threading and multiprocessing to
+get two things done at once.
+
+/To my knowledge, not other modern database supports parallel queries./
+** Events, fast triggers
+AGF has whare are known as Events that are analogous to triggers in
+SQL. However as triggers were added retroactively to the SQL paradigm,
+AGF Events are a core function of the database.
+
+** Thin handles
+AGF handles (known as *AGH*) are what are used to interact with a AGF
+database. All handles must be started under an *agent* (defined
+later).
+
+Not to be confused with "light handles" which assume that the handles
+do little work in negotiating between both sides of the ABI. Thin
+handles means the ABI itself is very small.
+
+** Agent
+All AGF handles must be started under an Agent which is designated as
+the author of the operations performed by that handle.
+
+AGF handles are /somewhat/ analogous to SQL's use of username and
+passwords to access the database. The reason for the /somewhat/
+denotion is due to the fact that SQL is normally design to have a
+single "user" per app, whereas AGF is designed to have a single "user"
+per login. In otherwords, MySQL database usally have 1-5 users, an AGF
+can contain billions of agents.
+
+It's more approriate to reference the way linux does their
+user-management. Which is every application must be started under a
+user and that application's changes are audited as that agent.
+
+** CPU-efficient
+AGF is memory efficient in the fact that it has been engineered
+against linux-based machines running amd64 architecture.
+
+Future plans of other architectures are possible, however, an AGF file
+will never be able to be shared between two architectures.
+** Memory intense, but only a static amount
+For AGF's speed scales with the ram you throw at it. But it will not
+constantly devour memory the more intense the operations. It operates
+with a static amount of memory. All memory is allocated or cached
+during only start up.
+** File-centric
+Some SQL servers operate on sockets, network connections, or other
+less concrete types of interface. AGF's ABI is designed to operate on
+the context of a file.
+
+Thus, to open/save a AGF database will require a filepath. This
+feature is shared with sqlite.
+
+If you'd like to use network-based connections, that's up to you to
+implement ontop of the AGH.
+** Highspeed
+Fast response read and write times is only the byproduct of the
+afformentioned key componenets, as high speed applications are never
+made deliberately.
+* The AGF file
+The AGF file is split up into two sections, the *[[Head]]* and *[[Body]]*. The
+Head is used to describe the entirety of the Body, without the Head,
+the Body is effectively unrecongonizable.
+
+** Head
+Inside the Head there is the *[[Head-Intro]]*, *[[Head-Meta]]*. The Head-Intro
+is never changed after the file's creation. The Head-Meta is updated
+very frequently.
+
+The Head in its entirety is always a page's minimum length (=4KiB=). 
+** Body
+As stated before, the body is effectively just raw bytes of
+data. However there is some order to it with the use of
+*[[Page]]*. Pages are needed to optimize memory loading, and as you
+could predict are the same size as the memory page size
+(~sysconf(_SC_PAGE_SIZE)~). Which, for amd64 linux is =4KiB=.
+
+** Recap
+
+Thus the high level structure of the AGF file is as follows:
+
+| Part       | Notes                                                                       |
+|------------+-----------------------------------------------------------------------------|
+| Head-Intro | Fixed size, does not change after creation                                  |
+| Head-Meta  | Fixed size, changes constantly                                              |
+| Head-Index | Dynamic size, contains a list of Entires                                    |
+| Body       | Dynamic size, split into 4KiB Pages, contents are described by the Entries |
+
+Now we can continue to dive further into the detail of each part.
+
+* Head-Intro
+
+The head intro consists mainly of system compatability checks as well
+as an AGF Id. The AGF Id is not "functionally useful" in terms of what
+AGF will do with it.
+
+Once a file is created, the Head-Intro will never change with the
+exception of reserved space which can change if this specification
+further defines it retoactively.
+
+| Name            | Definition                                                                                                                 | Clang representation (byte end) |
+|-----------------+----------------------------------------------------------------------------------------------------------------------------+---------------------------------|
+| Magic Number    | The magic number of an AGF file type, used to determain proper endingness. Will always be equal to ={0xA6, 0xF0}=          | char[2] (2)                     |
+| Int size        | Used to determain intfffeger size (=sizeof(int)=)                                                                          | uint8_t (3)                     |
+| Entry size      | Used to determain size of an entry (=sizeof(ag_entry)=)                                                                    | uint8_t (4)                     |
+| Page size       | The system size of page.                                                                                                   | uint16_t (6)                    |
+| Page Multiplier |                                                                                                                            | uint16_t (8)                    |
+| Reserved        | reserved for future use, this space will be all 0 bytes (=0x0=)                                                            | char[24] (64)                   |
+| AGF Id          | A randomly generated ID for each file. No defined functional use other than to make sure all files are uniquely identified | char[32] (40)                   |
+
+
+*Note*: out of all structures herein, the above head-intro is the only
+packed one to allow best portability
+
+** Page Multiplier
+
+This is the multiplier for page size to determain the acutal page size
+which will be used. Valid values are:
+
+ - 1 (ie. 4KiB)
+ - 2 (ie. 8KiB)
+ - 4 (ie. 16KiB)
+ - 8 (ie. 32KiB)
+
+We stop at 8 is an engineering desicion. If we go up to 16, that means
+we can no longer specify the inner-page offset with a uint16 for
+systems with 4kiB pages, which is by far the most common type to be
+running this database. If we wanted to take the jump and upgrade all
+inner-page offsets to uint32, the reesutling overhead - as small as it
+would be - isn't worth it because it doesn't boost performace as page
+sizes 64KiB+ rarely have practicle applications superior to 32KiB.
+
+* Head-Meta
+
+Meta information is the "sum" of the current status of the
+database. It provides a reasonable snapshot of the information for
+quick access to details vital for resource managment.
+
+| Name            | Clang representation (byte end) | Definition                                                                  |
+|-----------------+---------------------------------+-----------------------------------------------------------------------------|
+| Newest Entry ID | uint64_t                        | The newest existing entry (which is also the same as the number of entries) |
+| Loaded Pages    | uint32_t                        | The number of loaded pages.                                                 |
+| Master PID      | pid_t                           | The process ID of the attached host process, if 0 that means unattached     |
+| Handlers        | uint64_t                        | The number of handlers currently handling this database                     |
+| Global MPS      | uint8_t                         | The global minimum page size                                                |
+| rsvd1           | uint8_t                         |                                                                             |
+| rsvd2           | uint32_t                        | The timestamp sense Head-Meta was synced to the file (see =time(2)=)        |
+| Reserved        | char[72]                        | Reserved for future use. Will be all 0 bytes.                               |
+
+** TODO Global MPS
+This is the minimum page strait for all items not including in the body.
+
+* Page
+The definition of a page is a block of bytes inside of a file. All
+pages have the same size and that size is equal to the creating
+machine's page size. The page is made up of Page-Head and
+Page-Body. The Page-Head is 48 bytes. The rest consist of the
+Page-Body.
+
+** Page ID
+
+All pages are given a unique ID. Page 0 consitutes of Head-Intro and
+Head-Meta, thus "Page 0" is considered an invalid reference. Page ID's
+are stored as a uint64 and are represetned by their exact position in
+the file. (/not/ their index)
+
+Page IDs are only in the context of disk and memeory management. They
+are not at all used to describe the location of useful data. Page IDs
+have nothing to do with [[Object ID]]s.
+
+** Page Header
+Every page will have a header.
+
+| Name             | Type     | Definition                                                                                |
+|------------------+----------+-------------------------------------------------------------------------------------------|
+| Checksum         | uint32_t | Checksum of the page (consitutes everything except itself, including the head)            |
+| Host-Instance ID | uint32_t | Written when first loaded into the host. Set to 0 when deloaded. See [[Host-Instance ID]]     |
+| rsvd2            | uint32_t | (reserved)                                                                                |
+| Flags            | uint8_t  | The page type as well as any flags.                                                       |
+| Page Type        | uint8_t  | The page type as reflected in the chapter                                                 |
+| rsvd0            | uint16_t |                                                                                           |
+| Page Left        | [[Page ID]]  | The previous page to navigate too                                                         |
+| Page Right       | [[Page ID]]  | The next page in the chapter to navigate too. If equal to =0= then there is no next page. |
+| rsvd1            | char[16] | Page-type specific header information                                                     |
+
+NOTE TO SELF: Cannot include "pages left in strait"... because adding
+to a strait would require a mass loading of all previous pages and
+changing their number.
+
+** Checksum
+The checksum is a litterally the sum of all the data. Take the entire
+page, cast it as an array of uint32_t, then skipping the first one
+(the checksum itself), add them all together and store the result in
+checksum.
+** Host-Instance ID
+When a host starts up, it should generate a number that will identify
+itself in regards to other hosts started at other times. A processID
+can work.
+
+The purpose of having this is when a host were to crash unexpectidly,
+and thus will leave behind invalid locks, PRA data, or other
+instance-specific information that was not properly syncronized. This
+field can be used to verify if the page was last operated on
+successfully by checking if the Host-Instance ID is either 0 or equal
+to the current Host-Instance ID.
+
+If a newly loaded page has an invalid Host-Instance ID (one that was
+written to by a previous host). Then a [[Host-Instance Fault]] occurs.
+
+*** Host-Instance Fault
+
+A Host-Instance Fault (HIF) is technically not an error, but a case
+where additional steps must be taken to load a page.
+
+HIFs only occur when pages that are being operated (not nesscarly
+loaded) by a previous host are not poperly closed becuase of the
+previous host crash.
+
+Executing a HIF before the previous host has fully closed or before
+any of the workers of the previous host are still alive will cause
+undefined behaviour.
+
+HIFs must do the following:
+
+ - Clear any PRA data
+ - Clear any and all locks
+ - 
+ - Clear any other Host-Instance data on the page and rows
+
+** Page IO
+Pages are loaded in their entirety from the file into memory. A cache
+can be maitined to reduce the amount of times pages are loaded and
+written into the file. Such a method is outside of this specification.
+
+However, It is important to keep in mind the following:
+
+ - Larger and more frequent page straits will always be more efficient
+   in IO (see [[Minimum Page Strait]]).
+ - The most efficient sentimate for page loading is to keep the most
+   frequently accessed pages cached and least frequnetly accessed
+   pages far from the cache.
+** Page Type
+Each of the page types describes exactly what the contes of the page
+are as well as possibliy make sense of the information in the
+header. Each page type will go into detail but the list is:
+
+ - [[edbp_dynamic]]
+ - [[edbp_struct]]
+ - [[edbp_object]]
+ - [[edbp_lookup]]
+ - [[edbp_deleted]]
+
+** Page Flags
+
+ - EDBP_PAGE_ENC (0x10) - If Page Flags has *AG_PAGE_ENC* then the Page-Body is
+   encrypted. The Checksum is of the decrypted contents. Encryption
+   algorythms only work in 16 byte blocks for the body. The keys and
+   ecryption mechanics not defined herein.
+
+/todo: probably need locks here for defragging purposes/
+
+** Chapter
+A collection of pages that have data strung across them whilest
+organized in a doubly linked list are known as a *Chapter*. Normally,
+this uses Page Left And Page Right whereas Page Left is the previous
+page and Page Right is the next page.
+
+If Page Left is 0, this means this indicates the first page of the
+chapter. If Page Right is 0, this indicates the last page of the
+chapter.
+
+All Pages in a chapter must have the same page type.
+** Page Strait
+
+Multiple pages within the same chapter that are subsquent of eachother
+form what is called a *Page Strait*, or just strait. This means all
+pages in a strait have their Page Right pointing to the exact next
+page in the file (excluding the last page in the strait, of course).
+
+** Tree
+If a collection of pages that are organized in binary *Tree* means
+that Page Left and Page Right the the decendents of the page.
+
+All Pages in a chapter have the same type and pagesize.
+
+* edbp_index
+There exist 1 chapter that holds all edbp_index pages. The first page
+of this chapter will always be Page ID 1 * pagesize.
+
+edbp_index pages store data needed for looking up all parts of the
+database. Without the index, all parts of EDBP file would be nearly
+impossible to interpret, or just very difficult.
+
+It is expected that the entire edbp_index be loaded into memory at all
+times.
+
+** Entries
+ag_index Pages consitute a collection of what are known as
+Entries. Each entry provides a start page also describes the type to
+which all pages in that collection are.
+
+| Name            | Clang    | Definition                                         |
+|-----------------+----------+----------------------------------------------------|
+| Type            | uint8_t  | The type and flags of all the pages.               |
+| Locks           | uint8_t  | Chapter flags (ie: locks)                          |
+| Memory Settings | uint16_t | [[Memory Settings]]                                    |
+| Struct ID       | uint16_t | if edbp_object: the structure ID                   |
+| objectsperpage  | uint16_t | cached amount of objects per page.                 |
+| lookupsperpage  | uint16_t | cached amount of lookups per page                  |
+| Ref0            | [[Page ID]]  | The starting page of the chapter                   |
+| Ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup                    |
+| Ref2            | [[Page ID]]  | if edbp_object: the edbp_dynamic (0 if not needed) |
+| ref0 Count      | uint64_t | Number of pages in the chapter.                    |
+| ref1 Count      | uint64_t | Number of pages in the chapter.                    |
+| ref2 Count      | uint64_t | Number of pages in the chapter.                    |
+
+
+TODO: Need to consolidate the idea that all entries are object pages :)
+
+** Entry ID
+All Entrieshave an Entry ID, the Entry ID is a uint16, meaning that an
+AG database can have a maximum of 2^16-1 total entries. Entry 0 /is/
+considered valid, but points to a reserved system entry.
+
+** Hard-Coded Entries
+Some Entries are reserved in fixed positions.
+
+ - Entry 0: the edbp_index itself.
+ - Entry 1: all deleted pages (edbp_deleted)
+ - Enrty 2: edbp_struct
+ - Entry 3: reserved
+ - Entry 4: and over: edbp_ojbect chapters
+
+** Memory Settings
+
+Entries can describe that chapters have a minimum page strait (*MPS*). This
+means that all pages in this chapter must be in a strait that is at
+least as long as specified in this field. Straits can have more than
+the MPS, but all pages must be in the strait of /at least/ the MSP.
+
+This will give huge hints to the Page IO and can effect table
+performance greatly. For instance, if minimum page strait was 4, that
+means the database will load all 4 subsequent pages at once rather
+than 1 at a time. And will do so efficiently. This is equivlent to
+setting the Page size in oracle databases at compile time. But with
+EDB you're able to do this entry-by-entry.
+
+*** MPS Settings Calculation
+
+The actual number of pages in a strait is calculated as follows:
+
+Being a uint16 there are 4 bytes. Each byte symbolizes a different
+Minimum Page Strait for each of the referenced chapters.  The first
+strait is the chapter in question calculated by:
+
+ - \( {Ref0}_{MPS} = 2^{{MPS} \&\ \mathrm{0x000F}} \)
+ - \( {Ref1}_{MPS} = 2^{{MPS} \&\ \mathrm{0x00F0}} \gg \mathrm{0x4} \)
+ - \( {Ref2}_{MPS} = 2^{{MPS} \&\ \mathrm{0x0F00}} \gg \mathrm{0x8} \)
+
+*** B+-Tree Depth
+Inside the memory settings will descibe the B-Tree and how to
+tranverse it. Depth descibes how many interation of recursive digging
+until the leaf level pages. Ie., a depth of 2 means you'll have to
+transverse the Root, 2 branches, and then you're on leafs.
+
+Selecting a more shallow depth will increase look up times for object
+IDs but will decrease the total amount of rows/data that is
+possible. Made worse by high fragmentation. Its possible to get
+consistant results with high MPS and low depth.
+
+highest 4 bits of the settings denotes some settings regarding how the
+B-Tree behaves.
+
+ - EDB_BTREE0 - 0x0000 - Depth of 0 - cap of ~1MB at 100%
+   fragmentation with 4KiB pages.
+ - EDB_BTREE1 - 0x1000 - Depth of 1 - cap of ~400MB at 100%
+   fragmentation with 4KiB pages.
+ - EDB_BTREE2 - 0x2000 - Depth of 2 - cap of ~150GB at 100%
+   fragmentation with 4KiB pages.
+ - EDB_BTREE3 - 0x3000 - Depth of 3 - cap of ~50TB at 100%
+   fragmentation with 4KiB pages.
+
+As discussed previously, increasing the MPS will lead to a guarenteed
+decrease in fragmentation. Going from 100% fragmentation (MPS of 1) to
+an MPS of 2 would make a depth 2 go from 150GB to 2.5TB. A depth of 3
+with an MPS of 8 would be about a tousand petabytes in total
+storage. You have enough rope to hang yourself here.
+
+See [[edbp_lookup B+-Tree]] for further details.
+
+/Note: this leaves the top 2 bits unused at this time./
+
+** Entry Flags
+* edbp_struct
+
+All edbp_struct pages are found exclusively in the singleton chatper
+which has a reserved spot in the index. All edbp_strcut pages are
+expected to always be in memory.
+
+As an overview, all objects in edb have 2 ingridants as far as the
+handle is concerned and that is fixed length data and dynamic lenght
+data. Fixed length is always more consistant and faster to
+access. Both of bits of information are stored in the structure.
+
+
+| Name            | Clang        | Definition                                            |
+|-----------------+--------------+-------------------------------------------------------|
+| Structure flags | uint16_t     | See [[Structure Flags]]                                   |
+| Fixed len       | uint16_t     | The fixed length of data                              |
+| data pointers   | uint8_t      | The amount of pointers per record                     |
+| Conf. Size      | uint16_t     | The size of the configuration                         |
+| subpage sizes   | uint8_t[]... | The [[subpage size]] of the the pointer's ag_data [[subpage]] |
+| Conf            | char[]...    | See [[Arbitrary Configuration]]                           |
+
+To fully understand data pointers and subpage sizes, see [[edbp_dynamic]].
+
+** Arbitrary Configuration
+Along with describing the meta-parameters of the edbp_objects that are
+in this structure, each structure has a section dedicated to the use
+of *Arbitrary Configuration*, or just Config. As far as this
+specification is concerned, the Config consists of several random,
+unimportant bytes. But this configuration is for the user to store any
+custom amount of inormation pertaining to the structure of the data
+itself. This can include text-filtering constraints, column
+descriptions, type-hinting information, unit descriptions, ect.
+
+This goes back to the principle of this database that *their are no
+types* in this database. Simply bytes... its up to the user to
+interpret the rest.
+
+** Fixed Length Constraints
+
+The minimum amount of fixed length data is 2 bytes. This is due to the
+need to use that data to use a linked list in the edbp_object page to
+denote the next deleted item.
+
+The maximum amount of fixed length data is the page size minus the
+bytes needed for the page header.
+
+** Structure Flags
+*** System Locks
+*System locks* are installed by the workers of the host and are used for
+mutex purposes. It is up to the host to manage the relationship of who
+has what lock.
+
+ - EDB_FSYSLX - A system write lock, no other worker other than the one that
+   installed this lock can access this structure
+ - EDB_FSYSLS - A system read lock, this is marked as true so long that a worker
+   is using this for reading purpose and mustn't have it written too.
+
+During [[Host-Instance Fault][HIFs]], All Row Locks on all System Locks of the page are 0'd out.
+
+*** User Locks
+*User Locks* allow the user to install locks on rows at their
+descriession. These can used for the user to make their own
+constraints, behaviours, restrictions, ect.
+
+ - EDB_FUSRLDEL - Delete lock. So long this flag is set, the structure
+   cannot be deleted.
+ - EDB_FUSRLWR - Write lock. So long this flag is set, the structure
+   cannot be altered.
+ - EDB_FUSRLCREAT - Prevents new object chapters from being created
+   using this structure.
+
+/Note that these are not permissions, workers can add and remove/
+/userlocks as they please. These are only for the user of the/
+/programming above the host./
+
+* edbp_object
+edbp_object pages are the core of the database. The store user records
+within them. All edbp_objects data require the relevant edbp_struct data
+to properly interpret the page body.
+
+The body contents of a given edbp_object are filled with fixed length
+elements. The exact length is found via the structure. A record will
+never strattle across 2 pages.
+
+The edbp_object chapter itself only stors the fixed-length data. All
+dynamic data is stored in the edbp_dynamic reference.
+
+** Page Header rsvd1
+
+| Name         | type   | Des                                                               |
+|--------------+--------+-------------------------------------------------------------------|
+| Structure ID | uint16 | Redundant to the chapter, but the structure ID of the objects     |
+| Delete Start | uint16 | The start of the deleted items linked list. (uint16)(-1) if none. |
+| Fixed Len    | uint16 | Redundant to the structure, the full fixed length of each record. |
+
+** Object ID
+Everything inside of all edbp_object pages' records what is known as
+an Object ID. It is an unique ID that spans across all edbp_object
+chapters.
+
+The Object ID is a uint64. It cannot simply be a byte offset in the
+file sense the location of edbp_object rows can change, be moved
+around, reallocated, etc.
+
+Instead, what we must do is first reference the Entry ID, which will
+remain static to a given peice of data. And then, the row offset. As
+previously established Entry ID's are uint16, and then the row can
+take up the rest of the bytes. To extract them is as follows:
+
+\( E_{id} = O_{id}\ \&\ \mathrm{0xFFFF} \)
+
+\( \rho = O_{id} \gg \mathrm{0x10} \)
+
+Where $O_{id}$ is the object id, $E_{id}$ is the entry id, and $\rho$
+is the row offset from the start of the chapter.
+
+This means you can have a theoretical maximum of 2^48-1 rows per
+entry.
+
+Given the $\rho$ is the rowoffset which does not describe the page,
+you must find the page with the Entries referenced [[edbp_lookup]].
+
+** structure changing
+If the content length and point count needs to be changed after it's
+inserted, the whole ag_new chapter needs to be locked for
+writting. Note this only needs to happen if the data pointers or fixed
+len is changed in the structure. Configuration and data pointer
+subpage size are differnet operations.
+
+Allocate new those pages and just go through and rewrite the data. Once
+finished, just delete the entirety of the old chapter.
+
+** Record
+
+Within any page of edbp_object, there exist an array of data with each
+element known as a *Record*. All Records are fixed length inside of a
+given page (and inside a given chapter) as describe by the
+edbp_object's structure.
+
+The content of each element is arbitrary. However, each record has a
+small prefix that allows means to control locking and restrictions on
+given elements.
+
+| Name     | clang     | def                                                      |
+|----------+-----------+----------------------------------------------------------|
+| flags    | uint32_t  | see [[Record Flags]]                                         |
+| content  | char[]... | the raw content of the row (count is found in structure) |
+
+** Record Flags
+*** System Locks
+*System locks* are installed by the workers of the host and are used for
+mutex purposes. It is up to the host to manage the relationship of who
+has what lock.
+
+ - EDB_FSYSLX - A system exclusive lock, no other worker other than the one that
+   installed this lock can access this row.
+ - EDB_FSYSLS - A system read lock, this is marked as true so long
+   that at least 1 worker is using this for reading purpose and
+   mustn't have it written too.
+
+/todo: I don't think we need system locks. just keep the existing in/
+/the memeory./
+
+During [[Host-Instance Fault][HIFs]], All Row Locks on all System Locks of the page are 0'd out.
+
+*** Attributes
+Attributes describe specific cases that data is under.
+
+ - EDB_FDELETED - The record is marked as deleted. The first 2 bytes
+   of the fixed content is the next position of the next deleted
+   row. Or (uint16_t)(-1) for end of list.
+
+*** User Locks
+*User Locks* allow the user to install locks on rows at their
+descriession. These can used for the user to make their own
+constraints, behaviours, restrictions, ect.
+
+ - EDB_FUSRLDEL - Delete lock. So long this flag is set, the record
+   cannot be deleted.
+ - EDB_FUSRLWR - Write lock. So long this flag is set, the record
+   cannot be written too.
+ - EDB_FUSRLRD - Read lock. No parts of the record can be read to
+   the workers.
+ - EDB_FUSRLCREAT - Creation lock. These can only be placed on
+   records that have been deleted, this will prevent this slot from
+   being used again for a different lock. This is good to apply
+   restirictions on a given ObjectID.
+
+/Note that these are not permissions, workers can add and remove/
+/userlocks as they please. These are only for the user of the/
+/programming above the host./
+
+* edbp_lookup
+Sense OIDs are the primary use of looking up things, and sense OIDs
+use /row offset/ instead of /byte offset/ that leads us to a problem:
+
+/wouldn't using a row offset require you to transverse the entire/
+/chapter, loading and deloading nearly every page to get to an exact/
+/row offset?/
+
+The answer: yes, the fact is that the OID tells you nothing about the
+Page ID nor the placement in the file. But, we can fix this with a
+good mix of math and engineering with the use of B-Trees.
+
+Remember that edbp_object rows are fixed size, and so with a row
+offset you do indeed have a page offset: "I need to go X rows in
+offset and thus need to get Y pages in offset". This is an important
+understanding you much have to understand the usefulness of the
+algorythm.
+
+** edbp_lookup B+-Tree
+With an understanding of a B-Tree and the fact that the use of straits
+allows us to use a B /plus/-Tree. This allows the root node at 0%
+defragmentation to describe ~1.5TB of data with a depth of 0. However
+at 100% defragmentation that same root node can only describe about a
+single megabyte with a depth of 0.
+
+/note that pretty much every division in these formulas will be/
+/surrounded by floor brackes (($\lfloor \rfloor$)) to denote integer/
+/division/
+
+Now lets begin with the static information that we know:
+
+
+ - $\iota$ - The page size
+ - $O_{count}$ - total amount of =edbp_object= pages for a given entry, the
+   total amount of pages is in the entry. This is also known as the
+   total amount of non-null leafs.
+ - $O_{size}$ - Fixed size of the object.
+ - $n$ - objects-per-page (\( \lfoor \iota / O_{size} \rfloor \))
+ - $L_{size}$ - Size of a lookup entry inside of a lookup page.
+ - $l$ - maximum references in a given =edbp_lookup= page (\( \lfloor
+   \iota / L_{size} \rfloor \))
+ - $D$ - The depth of this lookup tree which is found in the entry
+   header.
+
+
+Now lets define what exactly we're looking for:
+
+ - $\rho$ - This is the row offset we're looking for.
+
+With this, we can find the page offset from the start of the
+=edbp_object= chapter *($\Gamma$)* that we are looking for:
+
+ - \( \Gamma = \lfloor \frac{\rho}{n} \rfloor \) - The page offset we
+   must navigate too.
+
+Each reference at a given node we pass by symbolizes a different amount of
+possible leaf pages depending on the $D$.
+
+You now have all the information to programically navigate the
+B+-Tree. I won't cover those instrunctions herein. Figure it
+out. Basically you have to look at each references 'start pageid' and
+go from there, if the page offset you're looking for is lower than the
+one spacified at $N$th reference, that means the right reference is
+$N-1$.
+
+*** Note about the data cap
+
+The relationship between the fragmentation and the total data per
+object table hurts my head to think about, but I know this:
+
+ - \( O_{datacap} = (l*B)^{D + 1} * \iota * B | B \propto 1 - Frag% \)
+ - \( O_{datacap} >= (l*MPS_{Ref1})^{D + 1} * \iota*MPS_{Ref0}  \)
+
+** edbp_lookup body
+
+The body of each edbp_lookup page is an array of the following
+structure.
+
+| Name                   | Type    | Desc                                                                                |
+|------------------------+---------+-------------------------------------------------------------------------------------|
+| Ref                    | [[Page ID]] | The page ID of the branch/leaf. If leaf, it references a start of a possible strait |
+| Start Off./Strait Size | uint64  | The starting page offset this branch is /AND/ our strait size                       |
+
+*** Start Off./Strait Size
+Sense we know that rows can never stretch across a page, that means
+the our maximum rows will never exceed our maximum pages. We also know
+that the maximum row offset is =0x0000FFFFFFFFFFFF= as 2 bytes within
+the uint64 are held for entry ID. Thus, when taking about Page offset
+for a given entry, we know logically that 2 bytes of a page offset
+will never be used. So lets take advantage of that:
+
+The top 2 bytes will denote the strait size (sense the maximum strait
+size is also 2 bytes long). Note that this means if the reference is
+pointing to a leaf, the bottom 6 bytes are useless.
+
+Let us use the term $STOST$ to denote this number here.
+
+ - \( {Starting\ offset} = {STOST} \& \mathrm{0x0000FFFFFFFFFFFFFF} \)
+ - \( {Strait\ Size} = {STOST} \gg \mathrm{0x30} \)
+
+/Note that the uint16 number is stored at the top bits contrary to the/
+/OID, this is because the bottom bits should be the value that is used/
+/more frequently/
+
+** edbp_lookup rsvd2
+
+| Name         | Clang    | Def                                                        |
+|--------------+----------+------------------------------------------------------------|
+| Entry ID ref | uint16_t | The reference of which chapter this lookup chapter is for. |
+| Refc         | uint16_t | The amount of references in this page.                     |
+
+*** Regarding Page Left / Page Right
+
+For the root node, Page Left and Page Right are effectively
+useless. For all branch nodes, Page Left / Page Right describe the
+previous and next nodes on that same level. However, this should not
+be the main method of transversal except for pmaint bookkeeping.
+
+* edbp_dynamic
+** subpage
+Inside the of an ag_data page it is broken down into what are known as
+*subpages*. A string of subpages are known as a *data segement*. Data
+segements can strattle across multiple pages, however a single subpage
+can /not/ strattle pages.
+
+*** subpage size
+The size of a subpage varies per data segement. For example, some data
+segements be made up of 32-byte subpages, some data segements can be
+made up of 256-byte subpages. For the full range of available subpage
+sizes, see [[DSM]].
+
+ - This is simply a number describing the byte count. However, it must
+   not be set as a simple number. It is recommended to only allow
+   setting this in terms of proportions of the page body size; such as
+   "1/8th of the page body size", or "1/2 of the page body size".
+ - The reason for this is to minimize the chance of having subpages
+   not add up to a full page body and thus having "dead space" at the
+   bottom of the page.
+ - This number cannot exceed the page body size.
+ - This number cannot be less than 16.
+
+The choice of subpage size is delegated to the user so that their
+contextual intuition to pick the best size based on the frequency /and
+intensity/ (intensity meaning higher standard diviations of the size
+of the actual data) of how often the data will grow, shrink. The goal
+is to select a subpage size that will make reduce the chances of [[data
+resizing]].
+
+Here are some general guidelines on this:
+
+ - If edits are low-frequency and low-intensity (or just will never
+   happen) then lower subpage sizes are better to allow for tighter
+   packing regardless of data segement size.
+ - If edits are low-frequency and high-intensity then a more mid-range
+   subpage sizes are better to compensate for the change of data
+   length without the need for resizing the data segement.
+ - If edits are high-frequency and low-intensity its also a good idea
+   to go mid-range, possibly a bit higher.
+ - If edits are high-frequency and high-intensity then you should use
+   a large subpage size.
+
+** Data ID
+
+A *Data ID* exist only in the context of a pointer to data segement
+found in a =edbp_object= page.
+
+The data ID is a lot like Object ID given that the bottom 16 bits are
+used as an entry:
+
+ - \( E_{id} = D_{id}\ \&\ \mathrm{0xFFFF} \)
+ - \( \tau = (D_{id} \gg \mathrm{0x10}) * 16 \)
+
+Where $D_{id}$ is the data ID, $E_{id}$ is the entry id, and
+$\tau$ is the byte offset from the start of the data segment. We
+multiply by 16 because this is the minimum subpage size.
+
+/Note, a data ID is not considered valid if the resulting byte offset
+does not point to the start of a data segement./
+
+/Note, extracting $E_{id}$ from a Data ID is completely redundant/
+/operation sense =edbp_dynamic= pages are already referenced directly/
+/across from their parent =edbp_object= page. I should probably fix/
+/this or find a good (future) reason to have that EID in there./
+
+** DSM
+
+At the start of every data segment the first 8 bytes of the first
+subpage are reserved and are not part of the actual data. These bytes
+are known as the "data section meta" or *DSM*.
+
+| type     | type                  | desc                            |
+|----------+-----------------------+---------------------------------|
+| uint16_t | subpage size          | See [[subpage size]]                |
+| uint16_t | subpage count         | the amount of subpages          |
+| uint16_t | padding/next deletion | the padding of the last subpage |
+| uint16_t | rsvd                  |                                 |
+
+ - The padding describes the amount of bytes in the last subpage in
+   the segement, this is used to cut out the padding of the last
+   subpage and find the exact length of the data.
+   - If this segment is marked for [[data deletion][deletion]] then the padding
+     field takes up the identity of specifying the position of the
+     next DSM of garbage linked list in the page.
+
+/Notice how the DSM does not back-reference the OID that is using/
+/it. Even though that Objects and dyanmic data is a 1 on 1/
+/relationship, the user can only see the object directly, meaning that/
+/the OID will always be known before accessing the dynamic data./
+
+*** CDSM
+
+If the data segment strattles across multiple pages, then the DSM must
+be reinstated at the beginning of all subseqnet pages that the data
+segement flows into as if it was a seperate data segement, a DSM
+written because of this behaviour are known as "Continued Data Section
+Meta" (CDSM).
+
+CDSMs are nessacary because the first few bytes of all =edbp_dynamic=
+is expected to be a DSM. Thus, without a CDSM, the page's body would
+begin with arbitrary data of arbitrary size and struggle to find the
+next DSM.
+
+CDSMs must describe the same subpage size and the same non-padded
+length as the parent DSM. HOWEVER, a CDSM will have different subpage
+count then the parent DSM: as they will not contain the value of
+subpages prior to this CDSM.
+
+For example, if a DSM describes 100 subpages, but that DSM exist only
+in Page 1 and only the first 10 subpages are found in Page 1. Then the
+next page (Page 2) will open with a CDSM describing the next 90
+subpages and will not aknolwedge the existance of the previous 10
+subpages found on Page 1.
+
+** data resizing
+data in ag_data expected to resize frequently. In a perfect world if
+the data ever needed to grow it could consume the remaining space in
+the subpage and never any more. This is known as *[[non-allocation
+resize]]* Atlas, we live not in a perfect world.
+
+If the data is updated so that the new length exceeds the capacity of
+the data segement, then one of two actions can be performed to
+increase the data segement's capacity.
+
+*** non-allocation resize
+The best case during resizing is that the data grows/shrinks but not
+enough to require additional/fewer subpages. In this case the only
+action that is needed (outside of writting the data itself into the
+subpage(s)) is to make sure that the DSM's padding byte is updated to
+the proper value. But again, this is a perfect world case.
+
+*** subpage allocation
+subpage allocation works by looking past our current data segement
+into the DSM's following ours. We start with the DSM right after ours
+and see if it was marked as deleted,
+
+ 1. Is this data segement marked as deleted?
+    - No: cannot use allocation, must use [[subpage reallocation]]
+    - Yes: does this data segments plus the previous segements that
+      underwent step 1 collectively have enough bytes for our new
+      subpages?
+      - No: Navigate to the next datasegment and repeat step 1. 
+      - Yes: We've found allocative segement. Continue to step 2.
+ 2. Does the allocative segement /exceed/ what we in terms of bytes
+    needed for our new subpage(s)?
+    - Yes: Place a new deleted-marked DSM with a 16 byte subpage size at the start of 
+    - No/Then: continue to step 3
+ 3. modify our base DSM's data segement size and padding and write the
+    data. Write any nessacary CDSMs and update the garbage list.
+
+*** subpage reallocation
+If you cannot use [[non-allocation resize]], nor [[subpage allocation]] then
+you must move all the data to somewhere where we DO have spave.
+
+ 1. Find some space that is free. This process is going to vague
+    because there's multiple ways of doing this. But you must find a
+    garbage record that has enough for the new size of the data
+    segement.
+ 2. Copy the data into the new range.
+ 3. [[data deletion][mark our last space as deleted]].
+
+*** subpage deallocation
+
+ 1. Make a new DSM at the start of the extra space an [[data deletion][mark the extra
+    subpages as deleted]]. Best to preserve the subpage size in the
+    deleted segement to make subpage allocation easier.
+
+** data deletion
+
+Marking a data segement requires a few steps to do.
+
+ 1. Navigate to the current end of the ag_data page's garbage list and
+    add the delete segement's data ID to that list.
+    - If the page is stuffed (Garbage Start is =255=), then the
+      Garbage Start itself is considered the end of the list.
+    - Otherwise in a non-stuffed page, you'll find the last DSM of the
+      linked list and set the DSM's 3rd byte to the deleted data ID.
+ 2. Set the thrid byte of the DSM to '0'. The third byte of a deleted
+    segment's DSM is no longer the padding, it is now a data ID of the
+    next deleted segment in the page. We set ours to 0 becuase this is
+    the most recent deletion, meaning there is no deleted segment
+    after this.
+ 3. Repeat steps 1-2 for all subsequent CDSMs.
+
+** data segement limits
+The defined maximum of a data segemant is 255 pages. However it's hard
+to extract the exact amount /bytes/ that can be used sense some of
+those bytes are consumed by DSM and CDSMs. Futhermore, the occourance
+of the first CDSM will vary depending on where the initial DSM was
+place on the first page.
+
+** Page Header
+
+| Name          | clange   | def                                |
+|---------------+----------+------------------------------------|
+| Rsvd          | uint32_t |                                    |
+| Garbage start | uint32_t | The start of the garbage subpages. |
+
+*** Garbage start
+Garbage start is a byte offset within the page that signifies the
+start of the garbage linked list. If this is equal to -1, this means
+the page is full /and/ there is no garbage, this is known as a
+"stuffed" data page.
+
+** Page Body
+| Name     | clang     | def     |
+|----------+-----------+---------|
+| DSM      | char[4]   | See [[DSM]] |
+| Subpages | char[]... |         |
+
+* edbp_deleted
+
+If a page is no longer needed by the chapter that had created it, it
+can be marked for deletion. Set the type to =edbp_deleted= and add it
+to the deleted chapter.
+
+* pmaint
+pmaint (Preventative Maintence) is a group of operations that required
+specifically for the need to keep entopic tendencies under
+control. pmaint operations are expensive and thus should be ran only
+when nessacary and/or expected.
+
+This specification allows the possibility of perform pmaint jobs while
+the database is still operational.
+
+** Defragging
+Defragging is by far the most important pmaint job for this
+database. Defragging not only speeds up disk IO, but also speeds up
+memory IO and lessons CPU instrunctions dramatically.
+
+The purpose of defragging is to maximize the existance of [[Page Strait][straits]].
+Which algorythm you use to effectively move pages into the best places
+is up to you. This specification just makes sure you can do this job
+efficiently.
+
+After defragging the database, if running this out of a file, you
+should also be sure to defrag the file itself.
+
+** Excretion
+By design, deleted pages and subpages will be reused when
+applicable. But another pmaint job that can be ran involves
+"excretion"... that is completely removing data that has been
+'deleted' for the sake of saving compressing for space.
+
+Excretion maybe more cost than what its worth.
+
+* TODO Locks
+Theres two classes
+
+These locks are mirrored after how InnoDB uses their locks (see
+appendex).
+
+|    | X        | IX         | S          | IS         |
+| X  | Conflict | Conflict   | Conflict   | Conflict   |
+| IX | Conflict | Compatible | Conflict   | Compatible |
+| S  | Conflict | Conflict   | Comptable  | Compatible |
+| IS | Conflict | Compatible | Compatible | Compatible |
+
+
+* Appendex
+** See Also
+
+ - https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout
+ - https://www.percona.com/blog/2019/11/12/watch-out-for-disk-i-o-performance-issues-when-running-ext4/
+ - https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html
+ - http://www.dba-oracle.com/t_row_locks_vs_table_locks.htm
+ - https://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Atomic-Builtins.html
+ - https://man7.org/linux/man-pages/man2/mmap.2.html
+ - https://blog.jcole.us/2013/01/03/the-basics-of-innodb-space-file-layout/
+ - https://blog.jcole.us/2013/01/07/the-physical-structure-of-innodb-index-pages/
+ - https://blog.jcole.us/2013/01/04/page-management-in-innodb-space-files/
+ - https://blog.jcole.us/2013/01/10/btree-index-structures-in-innodb/
+ - https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-row-format.html
+ - https://www.youtube.com/watch?v=0Dj96yFl1SE
+ - https://www.cs.cmu.edu/~christos/courses/721-resources/p297-o_neil.pdf
+ - https://mariadb.com/resources/blog/does-innodb-page-size-matter/
