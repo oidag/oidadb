@@ -8,7 +8,7 @@
 // easy typedefs.
 typedef uint64_t edb_did;
 typedef uint64_t edb_oid;
-typedef uint64_t edb_eid;
+typedef uint16_t edb_eid;
 
 // hanlder
 
@@ -111,6 +111,9 @@ typedef enum edb_err_em {
 	// shoudn't have been. Use edb_open.
 	EDB_ENOHANDLE,
 
+	// something went wrong with the handle.
+	EDB_EHANDLE,
+
 	// invalid input. You didn't read the documentation properly.
 	EDB_EINVAL,
 	
@@ -147,6 +150,10 @@ typedef enum edb_err_em {
 
 	// try again, something else is blocking
 	EDB_EAGAIN,
+
+
+	// operation failed due to user lock
+	EDB_EULOCK,
 } edb_err;
 
 // All of these functions will work regardless of the open transferstate of
@@ -391,13 +398,22 @@ edb_err edb_close(edbh *handle);
 
 // see spec.
 typedef struct edb_entry_st {
-	edb_eid id;
-	edb_pid page_start;
+
 	uint8_t type;
-	uint8_t page_size;
-	uint16_t rsvd;
-	uint64_t pagecount;
-	edb_eid ref;
+	uint8_t flags;
+	uint16_t memory;
+	uint16_t structureid;
+
+	uint16_t objectsperpage;
+	uint16_t lookupsperpage;
+
+	edb_pid ref0; // starting chapter start
+	edb_pid ref1; // lookup chapter start
+	edb_pid ref2; // dynamic chapter start
+	edb_pid ref0c;
+	edb_pid ref1c;
+	edb_pid ref2c;
+
 } edb_entry_t;
 
 
@@ -422,8 +438,12 @@ typedef struct edb_struct_st {
 // of the handle. They do not need to be freed, all memeory is managed
 // within edb_open and edb_close.
 //
-// edb_structs and edb_index will take in pointers to integer values
-// and arrays
+// edb_structs and edb_index will take in ids and copy the respective
+// information into their o_ parameters. If the o_ parameters are
+// null, then they are ignored.
+//
+// To get all indecies for instance, you'd start at eid=0 and work your
+// way up until you get an EOF.
 //
 // Volitility:
 //
@@ -433,10 +453,13 @@ typedef struct edb_struct_st {
 //   edb_select. But be aware that structv and entryv's contents will
 //   change.
 //
-edb_err edb_index(edbh *handle, const int *entryc, edb_entry_t *const *entryv);
-edb_err edb_structs(edbh *handle,
-					const int *structc,
-					edb_struct_t *const *structv);
+// THREADING:
+//
+//   These functions are completely thread safe. However, if something
+//   is making substantial modifications to the chapter, thus locking the
+//   entry, these functions will block until that lock is released.
+edb_err edb_index(edbh *handle, edb_eid eid, edb_entry_t *o_entry);
+edb_err edb_structs(edbh *handle,uint16_t structureid,edb_struct_t *o_struct);
 
 
 /*edb_err edb_structcopy (edbh *handle, const edb_struct_t *strct);
@@ -449,6 +472,7 @@ typedef enum edb_cmd_em {
 	EDB_CNONE  = 0x0000,
 	EDB_CCOPY  = 0x0100,
 	EDB_CWRITE = 0x0200,
+	EDB_CLOCK  = 0x0400,
 } edb_cmd;
 
 
@@ -536,6 +560,13 @@ typedef struct _edb_data {
 //  EDB_EINVAL - cmd is not recongized
 //  EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
 edb_err edb_obj (edbh *handle, edb_cmd cmd, int flags, ... /* arg */);
+
+// todo: document these from spec.
+#define EDB_FUSRLDEL   0x0001
+#define EDB_FUSRLWR    0x0002
+#define EDB_FUSRLRD    0x0004
+#define EDB_FUSRLCREAT 0x0008
+#define EDB_FDELETED   0x1000
 
 
 // For reading structures, use edb_structs.
