@@ -9,13 +9,13 @@
 
 int createapage(edbphandle_t *handle) {
 	int err = 0;
-	edbp_id id = -1;
+	edb_pid id = -1;
 	err = edbp_start(handle, &id);
 	if (err) {
 		return err;
 	}
-	edbp_t mypage = edbp_page(handle);
-	char *mybod = edbp_page(handle).bodyv;
+	edbp_t mypage = edbp_graw(handle);
+	char *mybod = edbp_graw(handle).bodyv;
 	mybod[0] = 'a';
 	mypage.head->pleft  = 0xFFFFFFFFEEEEEEEE;
 	mypage.head->pright = 0xCCCCCCCCAAAAAAAA;
@@ -51,9 +51,9 @@ void *gothread(void *args) {
 	//
 	// if the number is divisable by 3, then load
 	for(int i = 0; i < 256; i++) {
-		edbp_id ir = rand() % 255 + 1;
+		edb_pid ir = rand() % 255 + 1;
 		edbp_start(&handle, &ir);
-		edbp_t mypage = edbp_page(&handle);
+		edbp_t mypage = edbp_graw(&handle);
 		char *mybody = mypage.bodyv;
 		mybody[i] = (char)i;
 		edbp_mod(&handle, EDBP_CACHEHINT, EDBP_HDIRTY);

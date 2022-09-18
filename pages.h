@@ -69,11 +69,10 @@ typedef enum {
 #define EDBP_HMAXLIF 0x7 // 0000 1001
 #define EDBP_SLOTBOOSTPER 0.10f // 10% of page capacity
 
-// Page id: simply the offset as to where to find it in
-// the database.
-typedef uint64_t edbp_id;
-
-typedef struct _edbp_head {
+// Always use this instead of sizeof(edbp_head) because
+// edbp_head doesn't include the page-specific heading
+#define EDBP_HEADSIZE 48
+typedef struct {
 
 	// Do not touch these fields outside of pages-*.c files:
 	// these can only be modified by edbp_mod
@@ -89,27 +88,24 @@ typedef struct _edbp_head {
 	uint64_t pleft;
 	uint64_t pright;
 
-	uint8_t  psecf[16]; // page spcific
-} edbp_head;
+	// 16 bytes left for type-specific.
+	//uint8_t  psecf[16]; // page spcific. see types.h
+} _edbp_stdhead;
 
 // the raw content of the page. This is byte-by-byte what is
 // in the database.
 //
 // See database specification under page header for details.
-typedef struct _edbp {
-	// will also be the pointer to the page in general.
-	edbp_head   *head;
-
-	// will always edbp_size(cache) - sizeof(edbp_head) in size.
-	unsigned int bodyc; // todo: avoid using this when can insteand of using edbp_cache(cache) - sizeof...
-	void              *bodyv;
-} edbp_t;
+//
+// edbp_t can be casted to any edbp_XXX_t structure so long
+// you know which structure it belongs too.
+typedef void edbp_t;
 
 // a slot is an index within the cache to where the page is.
 typedef unsigned int edbp_slotid;
 typedef struct {
-	edbp_t page;
-	edbp_id id; // cache's mutexpagelock must be locked to access
+	edbp_t *page;
+	edb_pid id; // cache's mutexpagelock must be locked to access
 
 	// the amount of workers that have this page locked. 0 for none.
 	// you must use a futex call to wait until the swap is complete.
@@ -145,6 +141,17 @@ typedef struct _edbpcache_t {
 	// slots
 	edbp_slot     *slots;
 	edbp_slotid    slot_count; // the total amount of slots regardless of width
+
+	// When starting up, or when all the slots have simular scores, the cache
+	// tends to stick on a single slot to perform all page swaps.
+	//
+	// This is bad because its not allowing the other pages that were
+	// previously loaded to get a history developed.
+	//
+	// So every time there's a page fualt, we increment next start and modulus it
+	// against slot count. This will make the iterator start not at the
+	// same spot everytime.
+	edbp_slotid    slot_nextstart;
 
 	// calculated by native page size by page mutliplier.
 	// doesn't change after init.
@@ -262,7 +269,6 @@ typedef enum {
 //   but only the first call would have actually performed the swap.
 //
 // ERRORS:
-//   EDB_EINVAL - edbp_start straits was 0.
 //   EDB_EINVAL - edbp_start id was null or *id was 0.
 //   EDB_EINVAL - edbp_start was called twice without calling edbp_finish
 //   EDB_ENOMEM - no memory left
@@ -270,7 +276,7 @@ typedef enum {
 //
 // UNDEFINED:
 //   - using an unitialized handle / uninitialized cache
-edb_err edbp_start (edbphandle_t *handle, edbp_id *id);
+edb_err edbp_start (edbphandle_t *handle, edb_pid *id);
 void    edbp_finish(edbphandle_t *handle);
 
 // called between edbp_start and edbp_finish. Simply returns the
@@ -278,7 +284,7 @@ void    edbp_finish(edbphandle_t *handle);
 //
 // If you attempt to call this without having a page locked, null
 // is returned (which you should never do).
-const edbp_t edbp_page(edbphandle_t *handle);
+edbp_t *edbp_graw(edbphandle_t *handle);
 
 // edbp_mod applies special modifiecations to the page. This function will effect the page
 // that was referenced in the most recent edbp_start and must be called before the
