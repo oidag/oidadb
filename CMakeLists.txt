@@ -1,16 +1,16 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(fuck C)
+project(edb C)
 
 set(CMAKE_C_STANDARD 17)
 
-file(GLOB sources *.c)
-include_directories(include)
+file(GLOB sources c.src/*.c)
+include_directories(c.src/include)
+add_library(libedb ${sources})
 
-add_library(edb ${sources})
-
-add_executable(test_pages tests/page_main.c pages.c file-io.c errors.c)
+# tests...
+add_executable(test_pages c.src/tests/page_main.c c.src/pages.c c.src/file-io.c c.src/errors.c)
 TARGET_LINK_LIBRARIES(test_pages pthread)
-add_executable(test_host tests/host_main.c ${sources})
+add_executable(test_host c.src/tests/host_main.c ${sources})
 TARGET_LINK_LIBRARIES(test_host pthread rt)
 
