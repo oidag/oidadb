@@ -22,19 +22,41 @@ typedef enum _edb_jobclass {
 	//             of the object. Can be null for deletion.
 	EDB_DYN = 0x0002,
 
-	// object ops
-	// valuint64 - the objectid (cannot be 0)
-	// valuint   - the amount of bytes to copy over. If this is zero, then it will
-	//             be set to total
-	// valbuff   - the name of the shared memeory via shm_open(3). This will
-	//             be opened as write. Leave null to just
+	// Perform CRUD operations with a single object.
+	// see edb_obj() for description
+	//
+	// All cases:
+	//     <- edb_oid (can be 0 if EDB_CWRITE)
+	//     -> edb_err [1]
+	//  EDB_CCOPY:
+	//     -> void *rowdata
+	//     ==
+	//  EDB_CWRITE:
+	//     <- void *rowdata
+	//     ==
+	//  EDB_CUSRLK: todo: need to write out edbl before getting any deeper into this. I don't think persistant user locks are needed.
+	//     <- edb_usrlk
+	//     ==
+	//
+	// [1] This error will describe the efforts of locating the oid
+	//     which will include:
+	//       - EDB_EHANDLE - handle closed stream
+	//       - EDB_ENOENT - oid is not valid
+	//       - EDB_ENOENT - (EDB_CWRITE, EDB_CCOPY) oid was deleted
+	//       - EDB_ECRIT - unknown error
+	//
 	EDB_OBJ = 0x0003,
 
-	// locks for objects and structures.
-	// todo: move these into EDB_OBJ and EDB_STRUCT?
-	EDB_LCK = 0x0004
-
 } edb_jobclass;
+
+/*
+ * typedef enum edb_cmd_em {
+	EDB_CNONE  = 0x0000,
+	EDB_CCOPY  = 0x0100,
+	EDB_CWRITE = 0x0200,
+	EDB_CLOCK  = 0x0400,
+} edb_cmd;
+ */
 
 // job slot structures are met to be stored in shared memory
 // and be accessed by multiple processes.

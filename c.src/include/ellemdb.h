@@ -445,6 +445,10 @@ typedef struct edb_struct_st {
 // To get all indecies for instance, you'd start at eid=0 and work your
 // way up until you get an EOF.
 //
+// RETURNS:
+//
+//   EDB_EEOF - eid / sid was out of bounds
+//
 // Volitility:
 //
 //   Both structv and entryv are pointers to shared memory that can
@@ -469,13 +473,35 @@ edb_err edb_structs(edbh *handle,uint16_t structureid,edb_struct_t *o_struct);
 // All EDB_C... constants must take
 // only the first 2nd set of 4 bits (0xff00 mask)
 typedef enum edb_cmd_em {
-	EDB_CNONE  = 0x0000,
-	EDB_CCOPY  = 0x0100,
-	EDB_CWRITE = 0x0200,
-	EDB_CLOCK  = 0x0400,
+	EDB_CNONE   = 0x0000,
+	EDB_CCOPY   = 0x0100,
+	EDB_CWRITE  = 0x0200,
+	EDB_CUSRLK  = 0x0400,
 } edb_cmd;
 
+// See spec for more specific details.
+// General details provided here is all you
+// really need to worry about.
+typedef enum _edb_usrlk {
 
+	// Object cannot be deleted.
+	EDB_FUSRLDEL   = 0x0001,
+
+	// Object cannot be written too.
+	EDB_FUSRLWR    = 0x0002,
+
+	// Object cannot be read.
+	EDB_FUSRLRD    = 0x0004,
+
+	// Object cannot be created, meaning if this
+	// object is deleted, it will stay deleted.
+	// If not already deleted, then it cannot be
+	// recreated once deleted.
+	EDB_FUSRLCREAT = 0x0008,
+} edb_usrlk;
+
+// need to fidn a place to put this one...
+#define EDB_FDELETED 0x1000
 
 
 
@@ -551,8 +577,10 @@ typedef struct _edb_data {
 //  During writes, the object is placed under a write lock, preventing
 //  any read operations from taking place on this same id.
 //
-// Future ideas: EDB_CREADLOCK, EDB_CWRITELOCK, EDB_CGETLOCK,
-// EDB_CDELLOCK
+// EDB_CUSRLK
+//
+//  Install a persisting user lock. These locks will affect future
+//  calls to edb_obj
 //
 // ERRORS:
 //
@@ -560,13 +588,6 @@ typedef struct _edb_data {
 //  EDB_EINVAL - cmd is not recongized
 //  EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
 edb_err edb_obj (edbh *handle, edb_cmd cmd, int flags, ... /* arg */);
-
-// todo: document these from spec.
-#define EDB_FUSRLDEL   0x0001
-#define EDB_FUSRLWR    0x0002
-#define EDB_FUSRLRD    0x0004
-#define EDB_FUSRLCREAT 0x0008
-#define EDB_FDELETED   0x1000
 
 
 // For reading structures, use edb_structs.

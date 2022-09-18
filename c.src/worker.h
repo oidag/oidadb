@@ -16,6 +16,9 @@ typedef struct edb_worker_st {
 	edbl_t lockdir;
 	const edb_shm_t *shm;
 
+	// fhead points to static memory
+	edb_fhead *fhead;
+
 	edb_workerstate state;
 
 	// the functional purpose of workerid and pthread are synonymous.
@@ -41,7 +44,7 @@ typedef struct edb_worker_st {
 // _init initializs a new worker and _decom decommissions it.
 //
 // edb_workerdecom will only crit out.
-edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, edbl_t *lockdir, const edb_shm_t *shm);
+edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, edbl_t *lockdir, const edb_shm_t *shm, edb_fhead *fhead);
 void edb_workerdecom(edb_worker_t *worker);
 
 // once initialized, a worker can be started with either of these functions.
