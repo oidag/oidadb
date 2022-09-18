@@ -71,8 +71,8 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 	}
 
 	// now we have the object id, lets unpack it.
-	edb_eid entryid = search & 0xFFFF;
-	unsigned int rowid = search >> 0x10;
+	edb_eid entryid = search >> 0x30;
+	unsigned int rowid = search & 0x0000FFFFFFFFFFFF;
 
 	if(entryid < 4) {
 		// this entry is invalid
