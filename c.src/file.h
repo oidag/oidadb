@@ -25,7 +25,7 @@ typedef struct {
 	// intro must be first in this structure.
 	const edb_fhead_intro intro;
 
-	eid newest;
+	edb_eid newest;
 	uint32_t loadedpages;
 	pid_t host;
 	uint64_t handlers;

@@ -87,7 +87,7 @@ edbp_object_t  *edbp_gobject(edbphandle_t *handle);
 // returns the pointer to the start of the ref list.
 edb_lref_t *edbp_lookup_refs(edbp_lookup_t *l);
 
-// returns the pointer to the start of the objects.
-void *edbp_object_body(edbp_object_t *o);
+// returns a pointer to the body
+inline void *edbp_body(edbp_t *page) {return page + EDBP_HEADSIZE;}
 
 #endif
