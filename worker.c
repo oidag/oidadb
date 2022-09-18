@@ -8,6 +8,9 @@
 #include "include/ellemdb.h"
 #include "worker.h"
 #include "jobs.h"
+#include "edb.h"
+#include "locks.h"
+#include "pages-types.h"
 
 typedef enum {
 	// constantly keep retrying to wait on the futex until
@@ -21,6 +24,150 @@ typedef enum {
 	EDB_FUTEX_CLOSE = 2,
 } futexops;
 
+#define EDB_BTREE0 0x0000
+#define EDB_BTREE1 0x1000
+#define EDB_BTREE2 0x2000
+#define EDB_BTREE3 0x3000
+
+// converts a pid offset to the actual page address
+void static rowoffset_lookup(edb_worker_t *self,
+								int depth,
+								edb_pid lookupchapter,
+								edb_pid pidoffset,
+								edb_pid *o_pid) {
+
+	// root
+	edbp_start(&self->edbphandle, &lookupchapter); // (ignore error audaciously)
+	edbp_lookup_t *l = edbp_glookup(&self->edbphandle);
+	edb_lref_t *refs = edbp_lookup_refs(l);
+	for(int i = 0; i < l->refc; i++) {
+		// todo:
+		HEAD HURT;
+	}
+	edbp_finish(&self->edbphandle);
+
+}
+
+// copies the object (not including dynamic data) from the
+// database to the job buffer.
+//
+// later: documentat that this should be expected in the job buffer:
+//        <- = incoming, -> = outgoing
+//        <- edb_oid
+//        -> error (edb_err, 0 means go to next step) // todo: document what errors happen
+//        -> void *rowdata
+//
+todo! go through this function and clean it up.
+its a damn good function. and I had to make a fuck load of prototypes for it.
+just make sure its super clean.
+edb_err static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
+	// first find the object we need based of the ID.
+	edb_err err = 0;
+	edb_oid search;
+	int ret = edb_jobread(job, self->shm->transbuffer, &search, sizeof(search));
+	if(ret == -1) {
+		return EDB_ECRIT;
+	}
+	if(ret == -2) {
+		log_errorf("handle failed to send edb_oid through the job buffer on objcopy");
+		return EDB_EHANDLE;
+	}
+
+	// later: the below should probably be exported into a function
+	// now we have the object id, lets unpack it.
+	unsigned int entryid;
+	unsigned int rowid;
+	{ // (new scope to be ready to extract a function)
+		entryid = search & 0xFFFF;
+		rowid   = search >> 0x10;
+		// perform the lookup to get the entry data
+		edb_entry_t entrydat;
+		edbl_object(&self->lockdir, search, EDBL_SHARED); // todo: check for errors? // todo: make sure its unlocked
+		err = edbs_index(self->shm, entryid, &entrydat);
+		if(err) {
+			log_errorf("the supplied edb_oid does not have a valid entryid: %d", entryid);
+			edbl_object(&self->lockdir, search, EDBL_NONE);
+			return EDB_EHANDLE;
+		}
+
+		// get the page offset from the start of the chapter.
+		edb_pid pageoffset = rowid / entrydat.objectsperpage;
+		if(pageoffset >= entrydat.ref0c) {
+			// the page offset is larger than the amount of pages we have.
+			// thus, this rowid is impossible.
+			log_errorf("the supplied edb_oid has a page offset that is too large: %ld", pageoffset);
+			edbl_object(&self->lockdir, search, EDBL_NONE);
+			return EDB_EHANDLE;
+		}
+
+		// now we know how many pages we need to go in. So we now need to go
+		// into the lookup b+tree. So lets pull up that information.
+		// the following info is extracted from spec.
+		int btree_depth = entrydat.memory >> 3;
+
+		// do the b-tree lookup
+		edb_pid foundpage;
+		rowoffset_lookup(self, // todo: check for errors?
+		                 btree_depth,
+		                 entrydat.ref1,
+		                 pageoffset,
+		                 &foundpage);
+
+
+
+
+		// page with the row was found. lets load it.
+
+		// get the intrapage offset
+		unsigned int intrapageoff = (rowid % entrydat.objectsperpage);
+
+		// lock the page in cache
+		err = edbp_start(&self->edbphandle, &foundpage);
+		if(err) {
+			log_critf("unhandled error %d", err);
+			edbl_object(&self->lockdir, search, EDBL_NONE);
+			return EDB_ECRIT;
+		}
+
+		// parse the page into objecs.
+		edbp_object_t *o = edbp_gobject(&self->edbphandle);
+		void *recorddata = edbp_object_body(o) + intrapageoff * o->fixedlen;
+
+		// get the flags
+		uint32_t flags = *(uint32_t *)recorddata;
+		void     *body  = recorddata + sizeof(uint32_t);
+		// is it read locked?
+		if(flags & EDB_FUSRLRD) {
+			// read-locked. cannot access it.
+			err = EDB_EULOCK;
+			edb_jobwrite(job, &self->shm, &err, sizeof(edb_err));
+			goto finishpage;
+		}
+		// is it deleted?
+		if(flags & EDB_FDELETED) {
+			err = EDB_ENOENT;
+			edb_jobwrite(job, &self->shm, &err, sizeof(edb_err));
+			goto finishpage;
+		}
+
+		// its all good.
+		err = 0;
+		edb_jobwrite(job, &self->shm, &err, sizeof(edb_err));
+
+		// throw it all in the transfer buffer
+		edb_jobwrite(job, &self->shm, body, o->fixedlen);
+
+
+		finishpage:
+		edbp_finish(&self->edbphandle);
+
+		unlockobj:
+		edbl_object(&self->lockdir, search, EDBL_NONE);
+
+	}
+
+
+}
 
 // helper func to selectjob.
 //
@@ -30,8 +177,11 @@ typedef enum {
 // This function's only purpose is to route the information into the relevant execjob_...
 // function.
 //
-// returns 1 on critical error
-static int execjob(edb_worker_t * const self, edb_job_t * const job) {
+// returns EDB_ECRIT on critical error
+// returns EDB_EINVAL if something went wrong because the handle didn't format something correctly.
+// returns EDB_EHANDLE if something went wrong with the handle.
+// returns EDB_??? on any other error that is the handle's fault.
+static edb_err execjob(edb_worker_t *self, edb_job_t *job) {
 
 
 	// note to self: inside this function we have our own thread to ourselves.
@@ -81,6 +231,7 @@ static int execjob(edb_worker_t * const self, edb_job_t * const job) {
 			}
 			// we have an open stream and a id, thus, it is an edit.
 			return execjob_objedit(self, job);
+
 
 
 		default:
@@ -217,12 +368,13 @@ void static *workermain(void *_selfv) {
 }
 
 unsigned int nextworkerid = 1;
-edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, const edb_shm_t *shm) {
+edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, edbl_t *lockdir, const edb_shm_t *shm) {
 	edb_err eerr = 0;
 	//initialize
 	bzero(o_worker, sizeof (edb_worker_t));
 	o_worker->workerid = nextworkerid++;
 	o_worker->shm = shm;
+	o_worker->lockdir = lockdir; // todo, need to create handles for the lockdir.
 	eerr = edbp_newhandle(edbpcache, &o_worker->edbphandle);
 	if(eerr) {
 		return eerr;

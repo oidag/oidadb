@@ -3,6 +3,7 @@
 
 #include "sharedmem.h"
 #include "pages.h"
+#include "locks.h"
 
 typedef enum _edb_workerstate {
 	EDB_WWORKNONE = 0,
@@ -12,6 +13,7 @@ typedef enum _edb_workerstate {
 
 typedef struct edb_worker_st {
 	edbpcache_t *cache;
+	edbl_t lockdir;
 	const edb_shm_t *shm;
 
 	edb_workerstate state;
@@ -39,7 +41,7 @@ typedef struct edb_worker_st {
 // _init initializs a new worker and _decom decommissions it.
 //
 // edb_workerdecom will only crit out.
-edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, const edb_shm_t *shm);
+edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, edbl_t *lockdir, const edb_shm_t *shm);
 void edb_workerdecom(edb_worker_t *worker);
 
 // once initialized, a worker can be started with either of these functions.
