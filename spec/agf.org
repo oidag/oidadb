@@ -520,9 +520,9 @@ remain static to a given peice of data. And then, the row offset. As
 previously established Entry ID's are uint16, and then the row can
 take up the rest of the bytes. To extract them is as follows:
 
-\( E_{id} = O_{id}\ \&\ \mathrm{0xFFFF} \)
+\( E_{id} = O_{id}\ \gg \mathrm{0x30} \)
 
-\( \rho = O_{id} \gg \mathrm{0x10} \)
+\( \rho = O_{id}\ \& \mathrm{0x0000FFFF_FFFFFFFF} \)
 
 Where $O_{id}$ is the object id, $E_{id}$ is the entry id, and $\rho$
 is the row offset from the start of the chapter.
