@@ -116,9 +116,7 @@ static edb_err validateheadintro(edb_fhead_intro head, int pagemul) {
 	if(head.pagemul != 1 &&
 	   head.pagemul != 2 &&
 	   head.pagemul != 4 &&
-	   head.pagemul != 8 &&
-	   head.pagemul != 16 &&
-	   head.pagemul != 32) {
+	   head.pagemul != 8) {
 		log_errorf("page multiplier is not an acceptable number: got %d",
 		           head.pagemul);
 		return EDB_EHW;
