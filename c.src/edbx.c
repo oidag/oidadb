@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#include "host.h"
+#include "edbx.h"
 #include "file.h"
 #include "errors.h"
 #include "edbw.h"
