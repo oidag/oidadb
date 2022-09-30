@@ -433,7 +433,16 @@ access. Both of bits of information are stored in the structure.
 | Conf            | char[]...    | See [[Arbitrary Configuration]]                           |
 
 To fully understand data pointers and subpage sizes, see [[edbp_dynamic]].
+** No Editing Structures
+There are no editing structures, only creating and deleting
+structures. If all the structure pages fill up, then an automatic
+de-frag is ran that will reuse the space of the deleted structure.
 
+This is so structures can be quickly edited. (It also opens the
+opertunity for easy roll backs.)
+
+Another reason its like this is to make multi-threading of syncronous
+alters/selects/inserts easier to manage.
 ** Arbitrary Configuration
 Along with describing the meta-parameters of the edbp_objects that are
 in this structure, each structure has a section dedicated to the use
