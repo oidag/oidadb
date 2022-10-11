@@ -83,11 +83,17 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 
 	// perform the lookup to get the entry data
 	edb_entry_t entrydat;
-	edbl_lobject(&self->lockdir, search, EDBL_SHARED); // todo: check for errors? // todo: make sure its unlocked
+	edbl_t lock = (edbl_t) {
+		.l_type = EDBL_TYPSHARED,
+		.l_cat = EDBL_CATSTRUCT,
+		.l_id = search,
+	};
+	edbl_lockset(self->lockdir, &lock); // todo: check for errors? // todo: make sure its unlocked
+	lock.l_type = EDBL_TYPUNLOCK; // set this right here
 	err = edbs_index(self->shm, entryid, &entrydat);
 	if(err) {
 		log_errorf("the supplied edb_oid does not have a valid entryid: %d", entryid);
-		edbl_lobject(&self->lockdir, search, EDBL_UNLOCK);
+		edbl_lockset(&self->lockdir, &lock);
 		err = EDB_ENOENT;
 		edb_jobwrite(job, transbuf, &err, sizeof(err));
 		return;
@@ -99,7 +105,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 		// the page offset is larger than the amount of pages we have.
 		// thus, this rowid is impossible.
 		log_errorf("the supplied edb_oid has a page offset that is too large: %ld", pageoffset);
-		edbl_lobject(&self->lockdir, search, EDBL_UNLOCK);
+		edbl_lockset(&self->lockdir, &lock);
 		err = EDB_ENOENT;
 		edb_jobwrite(job, transbuf, &err, sizeof(err));
 		return;
@@ -118,7 +124,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 	                 pageoffset,
 	                 &foundpage);
 	if(err) {
-		edbl_lobject(&self->lockdir, search, EDBL_UNLOCK);
+		edbl_lockset(&self->lockdir, lock);
 		edb_jobwrite(job, transbuf, &err, sizeof(err));
 		return;
 	}
@@ -132,7 +138,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 	err = edbp_start(&self->edbphandle, &foundpage);
 	if(err) {
 		log_critf("unhandled error %d", err);
-		edbl_lobject(&self->lockdir, search, EDBL_UNLOCK);
+		edbl_lockset(&self->lockdir, lock);
 		edb_jobwrite(job, transbuf, &err, sizeof(err));
 		return;
 	}
@@ -175,7 +181,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 
 	// unlock the object from the lockdir.
 	unlockobj:
-	edbl_lobject(&self->lockdir, search, EDBL_UNLOCK);
+	edbl_lockset(&self->lockdir, lock);
 }
 
 // helper func to selectjob.
