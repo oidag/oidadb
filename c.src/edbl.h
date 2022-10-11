@@ -55,8 +55,8 @@ void    edbl_decom(edbl_host_t *lockdir);
 //
 // THREADING:
 //    Thread safe per-handle.
-edb_err edbl_index(edbl_host_t *lockdir);
-edb_err edbl_struct(edbl_host_t *lockdir);
+edb_err edbl_index(edbl_host_t *lockdir, edbl_type type);
+edb_err edbl_struct(edbl_host_t *lockdir, edbl_type type);
 edb_err edbl_entry(edbl_host_t *lockdir, edbl_type type, edb_eid entryid);
 edb_err edbl_obj(edbl_host_t *lockdir, edbl_type type, edb_oid objectid);
 edb_err edbl_page(edbl_host_t *lockdir, edbl_type type, edb_pid start, unsigned int len);
