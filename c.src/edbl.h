@@ -1,6 +1,9 @@
 #ifndef _edbl_h_
 #define _edbl_h_
 
+#include <unistd.h>
+#include <fcntl.h>
+
 #include "include/ellemdb.h"
 #include "options.h"
 
@@ -8,26 +11,36 @@
 // host/handle structure. The handle side is expected to
 // be edbw's. The host is expected to be edbx.
 
-typedef struct edbl_host_st edbl_host_t;
+typedef struct edbl_host_st {
+	int fd;
+	pthread_mutex_t mutex_index;
+	pthread_mutex_t mutex_struct;
+} edbl_host_t;
 
 typedef enum {
 
 	// Shared lock. Unlimited amount of shared locks
 	// can be placed on something so long there is not
 	// an exclusive lock.
-	EDBL_TYPSHARED,
+	EDBL_TYPSHARED = F_RDLCK,
 
 	// Exclusive lock. Only 1 exclusive lock can be
 	// placed on something.
-	EDBL_EXCLUSIVE,
+	EDBL_EXCLUSIVE = F_WRLCK,
 
 	// Remove whatever lock was placed.
-	EDBL_TYPUNLOCK
+	EDBL_TYPUNLOCK = F_UNLCK
 } edbl_type;
 
 // Initialize and deinitialize a host of edbl.
-edb_err edbl_init(edbl_host_t *o_lockdir);
+edb_err edbl_init(edbl_host_t *o_lockdir, int filedesc);
 void    edbl_decom(edbl_host_t *lockdir);
+
+typedef struct {
+	edbl_type    l_type;
+	uint64_t     l_start;
+	unsigned int l_len;
+} edbl_lockref;
 
 // edbl_... functions all lock various items of the database
 // which provide for swift traffic control in a super multi-threaded
@@ -55,9 +68,29 @@ void    edbl_decom(edbl_host_t *lockdir);
 //
 // THREADING:
 //    Thread safe per-handle.
-edb_err edbl_index(edbl_host_t *lockdir, edbl_type type);
+edb_err edbl_index(edbl_host_t *lockdir,  edbl_type type);
 edb_err edbl_struct(edbl_host_t *lockdir, edbl_type type);
-edb_err edbl_entry(edbl_host_t *lockdir, edbl_type type, edb_eid entryid);
-edb_err edbl_obj(edbl_host_t *lockdir, edbl_type type, edb_oid objectid);
-edb_err edbl_page(edbl_host_t *lockdir, edbl_type type, edb_pid start, unsigned int len);
+edb_err edbl_set(edbl_host_t *lockdir, edbl_lockref lock);
+
+// returns 1 if the lock can be installe, returns 0 otherwise.
+// note by the time this function returns, the answer may be out of date.
+int edbl_get(edbl_host_t *lockdir, edbl_lockref lock);
+
+
+// just use edbl_set for these.
+/*
+typedef enum {
+	EDBL_CLUTCH_RELEASE,
+	EDBL_CLUTCH_ACTIVATE,
+	EDBL_CLUTCH_READ,
+} edbl_clutcht;
+// install/remove/read a clutch lock on a page.
+// lock should be 0 for unlock, 1 for lock or 2 for no change.
+// it will always return what the current state is.
+//
+// if setting to 1 when already 1, then it will wait.
+//
+// Traffic control should be done via edbl_set.
+int edbl_clutch(edbl_host_t *lockdir, edb_pid page, edbl_clutcht lock);
+ */
 #endif
