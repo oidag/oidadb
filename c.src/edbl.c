@@ -13,7 +13,8 @@
 #include "errors.h"
 #include "pthread.h"
 
-edb_err edbl_init(edbl_host_t *o_lockdir, int filedesc) {
+edb_err edbl_init(edbl_host_t *o_lockdir, const edb_file_t *filedesc) {
+	// todo: invals
 	o_lockdir->fd = filedesc;
 	int err = pthread_mutex_init(&o_lockdir->mutex_struct,0);
 	if(err) {
@@ -29,6 +30,31 @@ edb_err edbl_init(edbl_host_t *o_lockdir, int filedesc) {
 }
 
 void    edbl_decom(edbl_host_t *lockdir) {
+	pthread_mutex_destroy(&lockdir->mutex_struct);
+	pthread_mutex_destroy(&lockdir->mutex_index);
+	lockdir->fd = 0;
+}
+
+edb_err edbl_newhandle(edbl_host_t *host, edbl_handle_t *o_handle) {
+
+	o_handle->parent = host;
+
+	// we have to open new file discriptors per handle per the documentation
+	// of ODF advisory locks in fcntl(2)
+	o_handle->fd_d = open64(host->fd->path, O_RDWR, O_DIRECT
+	                                                | O_SYNC
+	                                                | O_LARGEFILE
+	                                                | O_NONBLOCK);
+	if(o_handle->fd_d == -1) {
+		log_critf("failed to open locking file descriptor");
+		return EDB_ECRIT;
+	}
+	return 0;
+}
+void edbl_destroyhandle(edbl_handle_t *handle) {
+	if(handle == 0 || handle->parent == 0) {
+		return;
+	}
 	// unlock everything
 	struct flock64 f = {
 			.l_type = F_UNLCK,
@@ -37,10 +63,9 @@ void    edbl_decom(edbl_host_t *lockdir) {
 			.l_whence = SEEK_SET,
 			.l_pid = 0,
 	};
-	fcntl64(lockdir->fd, F_OFD_SETLK, &f);
-	pthread_mutex_destroy(&lockdir->mutex_struct);
-	pthread_mutex_destroy(&lockdir->mutex_index);
-	lockdir->fd = 0;
+	fcntl64(handle->fd_d, F_OFD_SETLK, &f);
+	close(handle->fd_d);
+	handle->parent = 0;
 }
 
 // below are some attempts of basically re-implementing fcntl advisory locks manually.
@@ -240,13 +265,13 @@ static edb_err removelock(edbl_lock *l,
 	return 0;
 }*/
 
-edb_err edbl_index(edbl_host_t *lockdir, edbl_type type) {
+edb_err edbl_index(edbl_handle_t *lockdir, edbl_type type) {
 	switch (type) {
 		case EDBL_EXCLUSIVE:
-			pthread_mutex_lock(&lockdir->mutex_index);
+			pthread_mutex_lock(&lockdir->parent->mutex_index);
 			return 0;
 		case EDBL_TYPUNLOCK:
-			pthread_mutex_unlock(&lockdir->mutex_index);
+			pthread_mutex_unlock(&lockdir->parent->mutex_index);
 			return 0;
 		case EDBL_TYPSHARED:
 			log_critf("shared locks not allowed here");
@@ -255,13 +280,13 @@ edb_err edbl_index(edbl_host_t *lockdir, edbl_type type) {
 	log_critf("broken case");
 	return EDB_ECRIT;
 }
-edb_err edbl_struct(edbl_host_t *lockdir, edbl_type type) {
+edb_err edbl_struct(edbl_handle_t *lockdir, edbl_type type) {
 	switch (type) {
 		case EDBL_EXCLUSIVE:
-			pthread_mutex_lock(&lockdir->mutex_struct);
+			pthread_mutex_lock(&lockdir->parent->mutex_struct);
 			return 0;
 		case EDBL_TYPUNLOCK:
-			pthread_mutex_unlock(&lockdir->mutex_struct);
+			pthread_mutex_unlock(&lockdir->parent->mutex_struct);
 			return 0;
 		case EDBL_TYPSHARED:
 			log_critf("shared locks not allowed here");
@@ -271,7 +296,7 @@ edb_err edbl_struct(edbl_host_t *lockdir, edbl_type type) {
 	return EDB_ECRIT;
 }
 
-int edbl_get(edbl_host_t *lockdir, edbl_lockref lock) {
+int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock) {
 #ifdef EDBL_DEBUG
 	if(lock.l_type == EDBL_TYPUNLOCK) {
 		log_critf("edlb_get called with an unlock");
@@ -285,7 +310,7 @@ int edbl_get(edbl_host_t *lockdir, edbl_lockref lock) {
 			.l_whence = SEEK_SET,
 			.l_pid = 0,
 	};
-	int ret = fcntl64(lockdir->fd, F_OFD_GETLK, &f);
+	int ret = fcntl64(lockdir->fd_d, F_OFD_GETLK, &f);
 #ifdef EDBL_DEBUG
 	if(ret == -1) {
 		log_critf("failed to get lock");
@@ -295,7 +320,7 @@ int edbl_get(edbl_host_t *lockdir, edbl_lockref lock) {
 	return f.l_type == F_UNLCK;
 }
 
-edb_err edbl_set(edbl_host_t *lockdir, edbl_lockref lock) {
+edb_err edbl_set(edbl_handle_t *lockdir, edbl_lockref lock) {
 #ifdef EDBL_DEBUG
 	if(lock.l_len == 0) {
 		log_critf("bad lock params");
@@ -322,7 +347,7 @@ edb_err edbl_set(edbl_host_t *lockdir, edbl_lockref lock) {
 			.l_whence = SEEK_SET,
 			.l_pid = 0,
 	};
-	int ret = fcntl64(lockdir->fd, F_OFD_SETLKW, &f);
+	int ret = fcntl64(lockdir->fd_d, F_OFD_SETLKW, &f);
 #ifdef EDBL_DEBUG
 	if(ret == -1) {
 		log_critf("failed to install set lock");
