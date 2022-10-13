@@ -6,16 +6,22 @@
 
 #include "include/ellemdb.h"
 #include "options.h"
+#include "file.h"
 
 // the lock directory is split up into 2 parts in a
 // host/handle structure. The handle side is expected to
 // be edbw's. The host is expected to be edbx.
 
 typedef struct edbl_host_st {
-	int fd;
+	const edb_file_t *fd;
 	pthread_mutex_t mutex_index;
 	pthread_mutex_t mutex_struct;
 } edbl_host_t;
+
+typedef struct edbl_handle_st {
+	edbl_host_t *parent;
+	int fd_d;
+} edbl_handle_t;
 
 typedef enum {
 
@@ -33,8 +39,11 @@ typedef enum {
 } edbl_type;
 
 // Initialize and deinitialize a host of edbl.
-edb_err edbl_init(edbl_host_t *o_lockdir, int filedesc);
+edb_err edbl_init(edbl_host_t *o_lockdir, const edb_file_t *file);
 void    edbl_decom(edbl_host_t *lockdir);
+
+edb_err edbl_newhandle(edbl_host_t *host, edbl_handle_t *o_handle);
+void edbl_destroyhandle(edbl_handle_t *handle);
 
 typedef struct {
 	edbl_type    l_type;
@@ -68,13 +77,13 @@ typedef struct {
 //
 // THREADING:
 //    Thread safe per-handle.
-edb_err edbl_index(edbl_host_t *lockdir,  edbl_type type);
-edb_err edbl_struct(edbl_host_t *lockdir, edbl_type type);
-edb_err edbl_set(edbl_host_t *lockdir, edbl_lockref lock);
+edb_err edbl_index(edbl_handle_t *lockdir,  edbl_type type);
+edb_err edbl_struct(edbl_handle_t *lockdir, edbl_type type);
+edb_err edbl_set(edbl_handle_t *lockdir, edbl_lockref lock);
 
 // returns 1 if the lock can be installe, returns 0 otherwise.
 // note by the time this function returns, the answer may be out of date.
-int edbl_get(edbl_host_t *lockdir, edbl_lockref lock);
+int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock);
 
 
 // just use edbl_set for these.
