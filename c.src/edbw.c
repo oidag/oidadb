@@ -64,74 +64,99 @@ edb_err static rowoffset_lookup(edb_worker_t *self,
 
 }
 
-// copies the object (not including dynamic data) from the
-// database to the job buffer.
-void static execjob_objcopy(edb_worker_t *self) {
+typedef struct obj_searchparams_st {
 
-	// easy pointers
-	edb_job_t *job = self->curjob;
+	// inputs:
+	edb_worker_t   *self;
+	edb_eid         entryid;
+	uint64_t        rowid;
+	int             flags;
 
-	// first find the object we need based of the ID from the transfer buffer
-	edb_err err = 0;
-	edb_oid search;
-	int ret = edbw_jobread(self, &search, sizeof(search));
-	if(ret == -1) {
-		err = EDB_ECRIT;
-		edbw_jobwrite(self, &err, sizeof(err));
-		return;
-	} else if(ret == -2) {
-		err = EDB_EHANDLE;
-		edbw_jobwrite(self, &err, sizeof(err));
-		return;
-	}
+	// outputs:
+	// all o_ params are optional, but all previous o_ params must be non-null
+	// for a given o_ param to be written too.
+	//
+	//   - o_entrydat: the entry data pulled from entryid
+	//   - o_structdata: the structure data pulled from structures
+	//   - o_objectoff: the total amount of bytes offset from the start of the file
+	//                  requires transversing the edbp_lookup btree
+	//   - o_objectdat: a pointer to the object data itself. note that o_objectdat
+	//                  will point to the start of the whole object (head/flags included)
+	edb_entry_t   **o_entrydat;
+	edb_struct_t  **o_structdata;
+	uint64_t       *o_objectoff;
+	void          **o_objectdat;
+} obj_searchparams;
 
-	// now we have the object id, lets unpack it.
-	edb_eid entryid = search >> 0x30;
-	unsigned int rowid = search & 0x0000FFFFFFFFFFFF;
+// helper function to all execjob_obj... functions.
+//
+// This will install proper locks and get meta data needed to
+// work with objects.
+//
+// make sure to run execjob_obj_post when done with the same arguments.
+//
+// returns 1 if something is wrong and you should close out of
+// the job (return from your function). Logs and error reports all handled.
+// If returns 1 then no need for execjob_obj_post.
+//
 
-	if(entryid < 4) {
-		// this entry is invalid per spec
-		err = EDB_ENOENT;
-		edbw_jobwrite(self, &err, sizeof(err));
-		return;
-	}
+//
+int static execjob_obj_pre(obj_searchparams dat) {
+	edb_err err;
+
+	edb_worker_t *self = dat.self;
+	edb_eid entryid = dat.entryid;
+	uint64_t rowid = dat.rowid;
 
 	// SH lock the entry
 	// ** defer: edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 	edbl_entry(&self->lockdir, entryid, EDBL_TYPSHARED);
 
 	// get the index entry
-	edb_entry_t *entrydat;
-	err = edbs_index(self->shm, entryid, &entrydat);
+	if(!dat.o_entrydat) {
+		return 0;
+	}
+	err = edbs_index(self->shm, entryid, dat.o_entrydat);
 	if(err) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_errorf("the supplied edb_oid does not have a valid entryid: %d", entryid);
-		err = EDB_ENOENT;
 		edbw_jobwrite(self, &err, sizeof(err));
-		return;
+		return 1;
 	}
+	edb_entry_t *entrydat = *dat.o_entrydat;
 
 	// get the structure data
-	edb_struct_t *structdata;
-	err = edbs_structs(self->shm, entrydat->structureid, &structdata);
-	if(err) {
+	if(!dat.o_structdata) {
+		return 0;
+	}
+	err = edbs_structs(self->shm,
+	                   entrydat->structureid,
+	                   dat.o_structdata);
+	if (err) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
-		log_critf("failed to load structure information (%d) for some reqson for a valid entry: %d", entrydat->structureid, entryid);
+		log_critf("failed to load structure information (%d) for some reqson for a valid entry: %d",
+		          entrydat->structureid, entryid);
 		err = EDB_ECRIT;
 		edbw_jobwrite(self, &err, sizeof(err));
-		return;
+		return 1;
 	}
 
-	// get the page offset from the start of the chapter.
-	edb_pid pageoffset = rowid / entrydat->objectsperpage;
-	if(pageoffset >= entrydat->ref0c) {
+	// get the page offset for the rowid from the start of the chapter.
+	if(!dat.o_objectoff) {
+		return 0;
+	}
+	edb_pid pageoffset;
+	edb_pid foundpage;
+	edb_struct_t *structdata = *dat.o_structdata;
+	pageoffset = rowid / entrydat->objectsperpage;
+	if (pageoffset >= entrydat->ref0c) {
 		// the page offset is larger than the amount of pages we have.
 		// thus, this rowid is impossible.
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_errorf("the supplied edb_oid has a page offset that is too large: %ld", pageoffset);
-		err = EDB_ENOENT;
+		err = EDB_EEOF;
 		edbw_jobwrite(self, &err, sizeof(err));
-		return;
+		return 0;
 	}
 
 	// now we know how many pages we need to go in. So we now need to go
@@ -140,37 +165,41 @@ void static execjob_objcopy(edb_worker_t *self) {
 	int btree_depth = entrydat->memory >> 3;
 
 	// do the b-tree lookup
-	edb_pid foundpage;
 	err = rowoffset_lookup(self,
-	                 btree_depth,
-	                 entrydat->ref1,
-	                 pageoffset,
-	                 &foundpage);
+	                       btree_depth,
+	                       entrydat->ref1,
+	                       pageoffset,
+	                       &foundpage);
 	if(err) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		edbw_jobwrite(self, &err, sizeof(err));
-		return;
+		return 1;
 	}
 
-	// page with the row was found. lets load it.
+	// page with the row was found.
 
-	// as per locking spec, need to place the lock on the data before we load the page.
 	// So we calculate all the offset stuff.
 	// get the intrapage byte offset
 	// use math to get the byte offset of the start of the row data
 	unsigned int intrapage_row = edbp_object_intraoffset(rowid,
-														 pageoffset,
-														 entrydat->objectsperpage,
-														 structdata->fixedc);
+	                                                     pageoffset,
+	                                                     entrydat->objectsperpage,
+	                                                     structdata->fixedc);
+	*dat.o_objectoff = edbp_pid2off(self->cache, pageoffset) +intrapage_row;
+
+	if(!dat.o_objectdat) {
+		return 0;
+	}
+	// as per locking spec, need to place the lock on the data before we load the page.
 	// install the SH lock as per Object-Reading
 	edbl_lockref lock = (edbl_lockref) {
 			.l_type  = EDBL_TYPSHARED,
-			.l_start = edbp_pid2off(self->cache, pageoffset) +intrapage_row,
+			.l_start = (*dat.o_objectdat),
 			.l_len   = structdata->fixedc,
 	};
 	// ** defer: edbl_set(&self->lockdir, lock);
 	edbl_set(&self->lockdir, lock);
-	lock.l_type = EDBL_TYPUNLOCK; // set this in advance
+	lock.l_type = EDBL_TYPUNLOCK; // set this in advance for back-outs
 
 	// lock the page in cache
 	err = edbp_start(&self->edbphandle, &foundpage);
@@ -179,14 +208,67 @@ void static execjob_objcopy(edb_worker_t *self) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_critf("unhandled error %d", err);
 		edbw_jobwrite(self, &err, sizeof(err));
-		return;
+		return 1;
 	}
 
 	// parse the page into an edbp_object page
 	edbp_object_t *o = edbp_gobject(&self->edbphandle);
 
 	// get the offset for the record
-	void *recorddata = o + intrapage_row;
+	*dat.o_objectdat = o + intrapage_row;
+
+	return 0;
+}
+void static execjob_obj_post(obj_searchparams dat) {
+	edb_worker_t *self = dat.self;
+
+	// finis the page. This function will execute all the defers in the _pre function
+	if(dat.o_objectdat) {
+		// let the cache know we're done with the page
+		edbp_finish(&self->edbphandle);
+		// let the traffic control know we're done with the record
+		edbl_lockref lock = (edbl_lockref) {
+				.l_type  = EDBL_TYPUNLOCK,
+				.l_start = (*dat.o_objectoff),
+				.l_len   = (*dat.o_structdata)->fixedc,
+		};
+		edbl_set(&self->lockdir, lock);
+	}
+	// let the traffic control know we're done with the entry
+	edbl_entry(&self->lockdir, dat.entryid, EDBL_TYPUNLOCK);
+}
+
+
+// copies the object (not including dynamic data) from the
+// database to the job buffer.
+void static execjob_objcopy(edb_worker_t *self, edb_eid entryid, uint64_t rowid) {
+
+	// easy pointers
+	edb_job_t *job = self->curjob;
+
+	// first find the object we need based of the ID from the transfer buffer
+	edb_err err = 0;
+
+	edb_entry_t *entrydat;
+	edb_struct_t *structdata;
+	uint64_t dataoff;
+	edb_pid pageoffset;
+	void *recorddata;
+	obj_searchparams dat = {0};
+	dat = (obj_searchparams){
+			self,
+			entryid,
+			rowid,
+			0,
+			&entrydat,
+			&structdata,
+			&dataoff,
+			&recorddata
+	};
+	err = execjob_obj_pre(dat);
+	if(err) {
+		return;
+	}
 
 	// get the flags
 	uint32_t flags = *(uint32_t *)recorddata;
@@ -202,37 +284,51 @@ void static execjob_objcopy(edb_worker_t *self) {
 	err = 0;
 	edbw_jobwrite(self, &err, sizeof(err));
 
-	// throw it all in the transfer buffer, excluding the
-	// flags.
-	edbw_jobwrite(self, body, (int)o->fixedlen - (int)sizeof(uint32_t));
+	// throw it all in the transfer buffer
+	edbw_jobwrite(self, body, structdata->fixedc);
 
-
-	// finis the page.
 	finishpage:
-	// let the cache know we're done with the page
-	edbp_finish(&self->edbphandle);
-	// let the traffic control know we're done with the record
-	edbl_set(&self->lockdir, lock);
-	// let the traffic control know we're done with the entry
-	edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
+	execjob_obj_post(dat);
 }
 
-void static execjob_objedit(edb_worker_t *self, edb_eid eid, uint64_t rowid) {
+void static execjob_objedit(edb_worker_t *self, edb_eid entryid, uint64_t rowid) {
 
 	// easy vars
 	edb_job_t *job = self->curjob;
 
+	edb_err err = 0;
+
+	edb_entry_t *entrydat;
+	edb_struct_t *structdata;
+	uint64_t dataoff;
+	edb_pid pageoffset;
+	void *recorddata;
+	obj_searchparams dat = {0};
+	dat = (obj_searchparams){
+			self,
+			entryid,
+			rowid,
+			0,
+			&entrydat,
+			&structdata,
+			&dataoff,
+			&recorddata
+	};
+	err = execjob_obj_pre(dat);
+	if(err) {
+		return;
+	}
+
+	// todo:
+
+	finishpage:
+	execjob_obj_post(dat);
 
 }
 
 // function to easily verbosely log worker and job ids
 #define edbw_logverbose(workerp, fmt, ...) \
 log_debugf("worker#%d executing job#%ld: " fmt, workerp->workerid, workerp->curjob->jobid, ##__VA_ARGS__)
-
-
-void static inline debugf_printjob(edb_worker_t *self, const char *jobenglish) {
-	log_debugf("worker#%d executing job#%ld: %s %lx", self->workerid, self->curjob->jobid, oid);
-}
 
 // helper func to selectjob.
 //
@@ -276,11 +372,10 @@ static edb_err execjob(edb_worker_t *self) {
 	// check for some common errors regarding the edb_jobclass
 	edb_oid oid;
 	edb_eid entryid;
-	uint64_t rowid;
+	uint64_t data_identity; // generic term, can be rowid or otherwise structid
 	int ret;
 	edb_err c_err;
 	switch (job->jobdesc & 0x00FF) {
-		case EDB_STRUCT:
 		case EDB_OBJ:
 		case EDB_DYN:
 			// all of these job classes need an id parameter
@@ -295,7 +390,13 @@ static edb_err execjob(edb_worker_t *self) {
 				goto closejob;
 			}
 			entryid = oid >> 0x30;
-			rowid = oid & 0x0000FFFFFFFFFFFF;
+			data_identity = oid & 0x0000FFFFFFFFFFFF;
+			if(entryid < 4) {
+				// this entry is invalid per spec
+				err = EDB_EINVAL;
+				edbw_jobwrite(self, &err, sizeof(err));
+				goto closejob;
+			}
 			break;
 
 		default: break;
@@ -306,13 +407,6 @@ static edb_err execjob(edb_worker_t *self) {
 	switch (job->jobdesc & 0xFF00) {
 		case EDB_CDEL:
 		case EDB_CCOPY:
-			// FRH
-			// Delete's and ccopies musn't have 0-oids
-			if(oid == 0) {
-				c_err = EDB_EINVAL;
-				edbw_jobwrite(self, &c_err, sizeof(c_err));
-				goto closejob;
-			}
 			break;
 	}
 
@@ -320,7 +414,7 @@ static edb_err execjob(edb_worker_t *self) {
 	switch (job->jobdesc) {
 		case EDB_OBJ | EDB_CCOPY:
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
-			execjob_objcopy(self, entryid, rowid);
+			execjob_objcopy(self, entryid, data_identity);
 			break;
 		case EDB_OBJ | EDB_CWRITE:
 			if(oid == 0) {
@@ -330,7 +424,7 @@ static edb_err execjob(edb_worker_t *self) {
 			} else {
 				// we have an open stream and a id, thus, it is an edit.
 				edbw_logverbose(self, "edit object 0x%016lX", oid);
-				execjob_objedit(self, entryid, rowid);
+				execjob_objedit(self, entryid, data_identity);
 			}
 			break;
 		case EDB_OBJ | EDB_CDEL:
@@ -339,8 +433,10 @@ static edb_err execjob(edb_worker_t *self) {
 			return execjob_objdelete(self, job);
 		case EDB_OBJ | EDB_CUSRLK:
 		default:
-			log_critf("execjob was given an non-job: %0x", job->jobdesc);
-			return 1;
+			err = EDB_EINVAL;
+			edbw_jobwrite(self, &err, sizeof(err));
+			log_critf("execjob was given a bad jobid: %04x", job->jobdesc);
+			goto closejob;
 	}
 
 	closejob:

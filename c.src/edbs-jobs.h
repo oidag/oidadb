@@ -26,7 +26,7 @@ typedef enum _edb_jobclass {
 	// see edb_obj() for description
 	//
 	// All cases:
-	//     <- edb_oid (can be 0 if EDB_CWRITE)
+	//     <- edb_oid (can be (uint64)-1 for EDB_CCREATE for new id)
 	//     -> edb_err [1]
 	//  EDB_CCOPY:
 	//     (all cases)
@@ -36,19 +36,26 @@ typedef enum _edb_jobclass {
 	//     (all cases)
 	//     <- void *rowdata
 	//     ==
+	//  EDB_CCREATE:
+	//     (all cases)
+	//     <- void *rowdata
+	//     -> created ID
+	//     ==
 	//  EDB_CDEL
 	//     (all cases)
 	//     ==
 	//  EDB_CUSRLK: todo: need to write out edbl before getting any deeper into this. I don't think persistant user locks are needed.
+	//     (all cases)
 	//     <- edb_usrlk
 	//     ==
 	//
 	// [1] This error will describe the efforts of locating the oid
 	//     which will include:
 	//       - EDB_EHANDLE - handle closed stream
-	//       - EDB_EINVAL - (EDB_CDEL, EDB_CCOPY): oid was 0
-	//       - EDB_ENOENT - oid is not valid.
+	//       - EDB_EINVAL - entry in oid was below 4.
+	//       - EDB_EINVAL - jobdesc was invalid
 	//       - EDB_ENOENT - (EDB_CWRITE, EDB_CCOPY) oid was deleted
+	//       - EDB_EEOF - entry was not valid (too large) or rowid was too large
 	//       - EDB_ECRIT - unknown error
 	//
 	EDB_OBJ = 0x0003,
@@ -151,7 +158,7 @@ int edb_jobwrite(edb_job_t *job, void *transferbuf, const void *buff, int count)
 //
 //   However, simultainous calls to the same function on the same job is okay (multiple threads calling
 //   edb_jobclose is ok, multiple threads calling edb_jobreset is okay.)
-int edb_jobclose(edb_job_t *job);
+void edb_jobclose(edb_job_t *job);
 int edb_jobreset(edb_job_t *job);
 
 // returns 1 if the job is closed, or 0 if it is open.

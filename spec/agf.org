@@ -542,6 +542,9 @@ entry.
 Given the $\rho$ is the rowoffset which does not describe the page,
 you must find the page with the Entries referenced [[edbp_lookup]].
 
+/Note, unlike normal database convention, $\rho$ (the "rowid") CAN be
+0./
+
 ** structure changing
 If the content length and point count needs to be changed after it's
 inserted, the whole ag_new chapter needs to be locked for
