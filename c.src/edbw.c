@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <string.h>
 #include <pthread.h>
 #include <linux/futex.h>
@@ -56,7 +57,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 	// easy pointers
 	void *transbuf = self->shm->transbuffer;
 
-	// first find the object we need based of the ID.
+	// first find the object we need based of the ID from the transfer buffer
 	edb_err err = 0;
 	edb_oid search;
 	int ret = edb_jobread(job, transbuf, &search, sizeof(search));
@@ -75,37 +76,45 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 	unsigned int rowid = search & 0x0000FFFFFFFFFFFF;
 
 	if(entryid < 4) {
-		// this entry is invalid
+		// this entry is invalid per spec
 		err = EDB_ENOENT;
 		edb_jobwrite(job, transbuf, &err, sizeof(err));
 		return;
 	}
 
-	// perform the lookup to get the entry data
-	edb_entry_t entrydat;
-	edbl_t lock = (edbl_t) {
-		.l_type = EDBL_TYPSHARED,
-		.l_cat = EDBL_CATSTRUCT,
-		.l_id = search,
-	};
-	edbl_lockset(self->lockdir, &lock); // todo: check for errors? // todo: make sure its unlocked
-	lock.l_type = EDBL_TYPUNLOCK; // set this right here
+	// SH lock the entry
+	// ** defer: edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
+	edbl_entry(&self->lockdir, entryid, EDBL_TYPSHARED);
+
+	// get the index entry
+	edb_entry_t *entrydat;
 	err = edbs_index(self->shm, entryid, &entrydat);
 	if(err) {
+		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_errorf("the supplied edb_oid does not have a valid entryid: %d", entryid);
-		edbl_lockset(&self->lockdir, &lock);
 		err = EDB_ENOENT;
+		edb_jobwrite(job, transbuf, &err, sizeof(err));
+		return;
+	}
+
+	// get the structure data
+	edb_struct_t *structdata;
+	err = edbs_structs(self->shm, entrydat->structureid, &structdata);
+	if(err) {
+		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
+		log_critf("failed to load structure information (%d) for some reqson for a valid entry: %d", entrydat->structureid, entryid);
+		err = EDB_ECRIT;
 		edb_jobwrite(job, transbuf, &err, sizeof(err));
 		return;
 	}
 
 	// get the page offset from the start of the chapter.
-	edb_pid pageoffset = rowid / entrydat.objectsperpage;
-	if(pageoffset >= entrydat.ref0c) {
+	edb_pid pageoffset = rowid / entrydat->objectsperpage;
+	if(pageoffset >= entrydat->ref0c) {
 		// the page offset is larger than the amount of pages we have.
 		// thus, this rowid is impossible.
+		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_errorf("the supplied edb_oid has a page offset that is too large: %ld", pageoffset);
-		edbl_lockset(&self->lockdir, &lock);
 		err = EDB_ENOENT;
 		edb_jobwrite(job, transbuf, &err, sizeof(err));
 		return;
@@ -114,31 +123,47 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 	// now we know how many pages we need to go in. So we now need to go
 	// into the lookup b+tree. So lets pull up that information.
 	// the following info is extracted from spec.
-	int btree_depth = entrydat.memory >> 3;
+	int btree_depth = entrydat->memory >> 3;
 
 	// do the b-tree lookup
 	edb_pid foundpage;
 	err = rowoffset_lookup(self,
 	                 btree_depth,
-	                 entrydat.ref1,
+	                 entrydat->ref1,
 	                 pageoffset,
 	                 &foundpage);
 	if(err) {
-		edbl_lockset(&self->lockdir, lock);
+		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		edb_jobwrite(job, transbuf, &err, sizeof(err));
 		return;
 	}
 
 	// page with the row was found. lets load it.
 
-	// get the intrapage offset
-	unsigned int intrapage_row = (rowid % entrydat.objectsperpage);
+	// as per locking spec, need to place the lock on the data before we load the page.
+	// So we calculate all the offset stuff.
+	// get the intrapage byte offset
+	// use math to get the byte offset of the start of the row data
+	unsigned int intrapage_row = edbp_object_intraoffset(rowid,
+														 pageoffset,
+														 entrydat->objectsperpage,
+														 structdata->fixedc);
+	// install the SH lock as per Object-Reading
+	edbl_lockref lock = (edbl_lockref) {
+			.l_type  = EDBL_TYPSHARED,
+			.l_start = edbp_pid2off(self->cache, pageoffset) +intrapage_row,
+			.l_len   = structdata->fixedc,
+	};
+	// ** defer: edbl_set(&self->lockdir, lock);
+	edbl_set(&self->lockdir, lock);
+	lock.l_type = EDBL_TYPUNLOCK; // set this in advance
 
 	// lock the page in cache
 	err = edbp_start(&self->edbphandle, &foundpage);
 	if(err) {
+		edbl_set(&self->lockdir, lock);
+		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_critf("unhandled error %d", err);
-		edbl_lockset(&self->lockdir, lock);
 		edb_jobwrite(job, transbuf, &err, sizeof(err));
 		return;
 	}
@@ -146,19 +171,12 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 	// parse the page into an edbp_object page
 	edbp_object_t *o = edbp_gobject(&self->edbphandle);
 
-	// use math to get the byte offset of the start of the row data
-	void *recorddata = edbp_body(o) + intrapage_row * o->fixedlen;
+	// get the offset for the record
+	void *recorddata = o + intrapage_row;
 
 	// get the flags
 	uint32_t flags = *(uint32_t *)recorddata;
 	void     *body  = recorddata + sizeof(uint32_t);
-	/*// later: is it read locked?
-	if(flags & EDB_FUSRLRD) {
-		// read-locked. cannot access it.
-		err = EDB_EULOCK;
-		edb_jobwrite(job, transbuf, &err, sizeof(edb_err));
-		goto finishpage;
-	}*/
 	// is it deleted?
 	if(flags & EDB_FDELETED) {
 		err = EDB_ENOENT;
@@ -177,11 +195,12 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 
 	// finis the page.
 	finishpage:
+	// let the cache know we're done with the page
 	edbp_finish(&self->edbphandle);
-
-	// unlock the object from the lockdir.
-	unlockobj:
-	edbl_lockset(&self->lockdir, lock);
+	// let the traffic control know we're done with the record
+	edbl_set(&self->lockdir, lock);
+	// let the traffic control know we're done with the entry
+	edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 }
 
 // helper func to selectjob.

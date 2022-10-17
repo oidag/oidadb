@@ -26,7 +26,7 @@ static edb_err createfile(const char *path, unsigned int pagemul, int flags) {
 	int minpagesize = sysconf(_SC_PAGE_SIZE);
 
 	// create the file itself.
-	int fd = creat(path, 0666);
+	int fd = creat64(path, 0666);
 	if(fd == -1) {
 		return EDB_EERRNO;
 	}
@@ -193,32 +193,38 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul,
 	// operating exclusively on a block-by-block basis with mmap. Maybe
 	// that's good reason?
 	//
-	dbfile->descriptor = open(path, O_RDWR
+	// O_NONBLOCK - set just incase mmap(2)/read(2)/write(2) are enabled to
+	//              wait for advisory locks, which they shouldn't... we manage
+	//              those locks manually. (see Mandatory locking in fnctl(2)
+	dbfile->descriptor = open64(path, O_RDWR
 	                                | O_DIRECT
 	                                | O_SYNC
-	                                | O_LARGEFILE);
+	                                | O_LARGEFILE
+									| O_NONBLOCK);
 	if(dbfile->descriptor == -1) {
 		return EDB_EERRNO;
 	}
 
+	int psize = sysconf(_SC_PAGE_SIZE);
 
-	// lock the file so that only this process can use it.
+
+	// lock the first page of file so that only this process can use it.
 	// we enable noblock so we know if something else has it open.
-	struct flock dbflock = {
-		.l_type = F_WRLCK,
+	struct flock64 dbflock = {
+		.l_type   = F_WRLCK,
 		.l_whence = SEEK_SET,
 		.l_start  = 0,
-		.l_len    = 0,
+		.l_len    = psize,
 		.l_pid    = 0,
 	};
 	// note we use OFD locks becuase the host can be started in the same
 	// process as handlers, but just use different threads.
-	err = fcntl(dbfile->descriptor, F_OFD_SETLK, &dbflock);
+	err = fcntl64(dbfile->descriptor, F_OFD_SETLK, &dbflock);
 	if(err == -1) {
 		int errnotmp = errno;
 		close(dbfile->descriptor);
 		if(errno == EACCES || errno == EAGAIN)
-			return EDB_EOPEN;
+			return EDB_EOPEN; // another process has this open.
 		// no other error is possible here except for out of memory error.
 		log_critf("failed to call flock(2) due to unpredictable errno: %d", errnotmp);
 		errno = errnotmp;
@@ -226,8 +232,7 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul,
 	}
 
 	// file open and locked. load in the head.
-	int psize = sysconf(_SC_PAGE_SIZE);
-	dbfile->head = mmap(0, psize, PROT_READ | PROT_WRITE,
+	dbfile->head = mmap64(0, psize, PROT_READ | PROT_WRITE,
 						   MAP_SHARED_VALIDATE,
 						   dbfile->descriptor,
 						   0);

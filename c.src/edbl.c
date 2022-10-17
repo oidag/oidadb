@@ -297,7 +297,7 @@ edb_err edbl_struct(edbl_handle_t *lockdir, edbl_type type) {
 }
 
 int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock) {
-#ifdef EDBL_DEBUG
+#ifdef EDB_FUCKUPS
 	if(lock.l_type == EDBL_TYPUNLOCK) {
 		log_critf("edlb_get called with an unlock");
 		return 1;
@@ -311,7 +311,7 @@ int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock) {
 			.l_pid = 0,
 	};
 	int ret = fcntl64(lockdir->fd_d, F_OFD_GETLK, &f);
-#ifdef EDBL_DEBUG
+#ifdef EDB_FUCKUPS
 	if(ret == -1) {
 		log_critf("failed to get lock");
 		return 0;
@@ -321,7 +321,7 @@ int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock) {
 }
 
 edb_err edbl_set(edbl_handle_t *lockdir, edbl_lockref lock) {
-#ifdef EDBL_DEBUG
+#ifdef EDB_FUCKUPS
 	if(lock.l_len == 0) {
 		log_critf("bad lock params");
 		return EDB_ECRIT;
@@ -348,7 +348,7 @@ edb_err edbl_set(edbl_handle_t *lockdir, edbl_lockref lock) {
 			.l_pid = 0,
 	};
 	int ret = fcntl64(lockdir->fd_d, F_OFD_SETLKW, &f);
-#ifdef EDBL_DEBUG
+#ifdef EDB_FUCKUPS
 	if(ret == -1) {
 		log_critf("failed to install set lock");
 		return EDB_ECRIT;

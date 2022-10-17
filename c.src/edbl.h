@@ -47,7 +47,7 @@ void edbl_destroyhandle(edbl_handle_t *handle);
 
 typedef struct {
 	edbl_type    l_type;
-	uint64_t     l_start;
+	off64_t      l_start;
 	unsigned int l_len;
 } edbl_lockref;
 
@@ -84,6 +84,11 @@ edb_err edbl_set(edbl_handle_t *lockdir, edbl_lockref lock);
 // returns 1 if the lock can be installe, returns 0 otherwise.
 // note by the time this function returns, the answer may be out of date.
 int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock);
+
+// returns 1 if there's a clutch on this entry
+//
+// will automatically deal with clutch locks. (See Entry-Reading)
+int edbl_entry(edbl_handle_t *lockdir, edb_eid, edbl_type);
 
 
 // just use edbl_set for these.

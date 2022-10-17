@@ -18,14 +18,6 @@ unsigned int edbp_size(const edbpcache_t *c) {
 	return c->page_size;
 }
 
-// changes the pid into a file offset.
-off64_t static inline pid2off(const edbpcache_t *c, edb_pid id) {
-	return (off64_t)id * edbp_size(c);
-}
-edb_pid static inline off2pid(const edbpcache_t *c, off64_t off) {
-	return off / edbp_size(c);
-}
-
 // gets thee pages from either the cache or the file and returns an array of
 // pointers to those pages. Will try to get up to len (at least 1 is guarenteed)
 // but actual count will be set in o_len.
@@ -168,7 +160,7 @@ static edb_err lockpages(edbpcache_t *cache,
 	// load in the new page
 	void *newpage = mmap64(0, pagesize,
 		 PROT_READ | PROT_WRITE,
-		 MAP_SHARED, fd, pid2off(cache, starting));
+		                   MAP_SHARED, fd, edbp_pid2off(cache, starting));
 
 	if(newpage == (void *)-1) {
 		// out of memory/some other critical error: bail out.
@@ -376,7 +368,7 @@ edb_err edbp_start (edbphandle_t *handle, edb_pid *id) {
 		lockeof(parent);
 		//seek to the end and grab the next page id while we're there.
 		off64_t fsize = lseek64(fd, 0, SEEK_END);
-		setid = off2pid(parent, fsize + 1); // +1 to put us at the start of the next page id.
+		setid = edbp_off2pid(parent, fsize + 1); // +1 to put us at the start of the next page id.
 		// we HAVE to make sure that fsize/id is set properly. Otherwise
 		// we end up truncating the entire file, and thus deleting the
 		// entire database lol.

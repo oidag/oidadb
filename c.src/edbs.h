@@ -108,9 +108,11 @@ void    edbs_unhandle(edb_shm_t *shm);
 edb_err edbs_entry(const edb_shm_t *shm, edb_eid eid, edb_entry_t *entry);
 
 // see edb_index and edb_structs.
-// these do the exact same thing but only specifically needs the shm.
-edb_err edbs_index(const edb_shm_t *shm, edb_eid eid, edb_entry_t *o_entry);
-edb_err edbs_structs(const edb_shm_t *shm, uint16_t structureid, edb_struct_t *o_struct);
+// these do the exact same thing but only specifically needs the shm and will return
+// the pointer inside of shm rather than copy the data.
+// DOES NOT CHECK FOR LOCKS
+edb_err edbs_index(const edb_shm_t *shm, edb_eid eid, edb_entry_t **o_entry);
+edb_err edbs_structs(const edb_shm_t *shm, uint16_t structureid, edb_struct_t **o_struct);
 
 
 #endif

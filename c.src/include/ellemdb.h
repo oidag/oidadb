@@ -400,7 +400,7 @@ edb_err edb_close(edbh *handle);
 typedef struct edb_entry_st {
 
 	uint8_t type;
-	uint8_t flags;
+	uint8_t rsvd;
 	uint16_t memory;
 	uint16_t structureid;
 
@@ -434,16 +434,15 @@ typedef struct edb_struct_st {
 
 // shared-memory access functions
 //
-// The returned arrays from all these functions are pointers to parts
-// of the handle. They do not need to be freed, all memeory is managed
-// within edb_open and edb_close.
-//
 // edb_structs and edb_index will take in ids and copy the respective
 // information into their o_ parameters. If the o_ parameters are
 // null, then they are ignored.
 //
 // To get all indecies for instance, you'd start at eid=0 and work your
 // way up until you get an EOF.
+//
+// If a certain entry is undergoing an operation, the function call
+// is blocked until that operation is complete.
 //
 // RETURNS:
 //

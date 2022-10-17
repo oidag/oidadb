@@ -322,7 +322,7 @@ which all pages in that collection are.
 | Name            | Clang    | Definition                                         |
 |-----------------+----------+----------------------------------------------------|
 | Type            | uint8_t  | The type and flags of all the pages.               |
-| Locks           | uint8_t  | Chapter flags (ie: locks)                          |
+| rsvd            | uint8_t  | rsvd (used for clutch locks?)                      |
 | Memory Settings | uint16_t | [[Memory Settings]]                                    |
 | Struct ID       | uint16_t | if edbp_object: the structure ID                   |
 | objectsperpage  | uint16_t | cached amount of objects per page.                 |
