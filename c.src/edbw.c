@@ -30,6 +30,14 @@ typedef enum {
 #define EDB_BTREE2 0x2000
 #define EDB_BTREE3 0x3000
 
+// helper wrappers for accessing the job buffer more easily
+int static inline edbw_jobread(edb_worker_t *self, void *bufv, int bufc) {
+	return edb_jobread(self->curjob, self->shm->transbuffer, bufv, bufc);
+}
+int static inline edbw_jobwrite(edb_worker_t *self, void *bufv, int bufc) {
+	return edb_jobwrite(self->curjob, self->shm->transbuffer, bufv, bufc);
+}
+
 // converts a pid offset to the actual page address
 // note to self: the only error returned by this should be a critical error
 edb_err static rowoffset_lookup(edb_worker_t *self,
@@ -52,22 +60,22 @@ edb_err static rowoffset_lookup(edb_worker_t *self,
 
 // copies the object (not including dynamic data) from the
 // database to the job buffer.
-void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
+void static execjob_objcopy(edb_worker_t *self) {
 
 	// easy pointers
-	void *transbuf = self->shm->transbuffer;
+	edb_job_t *job = self->curjob;
 
 	// first find the object we need based of the ID from the transfer buffer
 	edb_err err = 0;
 	edb_oid search;
-	int ret = edb_jobread(job, transbuf, &search, sizeof(search));
+	int ret = edbw_jobread(self, &search, sizeof(search));
 	if(ret == -1) {
 		err = EDB_ECRIT;
-		edb_jobwrite(job, transbuf, &err, sizeof(err));
+		edbw_jobwrite(self, &err, sizeof(err));
 		return;
 	} else if(ret == -2) {
 		err = EDB_EHANDLE;
-		edb_jobwrite(job, transbuf, &err, sizeof(err));
+		edbw_jobwrite(self, &err, sizeof(err));
 		return;
 	}
 
@@ -78,7 +86,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 	if(entryid < 4) {
 		// this entry is invalid per spec
 		err = EDB_ENOENT;
-		edb_jobwrite(job, transbuf, &err, sizeof(err));
+		edbw_jobwrite(self, &err, sizeof(err));
 		return;
 	}
 
@@ -93,7 +101,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_errorf("the supplied edb_oid does not have a valid entryid: %d", entryid);
 		err = EDB_ENOENT;
-		edb_jobwrite(job, transbuf, &err, sizeof(err));
+		edbw_jobwrite(self, &err, sizeof(err));
 		return;
 	}
 
@@ -104,7 +112,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_critf("failed to load structure information (%d) for some reqson for a valid entry: %d", entrydat->structureid, entryid);
 		err = EDB_ECRIT;
-		edb_jobwrite(job, transbuf, &err, sizeof(err));
+		edbw_jobwrite(self, &err, sizeof(err));
 		return;
 	}
 
@@ -116,7 +124,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_errorf("the supplied edb_oid has a page offset that is too large: %ld", pageoffset);
 		err = EDB_ENOENT;
-		edb_jobwrite(job, transbuf, &err, sizeof(err));
+		edbw_jobwrite(self, &err, sizeof(err));
 		return;
 	}
 
@@ -134,7 +142,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 	                 &foundpage);
 	if(err) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
-		edb_jobwrite(job, transbuf, &err, sizeof(err));
+		edbw_jobwrite(self, &err, sizeof(err));
 		return;
 	}
 
@@ -164,7 +172,7 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 		edbl_set(&self->lockdir, lock);
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_critf("unhandled error %d", err);
-		edb_jobwrite(job, transbuf, &err, sizeof(err));
+		edbw_jobwrite(self, &err, sizeof(err));
 		return;
 	}
 
@@ -176,21 +184,21 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 
 	// get the flags
 	uint32_t flags = *(uint32_t *)recorddata;
-	void     *body  = recorddata + sizeof(uint32_t);
+	void     *body  = recorddata + sizeof(uint32_t); // plus uint32_t to get past the flags
 	// is it deleted?
 	if(flags & EDB_FDELETED) {
 		err = EDB_ENOENT;
-		edb_jobwrite(job, transbuf, &err, sizeof(edb_err));
+		edbw_jobwrite(self, &err, sizeof(err));
 		goto finishpage;
 	}
 
 	// its all good.
 	err = 0;
-	edb_jobwrite(job, transbuf, &err, sizeof(edb_err));
+	edbw_jobwrite(self, &err, sizeof(err));
 
 	// throw it all in the transfer buffer, excluding the
 	// flags.
-	edb_jobwrite(job, transbuf, body, o->fixedlen - sizeof(uint32_t));
+	edbw_jobwrite(self, body, (int)o->fixedlen - (int)sizeof(uint32_t));
 
 
 	// finis the page.
@@ -208,6 +216,8 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 // executes the job only. does not mark the job as complete nor relinquish ownership.
 // thats the callers responsibility.
 //
+// self->curjob is assumed to be non-null (will not null out on completion)
+//
 // This function's only purpose is to route the information into the relevant execjob_...
 // function.
 //
@@ -215,8 +225,10 @@ void static execjob_objcopy(edb_worker_t *self, edb_job_t *job) {
 // returns EDB_EINVAL if something went wrong because the handle didn't format something correctly.
 // returns EDB_EHANDLE if something went wrong with the handle.
 // returns EDB_??? on any other error that is the handle's fault.
-static edb_err execjob(edb_worker_t *self, edb_job_t *job) {
+static edb_err execjob(edb_worker_t *self) {
 
+	// easy pointers
+	edb_job_t *job = self->curjob;
 
 	// note to self: inside this function we have our own thread to ourselves.
 	// its slightly better to be organized than efficient in here sense we have
@@ -247,24 +259,27 @@ static edb_err execjob(edb_worker_t *self, edb_job_t *job) {
 	switch (job->jobdesc & 0xFF00) {
 	}
 
+	edb_oid oid;
+
 	// do the routing
 	switch (job->jobdesc) {
 		case EDB_OBJ | EDB_CCOPY:
 			// no reouting needed.
-			return execjob_objcopy(self, job);
+			return execjob_objcopy(self);
 
 		case EDB_OBJ | EDB_CWRITE:
-			// routing
-			if(edb_jobisclosed(job)) {
-				// deletion
-				return execjob_objdelete(self, job);
-			}
+			self.
+			edb_jobread(job,)
 			if(job->data.id == 0) {
 				// creation
 				return execjob_objcreate(self, job);
 			}
 			// we have an open stream and a id, thus, it is an edit.
 			return execjob_objedit(self, job);
+		case EDB_OBJ | EDB_CDEL:
+			// object-deletion
+			return execjob_objdelete(self, job);
+		case EDB_OBJ | EDB_CUSRLK:
 
 
 
@@ -354,11 +369,14 @@ static edb_err selectjob(edb_worker_t * const self) {
 	// the ownership logic locked for other thread. We can continue to do this job.
 	pthread_mutex_unlock(&head->jobaccept);
 
-	// if we're here that means we've accepted the job at jobv[self->jobpos].
-	err = execjob(self, &jobv[self->jobpos]);
+	// if we're here that means we've accepted the job at jobv[self->jobpos] and we've
+	// claimed it so other workers won't bother this job.
+	self->curjob = &jobv[self->jobpos]; // set curjob
+	err = execjob(self);
 	if (err) {
 		log_critf("critical error while executing job");
 	}
+	self->curjob = 0; // null out curjob.
 
 	// job has been completed. relinquish ownership.
 	//
