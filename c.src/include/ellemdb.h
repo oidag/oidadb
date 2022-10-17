@@ -462,7 +462,7 @@ typedef struct edb_struct_st {
 //   is making substantial modifications to the chapter, thus locking the
 //   entry, these functions will block until that lock is released.
 edb_err edb_index(edbh *handle, edb_eid eid, edb_entry_t *o_entry);
-edb_err edb_structs(edbh *handle,uint16_t structureid,edb_struct_t *o_struct);
+edb_err edb_structs(edbh *handle,uint16_t structureid, edb_struct_t *o_struct);
 
 
 /*edb_err edb_structcopy (edbh *handle, const edb_struct_t *strct);
@@ -475,8 +475,9 @@ typedef enum edb_cmd_em {
 	EDB_CNONE   = 0x0000,
 	EDB_CCOPY   = 0x0100,
 	EDB_CWRITE  = 0x0200,
-	EDB_CDEL    = 0x0300,
-	EDB_CUSRLK  = 0x0400,
+	EDB_CCREATE = 0x0300,
+	EDB_CDEL    = 0x0400,
+	EDB_CUSRLK  = 0x0500,
 } edb_cmd;
 
 // See spec for more specific details.
