@@ -87,7 +87,19 @@ edbp_object_t  *edbp_gobject(edbphandle_t *handle);
 // returns the pointer to the start of the ref list.
 edb_lref_t *edbp_lookup_refs(edbp_lookup_t *l);
 
-// returns a pointer to the body
-inline void *edbp_body(edbp_t *page) {return page + EDBP_HEADSIZE;}
+// returns the amount of bytes into the object page until the start of the given row.
+inline unsigned int edbp_object_intraoffset(uint64_t rowid, uint64_t pageoffset, uint16_t objectsperpage, uint16_t fixedlen)
+{
+	unsigned int ret = EDBP_HEADSIZE + (unsigned int)(rowid - pageoffset * (uint64_t)objectsperpage) * (unsigned int)fixedlen;
+#ifdef EDB_FUCKUPS
+	if(ret > (EDBP_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen)) {
+		log_critf("intraoffset calculation corruption: calculated byte offset (%d) exceeds that of theoretical maximum (%d)",
+				  ret, EDBP_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen);
+	}
+#endif
+	return ret;
+
+}
+//inline void *edbp_body(edbp_t *page) {return page + EDBP_HEADSIZE;}
 
 #endif

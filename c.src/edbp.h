@@ -331,4 +331,15 @@ edbp_t *edbp_graw(edbphandle_t *handle);
 //   - calling with an unitialized handle/cache
 edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...);
 
+
+// helper functions
+
+// changes the pid into a file offset.
+off64_t inline edbp_pid2off(const edbpcache_t *c, edb_pid id) {
+	return (off64_t)id * edbp_size(c);
+}
+edb_pid inline edbp_off2pid(const edbpcache_t *c, off64_t off) {
+	return off / edbp_size(c);
+}
+
 #endif

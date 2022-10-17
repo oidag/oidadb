@@ -1,0 +1,120 @@
+* DOCUMENTATION:
+
+The most important things bout the edbl.h namespace is the content of
+this comment you're reading now. It is imporant you read this comment
+and undestand it before you start fucking with the below functions in
+anyway.
+
+Firstly, these functions are just wrappers of fcntl(2)... so read up
+on that regarding advisory locks. And note that these functions are
+just kinda stupid.  The functions don't help you do your work, this
+comment does. So enough with the introduction, lets begin.
+
+It is VITAL that you lock the right things in the right order. Not
+locking things in the right order WILL result in deadlocks and
+headaches.
+
+So, to get the proper order of which to lock things require to know
+what job you're trying to do. The first variable to this is the
+element type:
+
+ - Entry
+ - Structure
+ - Objects
+
+Next, what cateogyr of operations are you trying to perform?
+
+ - Create
+ - Read
+ - Update
+ - Delete
+ - (defragging will be discussed below)
+
+|          | *Entry*     | *Structure*                  | *Object*             |
+| *Create* | entry mutex | structure mutex              | same as update       |
+| *Read*   | /no action/ | /no action/                  | clutch off, sh locks |
+| *Update* | clutch on   | /not possible/               | clutch off, xl locks |
+| *Delete* | clutch on   | clutches on, structure mutex | clutch off, xl locks |
+
+
+* Entry
+** Entry-Reading
+
+  1. Make sure the entry doesn't have a clutch lock
+     - put a SH lock on the first byte (clutch lock)
+     - put a SH lock on the second byte.
+     - remove SH lock from the first byte
+  2. At this point, if you'd like to confidently pull in structure
+     information, you can do it here.
+
+* Object
+** Object-Reading
+
+
+  1. Read the relevant entry, make sure it exist ([[Entry-Reading]]), keep
+     the SH lock on the entry.
+  2. With the lookup root page id in hand:
+     - SH Lock on the first byte of page
+     - Load the page
+     - Get the ID of the next page
+     - Remove SH lock on first byte
+     - Do this recusively until you get the leaf ID
+  3. With the leaf ID:
+     - Place a SH lock on the object
+     - load the page, copy the data
+     - Remove SH lock
+  4. Finally, remove the SH lock on the entry.
+
+** Object-Writting
+
+  1. For the look up, do the same process as writting as
+     [[Object-Reading]] steps 1-2.
+     - *However*, if a new node of the B-tree must be created, upgrade
+       the lock from an SH to an XL lock on the first byte of the node
+       that needs to be modified. Then check again to see if it hasn't
+       been modified already, thenm modify it if it hasent, then
+       remove the lock and continue as normally. This is to remove the
+       possiblity of 2 jobs accidentally adding the same new page
+       twice.
+     - (note to self: upgrading locks is bad, however sense its
+       1-lock-per-operation in terms of pages, we arn't dealing with
+       multiple recursive locks thus leads to it being impossible to
+       dead lock from upgrades)
+  2. With the leaf ID:
+     - Place an XL lock on the object
+     - load the page, edit the data
+     - remove the XL lock.
+
+** Creating / Updating
+
+  1. Make sure the clutch engaged on the entry (todo: make page clutch)
+     - clutch not engaged: wait until a shared lock is installed on
+       it.
+  2. install sh locks on lookup entries in the same order as the
+     lookup goes. Lock the pages before you load them.
+  3. If branch/leaf nodes need to be created, install xl locks in the
+     areas where the bytes need to go. 
+  4. install an xl lock on the byte range where to write
+  5. Unlock everything in reverse order
+	 - including the clutch shared lock if applicable
+
+* Defraging
+
+Notes: PAGE-BASED CLUTCH LOCKS DONT WORK, a dead lock can happen
+unless we guarentee that all pages per-entry are in order. Entry based
+clutch locks are faster, easier, and defragging is rare so their
+interuption-capabilities are worth it.
+
+ 1. go through all the pages and put a clutch lock on all relevant
+    entries. it is important that you put the clutch locks on in
+    accending order of 
+
+hmmmmmm... why don't just put clutch locks in each page header? and
+then put a massive lock over the whole range? the header lock will be
+the clutch and when there's no more locks being placed the large lock
+will be installed... BUT: we must test to make sure that all the
+smaller clutch locks will be consolidated into the large lock (note
+that all locks are installed via the same discriptor).
+
+ 2. Place an xl lock over the entire area and wait
+ 3. Once the lock is obtained 
