@@ -39,6 +39,9 @@ typedef struct edb_worker_st {
 
 	// see pages.h
 	edbphandle_t edbphandle;
+
+	// filled in the second the worker is operating on a job
+	edb_job_t *curjob;
 }edb_worker_t;
 
 // _init initializs a new worker and _decom decommissions it.
