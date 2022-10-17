@@ -29,10 +29,15 @@ typedef enum _edb_jobclass {
 	//     <- edb_oid (can be 0 if EDB_CWRITE)
 	//     -> edb_err [1]
 	//  EDB_CCOPY:
+	//     (all cases)
 	//     -> void *rowdata
 	//     ==
 	//  EDB_CWRITE:
+	//     (all cases)
 	//     <- void *rowdata
+	//     ==
+	//  EDB_CDEL
+	//     (all cases)
 	//     ==
 	//  EDB_CUSRLK: todo: need to write out edbl before getting any deeper into this. I don't think persistant user locks are needed.
 	//     <- edb_usrlk
@@ -41,7 +46,8 @@ typedef enum _edb_jobclass {
 	// [1] This error will describe the efforts of locating the oid
 	//     which will include:
 	//       - EDB_EHANDLE - handle closed stream
-	//       - EDB_ENOENT - oid is not valid
+	//       - EDB_EINVAL - (EDB_CDEL, EDB_CCOPY): oid was 0
+	//       - EDB_ENOENT - oid is not valid.
 	//       - EDB_ENOENT - (EDB_CWRITE, EDB_CCOPY) oid was deleted
 	//       - EDB_ECRIT - unknown error
 	//
