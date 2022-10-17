@@ -7,12 +7,12 @@
 #include "edbs-jobs.h"
 #include "errors.h"
 
-int edb_jobclose(edb_job_t *job) {
+void edb_jobclose(edb_job_t *job) {
 	pthread_mutex_lock(&job->bufmutex);
 
 	if (job->state == 0) {
 		pthread_mutex_unlock(&job->bufmutex);
-		return 0;
+		return;
 	}
 
 	job->state = 0;
@@ -20,6 +20,7 @@ int edb_jobclose(edb_job_t *job) {
 	// that the state is closed and do nothing.
 	syscall(SYS_futex, &job->futex_transferbuffc, FUTEX_WAKE, 16, 0, 0, 0);
 	pthread_mutex_unlock(&job->bufmutex);
+	return;
 }
 int edb_jobreset(edb_job_t *job) {
 	pthread_mutex_lock(&job->bufmutex);

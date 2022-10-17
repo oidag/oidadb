@@ -475,6 +475,7 @@ typedef enum edb_cmd_em {
 	EDB_CNONE   = 0x0000,
 	EDB_CCOPY   = 0x0100,
 	EDB_CWRITE  = 0x0200,
+	EDB_CDEL    = 0x0300,
 	EDB_CUSRLK  = 0x0400,
 } edb_cmd;
 

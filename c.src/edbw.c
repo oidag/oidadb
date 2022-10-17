@@ -37,6 +37,12 @@ int static inline edbw_jobread(edb_worker_t *self, void *bufv, int bufc) {
 int static inline edbw_jobwrite(edb_worker_t *self, void *bufv, int bufc) {
 	return edb_jobwrite(self->curjob, self->shm->transbuffer, bufv, bufc);
 }
+void static inline edbw_jobclose(edb_worker_t *self) {
+	edb_jobclose(self->curjob);
+}
+int static inline edbw_jobisclosed(edb_worker_t *self) {
+	return edb_jobisclosed(self->curjob);
+}
 
 // converts a pid offset to the actual page address
 // note to self: the only error returned by this should be a critical error
@@ -211,6 +217,23 @@ void static execjob_objcopy(edb_worker_t *self) {
 	edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 }
 
+void static execjob_objedit(edb_worker_t *self, edb_eid eid, uint64_t rowid) {
+
+	// easy vars
+	edb_job_t *job = self->curjob;
+
+
+}
+
+// function to easily verbosely log worker and job ids
+#define edbw_logverbose(workerp, fmt, ...) \
+log_debugf("worker#%d executing job#%ld: " fmt, workerp->workerid, workerp->curjob->jobid, ##__VA_ARGS__)
+
+
+void static inline debugf_printjob(edb_worker_t *self, const char *jobenglish) {
+	log_debugf("worker#%d executing job#%ld: %s %lx", self->workerid, self->curjob->jobid, oid);
+}
+
 // helper func to selectjob.
 //
 // executes the job only. does not mark the job as complete nor relinquish ownership.
@@ -221,14 +244,12 @@ void static execjob_objcopy(edb_worker_t *self) {
 // This function's only purpose is to route the information into the relevant execjob_...
 // function.
 //
-// returns EDB_ECRIT on critical error
-// returns EDB_EINVAL if something went wrong because the handle didn't format something correctly.
-// returns EDB_EHANDLE if something went wrong with the handle.
-// returns EDB_??? on any other error that is the handle's fault.
+// Will only return EDB_ECRIT, can be ignored and continued.
 static edb_err execjob(edb_worker_t *self) {
 
 	// easy pointers
 	edb_job_t *job = self->curjob;
+	edb_err err = 0;
 
 	// note to self: inside this function we have our own thread to ourselves.
 	// its slightly better to be organized than efficient in here sense we have
@@ -241,53 +262,90 @@ static edb_err execjob(edb_worker_t *self) {
 	// to what the handle checks for. It can be excluded, but just a safety check.
 	// Best to have this type of code wrapped in macros that can enable and disable
 	// "extra safety features"
+	//
+	// Useful for when handle process mysteriously start misbehaving.
+
+	// FRH
+	// Cannot take jobs with a closed buffer
+	if(edbw_jobisclosed(self)) {
+		err = EDB_ECRIT;
+		log_critf("job accepted by worker but the handle did not open job buffer");
+		goto closejob;
+	}
 
 	// check for some common errors regarding the edb_jobclass
+	edb_oid oid;
+	edb_eid entryid;
+	uint64_t rowid;
+	int ret;
+	edb_err c_err;
 	switch (job->jobdesc & 0x00FF) {
 		case EDB_STRUCT:
 		case EDB_OBJ:
-			// FRH
-			// All objects commands need at least either the id or the transferbuffer.
-			if(job->data.id == 0 && edb_jobisclosed(job)) {
-				// invalid. this shouldn't have been installed.
-				log_critf("data id nor open stream was supplied in job");
-				return -1;
+		case EDB_DYN:
+			// all of these job classes need an id parameter
+			ret = edbw_jobread(self, &oid, sizeof(oid));
+			if(ret == -1) {
+				c_err = EDB_ECRIT;
+				edbw_jobwrite(self, &c_err, sizeof(c_err));
+				goto closejob;
+			} else if(ret == -2) {
+				c_err = EDB_EHANDLE;
+				edbw_jobwrite(self, &c_err, sizeof(c_err));
+				goto closejob;
 			}
+			entryid = oid >> 0x30;
+			rowid = oid & 0x0000FFFFFFFFFFFF;
+			break;
+
+		default: break;
 	}
+
 
 	// check for some common errors regarding the command
 	switch (job->jobdesc & 0xFF00) {
+		case EDB_CDEL:
+		case EDB_CCOPY:
+			// FRH
+			// Delete's and ccopies musn't have 0-oids
+			if(oid == 0) {
+				c_err = EDB_EINVAL;
+				edbw_jobwrite(self, &c_err, sizeof(c_err));
+				goto closejob;
+			}
+			break;
 	}
-
-	edb_oid oid;
 
 	// do the routing
 	switch (job->jobdesc) {
 		case EDB_OBJ | EDB_CCOPY:
-			// no reouting needed.
-			return execjob_objcopy(self);
-
+			edbw_logverbose(self, "copy object: 0x%016lX", oid);
+			execjob_objcopy(self, entryid, rowid);
+			break;
 		case EDB_OBJ | EDB_CWRITE:
-			self.
-			edb_jobread(job,)
-			if(job->data.id == 0) {
+			if(oid == 0) {
 				// creation
-				return execjob_objcreate(self, job);
+				edbw_logverbose(self, "create new object");
+				execjob_objcreate(self);
+			} else {
+				// we have an open stream and a id, thus, it is an edit.
+				edbw_logverbose(self, "edit object 0x%016lX", oid);
+				execjob_objedit(self, entryid, rowid);
 			}
-			// we have an open stream and a id, thus, it is an edit.
-			return execjob_objedit(self, job);
+			break;
 		case EDB_OBJ | EDB_CDEL:
 			// object-deletion
+			edbw_logverbose(self, "delete object 0x%016lX", oid);
 			return execjob_objdelete(self, job);
 		case EDB_OBJ | EDB_CUSRLK:
-
-
-
 		default:
 			log_critf("execjob was given an non-job: %0x", job->jobdesc);
 			return 1;
 	}
 
+	closejob:
+	edbw_jobclose(self);
+	return c_err;
 }
 
 // helper func to workermain
@@ -372,10 +430,7 @@ static edb_err selectjob(edb_worker_t * const self) {
 	// if we're here that means we've accepted the job at jobv[self->jobpos] and we've
 	// claimed it so other workers won't bother this job.
 	self->curjob = &jobv[self->jobpos]; // set curjob
-	err = execjob(self);
-	if (err) {
-		log_critf("critical error while executing job");
-	}
+	execjob(self);
 	self->curjob = 0; // null out curjob.
 
 	// job has been completed. relinquish ownership.
