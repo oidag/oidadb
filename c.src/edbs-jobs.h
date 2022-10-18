@@ -27,13 +27,16 @@ typedef enum _edb_jobclass {
 	//
 	// All cases:
 	//     <- edb_oid (can be (uint64)-1 for EDB_CCREATE for new id)
+	//     (additional params)
 	//     -> edb_err [1]
 	//  EDB_CCOPY:
 	//     (all cases)
 	//     -> void *rowdata
 	//     ==
 	//  EDB_CWRITE:
-	//     (all cases)
+	//     (all cases with ADDITIONAL PARAMS:)
+	//        <- uint32 start (must be less than end, must be less than fixedlen)
+	//        <- uint32 end (will be clamped to fixedlen, so set to (uint32)-1 for all)
 	//     <- void *rowdata
 	//     ==
 	//  EDB_CCREATE:
@@ -51,11 +54,14 @@ typedef enum _edb_jobclass {
 	//
 	// [1] This error will describe the efforts of locating the oid
 	//     which will include:
-	//       - EDB_EHANDLE - handle closed stream
+	//       - EDB_EHANDLE - handle closed stream/stream is invalid
 	//       - EDB_EINVAL - entry in oid was below 4.
 	//       - EDB_EINVAL - jobdesc was invalid
-	//       - EDB_ENOENT - (EDB_CWRITE, EDB_CCOPY) oid was deleted
+	//       - EDB_EINVAL - (EDB_CWRITE) start wasn't less than end.
+	//       - EDB_ENOENT - (EDB_CWRITE, EDB_CCOPY) oid is deleted
+	//       - EDB_EOUTBOUNDS - (EDB_CWRITE): start was higher than fixedlen.
 	//       - EDB_EEOF - entry was not valid (too large) or rowid was too large
+	//       - EDB_EULOCK - failed due to user lock (see EDB_FUSR... constants)
 	//       - EDB_ECRIT - unknown error
 	//
 	EDB_OBJ = 0x0003,
