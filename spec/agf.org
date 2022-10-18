@@ -374,7 +374,7 @@ Minimum Page Strait for each of the referenced chapters.  The first
 strait is the chapter in question calculated by:
 
  - \( {Ref0}_{MPS} = 2^{{MPS} \&\ \mathrm{0x000F}} \)
- - \( {Ref1}_{MPS} = 2^{{MPS} \&\ \mathrm{0x00F0}} \gg \mathrm{0x4} \)
+ - 0x00F0 will be unused, lookup pages are not in straits, always singletons.
  - \( {Ref2}_{MPS} = 2^{{MPS} \&\ \mathrm{0x0F00}} \gg \mathrm{0x8} \)
 
 *** B+-Tree Depth
@@ -693,31 +693,48 @@ object table hurts my head to think about, but I know this:
 The body of each edbp_lookup page is an array of the following
 structure.
 
-| Name                   | Type    | Desc                                                                                |
-|------------------------+---------+-------------------------------------------------------------------------------------|
-| Ref                    | [[Page ID]] | The page ID of the branch/leaf. If leaf, it references a start of a possible strait |
-| Start Off./Strait Size | uint64  | The starting page offset this branch is /AND/ our strait size                       |
+| Name           | Type    | Desc                                                                                |
+|----------------+---------+-------------------------------------------------------------------------------------|
+| Ref            | [[Page ID]] | The page ID of the branch/leaf. If leaf, it references a start of a possible strait |
+| Start/End Off. | uint64  | The starting /OR/ end page offset referenced. See notes |
 
-*** Start Off./Strait Size
-Sense we know that rows can never stretch across a page, that means
-the our maximum rows will never exceed our maximum pages. We also know
-that the maximum row offset is =0x0000FFFFFFFFFFFF= as 2 bytes within
-the uint64 are held for entry ID. Thus, when taking about Page offset
-for a given entry, we know logically that 2 bytes of a page offset
-will never be used. So lets take advantage of that:
+*** Start/End Off.
+Depending on the depth, this field can either mean the starting page
+offset of this branch, or the end page offset of this leaf. Thus, to
+know what the number means, you need to know if this reference is
+either a branch or a leaf.
 
-The top 2 bytes will denote the strait size (sense the maximum strait
-size is also 2 bytes long). Note that this means if the reference is
-pointing to a leaf, the bottom 6 bytes are useless.
+Now, why are they treated differently? Hopefully I get this answer
+right: because of engineering. When it comes to branch nodes, they are
+expected to grow, and fill out their reference nodes starting from the
+top of the list down.
 
-Let us use the term $STOST$ to denote this number here.
+For example, reference A will specify that the starting offset is '0',
+while the next sibling (reference B) is a null reference. Thus, you
+can deduce that reference A has not yet been filled up sense reference
+B has not been needed yet. When it comes to adding that infmous object
+that requires reference B to finally be filled out, only then do you
+have to worry about writting to the *Starting* offset of reference B
+without needing to worry about reference A. Data is expected to always
+grow, and this favors that.
 
- - \( {Starting\ offset} = {STOST} \& \mathrm{0x0000FFFFFFFFFFFFFF} \)
- - \( {Strait\ Size} = {STOST} \gg \mathrm{0x30} \)
+Now why is this logic not used when the reference is a leaf reference?
+Well it boils down to the fact that newly created pages are unlikely
+to be in a coincidencial strait with the older pages. (New page D is
+unlikely to be directly after A, B, and C). If we were to only
+reference the starting page of a leaf strait, and the next sibling
+reference was null, we would have no idea how many pages are inside
+that leaf strait without transversing that entire strait. And we'd
+need to do this every time we wanted to creat a new leaf. It's far
+easier to set a 'cap' of each leaf strait reference so that newer
+pages can just stretch into already-allocated lookup pages.
 
-/Note that the uint16 number is stored at the top bits contrary to the/
-/OID, this is because the bottom bits should be the value that is used/
-/more frequently/
+
+(note to self: the above wasn't a satsifying explination, but close.)
+
+(note to self: this HAS to be strait size otherwise the last node in a
+lookup would have an unknown end and thus you cannot tell if a leaf
+has been created or not)
 
 ** edbp_lookup rsvd2
 
