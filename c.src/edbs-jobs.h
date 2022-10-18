@@ -27,7 +27,7 @@ typedef enum _edb_jobclass {
 	//
 	// All cases:
 	//     <- edb_oid (can be (uint64)-1 for EDB_CCREATE for new id)
-	//     (additional params)
+	//     (additional params, if applicable)
 	//     -> edb_err [1]
 	//  EDB_CCOPY:
 	//     (all cases)
@@ -41,7 +41,7 @@ typedef enum _edb_jobclass {
 	//     ==
 	//  EDB_CCREATE:
 	//     (all cases)
-	//     <- void *rowdata
+	//     <- void *rowdata (note to self: keep this here, might as well sense we already did the lookup)
 	//     -> created ID
 	//     ==
 	//  EDB_CDEL

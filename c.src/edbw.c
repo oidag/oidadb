@@ -475,25 +475,25 @@ static edb_err execjob(edb_worker_t *self) {
 
 	// do the routing
 	switch (job->jobdesc) {
+		case EDB_OBJ | EDB_CCREATE:
+			edbw_logverbose(self, "copy object: 0x%016lX", oid);
+			execjob_objcreate(self, entryid, data_identity);
+			break;
 		case EDB_OBJ | EDB_CCOPY:
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
 			execjob_objcopy(self, entryid, data_identity);
 			break;
 		case EDB_OBJ | EDB_CWRITE:
-			if(oid == 0) {
-				// creation
-				edbw_logverbose(self, "create new object");
-				execjob_objcreate(self);
-			} else {
-				// we have an open stream and a id, thus, it is an edit.
-				edbw_logverbose(self, "edit object 0x%016lX", oid);
-				execjob_objedit(self, entryid, data_identity);
-			}
+			// we have an open stream and a id, thus, it is an edit.
+			edbw_logverbose(self, "edit object 0x%016lX", oid);
+			execjob_objedit(self, entryid, data_identity);
 			break;
 		case EDB_OBJ | EDB_CDEL:
 			// object-deletion
 			edbw_logverbose(self, "delete object 0x%016lX", oid);
-			return execjob_objdelete(self, job);
+			execjob_objdelete(self, job);
+			break;
+
 		case EDB_OBJ | EDB_CUSRLK:
 		default:
 			err = EDB_EINVAL;
