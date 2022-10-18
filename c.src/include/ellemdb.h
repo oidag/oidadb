@@ -138,6 +138,8 @@ typedef enum edb_err_em {
 	// no host present
 	EDB_ENOHOST,
 
+	EDB_EOUTBOUNDS,
+
 	// system error, check errno.
 	EDB_EERRNO,
 
