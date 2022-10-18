@@ -48,9 +48,7 @@ Next, what cateogyr of operations are you trying to perform?
      information, you can do it here.
 
 * Object
-** Object-Re
-ading
-
+** Object-Reading
 
   1. Read the relevant entry, make sure it exist ([[Entry-Reading]]), keep
      the SH lock on the entry.
@@ -58,6 +56,7 @@ ading
      - SH Lock on the first byte of page
      - Load the page
      - Get the ID of the next page
+     - deload page
      - Remove SH lock on first byte
      - Do this recusively until you get the leaf ID
   3. With the leaf ID:
