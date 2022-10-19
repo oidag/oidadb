@@ -55,6 +55,9 @@ typedef enum {
 	// means 0 has the highest priority to be in cache, and 3 being
 	// the loweset.
 	//
+	// They will always be these exact values, you're welcome to
+	// mathmatically generate them.
+	//
 	// Only one of these may be xord at once.
 	EDBP_HINDEX0 = 0x40, // 0100 0000
 	EDBP_HINDEX1 = 0x30, // 0011 0000
