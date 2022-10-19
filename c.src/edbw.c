@@ -49,7 +49,7 @@ int static inline edbw_jobisclosed(edb_worker_t *self) {
 //
 // assumptions:
 //     pidoffset_search is less than the total amount of pages in the edbp_object chapter
-void static rowoffset_lookup(edb_worker_t *self,
+edb_err static rowoffset_lookup(edb_worker_t *self,
 								int depth,
 								edb_pid lookuppage,
 								edb_pid pidoffset_search,
@@ -67,7 +67,15 @@ void static rowoffset_lookup(edb_worker_t *self,
 	lock.l_type = EDBL_TYPUNLOCK; // doing this in advance
 
 	// ** defer: edbp_finish(&self->edbphandle);
-	edbp_start(&self->edbphandle, &lookuppage); // (ignore error audaciously)
+	edb_err err = edbp_start(&self->edbphandle, &lookuppage); // (ignore error audaciously)
+	if(err) {
+		edbl_set(&self->lockdir, lock);
+		return err;
+	}
+	// set the lookup hint now
+	// generate the proper EDBP_HINDEX... value
+	edbp_hint h = EDBP_HINDEX0 - depth * 0x10;
+	edbp_mod(&self->edbphandle, EDBP_CACHEHINT, h);
 	edbp_lookup_t *l = edbp_glookup(&self->edbphandle);
 	edb_lref_t *refs = edbp_lookup_refs(l);
 
@@ -100,7 +108,7 @@ void static rowoffset_lookup(edb_worker_t *self,
 		edbp_finish(&self->edbphandle);
 		// and release the lock
 		edbl_set(&self->lockdir, lock);
-		return;
+		return 0;
 	}
 
 	int i;
@@ -134,6 +142,7 @@ void static rowoffset_lookup(edb_worker_t *self,
 	                 nextstep,
 	                 pidoffset_search,
 	                 o_pid);
+	return 0;
 }
 
 typedef enum obj_searchflags_em {
