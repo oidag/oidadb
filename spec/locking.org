@@ -65,7 +65,7 @@ Next, what cateogyr of operations are you trying to perform?
      - Remove SH lock
   4. Finally, remove the SH lock on the entry.
 
-** Object-Writting
+** Object-Updating
 
   1. For the look up, do the same process as writting as
      [[Object-Reading]] steps 1-2.
@@ -86,18 +86,28 @@ Next, what cateogyr of operations are you trying to perform?
      - remove the XL lock.
   3. Remove SH lock from entry.
 
-** Creating / Updating
+** Object-Creating
 
-  1. Make sure the clutch engaged on the entry (todo: make page clutch)
-     - clutch not engaged: wait until a shared lock is installed on
-       it.
-  2. install sh locks on lookup entries in the same order as the
-     lookup goes. Lock the pages before you load them.
-  3. If branch/leaf nodes need to be created, install xl locks in the
-     areas where the bytes need to go. 
-  4. install an xl lock on the byte range where to write
-  5. Unlock everything in reverse order
-	 - including the clutch shared lock if applicable
+  1. Place an SH clutch lock on the entry (thus same as [[Object-Reading]]
+     step 1)
+  2. Is the trash-start non-0?
+     - If so: go to step XXXXXX
+     - If not:
+  3. With the trashlast page, before you load that page, you must
+     place a XL lock on the 'trashstart_off' field in the page's header.
+  4. Place an XL lock on the trash record you wish to modify, then
+     update trashstart_off with the next step in the linked list.
+  5. Once trashstart_off is updated, release the XL lock on it but
+     keep the XL lock on the record.
+  6. Do the creating of the record and what not. (If a user flag
+     prevents its creation, simply skip this step. Note how what we've
+     just done is taken out this record from the trash yet not
+     successfully un-trash it. This is actually fine, sense trash
+     records must be able to be untrashed that would me this record is
+     unfit to be trash. The user would have to manually create this
+     with proper flags.)
+  7. Release the XL lock from the record.
+  8. Release the SH lock on the entry.
 
 * Defraging
 
