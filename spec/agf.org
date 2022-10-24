@@ -333,6 +333,7 @@ which all pages in that collection are.
 | ref0 Count      | uint64_t | Number of pages in the chapter.                    |
 | ref1 Count      | uint64_t | Number of pages in the chapter.                    |
 | ref2 Count      | uint64_t | Number of pages in the chapter.                    |
+| trashlast       | [[Page ID]]  | See [[Trash Management]]                                               |
 
 
 TODO: Need to consolidate the idea that all entries are object pages :)
@@ -509,11 +510,106 @@ dynamic data is stored in the edbp_dynamic reference.
 
 ** Page Header rsvd1
 
-| Name         | type   | Des                                                               |
-|--------------+--------+-------------------------------------------------------------------|
-| Structure ID | uint16 | Redundant to the chapter, but the structure ID of the objects     |
-| Delete Start | uint16 | The start of the deleted items linked list. (uint16)(-1) if none. |
-| Fixed Len    | uint16 | Redundant to the structure, the full fixed length of each record. |
+| Name             | type   | Des                                                           |
+|------------------+--------+---------------------------------------------------------------|
+| Structure ID     | uint16 | Redundant to the chapter, but the structure ID of the objects |
+| =trashstart_off= | uint16 | Intra-page row offset. See [[Trash Management]].                  |
+| =trashvor=       | uint64 | Page id or -1, See [[Trash Management]].                          |
+| =trashc=         | uint16 | the amount of trash recrods in the trash linked list.         |
+| rsvd             | uint16 | rsvd                                                          |
+
+** Trash Management
+Firstly lets define "Trash" as not only records that have been
+deleted, but also records that were never created to begin with. I
+clearify this because when you create a new page to store but a single
+record, the (empty) rest of that page can is technically records that
+just haven't been created yet.
+
+The trash management logic are only needed in two circumstances and
+that is efficiently creating and deleting records. We will start with
+creating and then the specifications for deleting will be the former's
+antithasis.
+
+*** Creating
+Creating comes in two forms: auto OID, and manual OID. Auto OID means
+that no OID is supplied and thus the system must quickly find an OID
+that is marked as deleted. Manual OID is as you'd expect; during
+creation, the user supplies an OID and thus no finding is needed. The
+following process is for the assistance of Auto OID being that manual
+OID creation is effectively in tandem with the reading/updating
+process.
+
+As all operations begin at the entry in the =edbp_index=, we already
+know what page we must seek directly too for trash records via the
+=trashlast= field. Thus we navigate to that page and upon loading
+observe its =trashstart_off= field in its header. This is a row offset
+to the start of the record that is trash. (we must multiply it by the
+structure byte size to get the byte offset).
+
+ - If =trashlast= is 0, this means that there is no trash in the
+   entire table. A new page must be created and (unless the creation
+   results in the use of the new page's entirety) =trashlast= should
+   be set to that new page's OID.
+
+This record is but the start of the linked list that is inside of this
+one page. As mentioned in [[Record Flags]], if a record is trashed, the
+first 2 bytes of the record data itself is the next trash record's
+intera-page offset. Before we create our record we make note of this.
+
+Upon/after creation (and dealing with whatever asyncrounous
+specificaitons), we update the page's =trashstart_off= be the next
+trash record offset we took note of earlier. If this offset is -1, we
+have extra work to do:
+
+ - Sense we've just marked this page as "stuffed" (no trash within
+   this page), we must update the entry's =trashlast= to point to the
+   next page ID with trash in it. We can get the next page via the
+   current page's =trashvor=.
+
+*** Trash faults
+It is important to point out that =trashlast= is *not* guarenteed to
+have any trash records within it. It is only guarenteed to have a
+=trashvor= that references a previous trash page. Furthermore a page
+that is referenced by a =trashvor= is also not guarenteed to have
+any trash records.
+
+Why this is, because of what can happen with the (re)creation using
+manual OIDs. The best explained in an example: If we have pages A, B,
+and C, and trashlast points to page C, and C's =trashvor= is equal to
+B. And B's =trashvor= is to A:
+
+ - =trashlast -> C -> B -> A=
+
+Ask yourself, what happens if by means of manual OID creation, all of
+C's trash records are no more? Well, the simplest solution is often
+the best; and that is that when it comes time for and auto OID this
+process simply corrects =trashlast= from C to B:
+
+ - =trashlast -> B -> A (as C had no trash records)=
+
+This will indeed cause an extra page load. But this occourance
+is(/should be) rare and will only need this extra page load for a
+single OID processing. This whole phenomena is called a *Trash Fault*.
+
+*** Deleting
+Per deleting the user must provide an OID. Thus you simply follow the
+lookup process to find the record as if you were updating it.
+
+Before marking the record as deleted, take note of the page's
+=trashstart_off=. Once deleted, you must update the =trashstart_off=
+to be the placement of the newly deleted offset and make sure to set
+the 2 bytes of the deleted data to the previous =trashstart_off=.
+
+But now regarding =trashlast=. In a perfect world, if you have just
+deleted a record in a page that has no =trashvor=, then you update the
+=trashlast= with the page's id, and set =trashvor= as the former's
+value. However, doing this with just a single trash record will have
+it quickly replaced and then a need with to update =trashlast=. This
+logic would bear a rapid replacement of =trashlast=.
+
+So, it is a good idea to only modify =trashlast= with a page that has
+a certain signifigant percentage of trash room as too avoid consistant
+replacemnets. Hense the existance of =trashc=.
 
 ** Object ID
 Everything inside of all edbp_object pages' records what is known as
@@ -1011,6 +1107,10 @@ appendex).
 
 
 * Appendex
+** TODOS
+ - R-Trees
+ - Secondary Indecies
+
 ** See Also
 
  - https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout
@@ -1027,3 +1127,10 @@ appendex).
  - https://www.youtube.com/watch?v=0Dj96yFl1SE
  - https://www.cs.cmu.edu/~christos/courses/721-resources/p297-o_neil.pdf
  - https://mariadb.com/resources/blog/does-innodb-page-size-matter/
+ - https://dev.mysql.com/doc/refman/5.7/en/sorted-index-builds.html
+ - https://en.wikipedia.org/wiki/R-tree
+ - https://www.postgresql.org/files/documentation/pdf/15/postgresql-15-A4.pdf
+   - Part VII
+   - This documentation is awesome. I want my documentation to look
+     like this but with more pictures. Also lol look postgres was
+     largely made in vienna!
