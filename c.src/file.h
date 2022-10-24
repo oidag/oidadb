@@ -1,6 +1,9 @@
 #ifndef _FILE_H_
 #define _FILE_H_ 1
 
+#define _LARGEFILE64_SOURCE 1
+#define _GNU_SOURCE 1
+
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
