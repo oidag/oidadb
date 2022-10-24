@@ -3,6 +3,13 @@
 
 #include "include/ellemdb.h"
 
+#define EDB_OID_OP1 0x0000ffffffffffff
+#define EDB_OID_OP2 0x0000fffffffffffe
+
+// For EDB_CCREATE
+// EDB_OID_AUTOID - find the best deleted OID that can still be used.
+#define EDB_OID_AUTOID EDB_OID_OP1
+
 // edb_jobclass must take only the first 4 bits. (to be xor'd with
 // edb_cmd).
 typedef enum _edb_jobclass {
@@ -26,7 +33,7 @@ typedef enum _edb_jobclass {
 	// see edb_obj() for description
 	//
 	// All cases:
-	//     <- edb_oid (can be (uint64)-1 for EDB_CCREATE for new id)
+	//     <- edb_oid (see also: EDB_OID_... constants)
 	//     (additional params, if applicable)
 	//     -> edb_err [1]
 	//  EDB_CCOPY:
@@ -41,6 +48,7 @@ typedef enum _edb_jobclass {
 	//     ==
 	//  EDB_CCREATE:
 	//     (all cases)
+	//     // todo: what if they think the structure is X bytes long and sense has been updated and thus now is X+/-100 bytes long?
 	//     <- void *rowdata (note to self: keep this here, might as well sense we already did the lookup)
 	//     -> created ID
 	//     ==
@@ -62,6 +70,7 @@ typedef enum _edb_jobclass {
 	//       - EDB_EOUTBOUNDS - (EDB_CWRITE): start was higher than fixedlen.
 	//       - EDB_EEOF - entry was not valid (too large) or rowid was too large
 	//       - EDB_EULOCK - failed due to user lock (see EDB_FUSR... constants)
+	//       - EDB_EEXIST - (EDB_CCREATE): Object already exists
 	//       - EDB_ECRIT - unknown error
 	//
 	EDB_OBJ = 0x0003,

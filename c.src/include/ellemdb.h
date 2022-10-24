@@ -415,6 +415,7 @@ typedef struct edb_entry_st {
 	edb_pid ref0c;
 	edb_pid ref1c;
 	edb_pid ref2c;
+	edb_pid trashstart;
 
 } edb_entry_t;
 
@@ -500,6 +501,9 @@ typedef enum _edb_usrlk {
 	// object is deleted, it will stay deleted.
 	// If not already deleted, then it cannot be
 	// recreated once deleted.
+	//
+	// This will also make it implicitly unable to be used
+	// with creating via an AUTOID.
 	EDB_FUSRLCREAT = 0x0008,
 } edb_usrlk;
 

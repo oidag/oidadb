@@ -27,9 +27,10 @@ typedef void     edb_object_content;
 typedef struct {
 	_edbp_stdhead head;
 	uint16_t structureid;
-	uint16_t deletestart;
-	uint16_t fixedlen;
-	uint8_t _tphead[8];
+	uint16_t trashstart_off;
+	uint64_t trashvor;
+	uint16_t trashc;
+	uint16_t rsvd;
 
 	// in memeory after this is structures.
 	//edb_obj_t objects;
