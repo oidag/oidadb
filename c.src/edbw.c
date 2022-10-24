@@ -1,3 +1,5 @@
+#include <stddef.h>
+#define _LARGEFILE64_SOURCE
 #include <stdint.h>
 #include <string.h>
 #include <pthread.h>
@@ -5,6 +7,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <errno.h>
+
 
 #include "include/ellemdb.h"
 #include "edbw.h"
@@ -171,7 +174,7 @@ typedef struct obj_searchparams_st {
 	//                  will point to the start of the whole object (head/flags included)
 	edb_entry_t   **o_entrydat;
 	edb_struct_t  **o_structdata;
-	uint64_t       *o_objectoff;
+	off64_t        *o_objectoff;
 	void          **o_objectdat;
 } obj_searchparams;
 
@@ -228,7 +231,7 @@ int static execjob_obj_pre(obj_searchparams dat) {
 		return 1;
 	}
 
-	// get the page offset for the rowid from the start of the chapter.
+	// get the page/byte offset for the rowid from the start of the chapter.
 	if(!dat.o_objectoff) {
 		return 0;
 	}
@@ -268,11 +271,11 @@ int static execjob_obj_pre(obj_searchparams dat) {
 	// So we calculate all the offset stuff.
 	// get the intrapage byte offset
 	// use math to get the byte offset of the start of the row data
-	unsigned int intrapage_row = edbp_object_intraoffset(rowid,
-	                                                     pageoffset,
-	                                                     entrydat->objectsperpage,
-	                                                     structdata->fixedc);
-	*dat.o_objectoff = edbp_pid2off(self->cache, pageoffset) +intrapage_row;
+	unsigned int intrapage_byteoff = edbp_object_intraoffset(rowid,
+	                                                         pageoffset,
+	                                                         entrydat->objectsperpage,
+	                                                         structdata->fixedc);
+	*dat.o_objectoff = edbp_pid2off(self->cache, foundpage) + intrapage_byteoff;
 
 	if(!dat.o_objectdat) {
 		return 0;
@@ -306,7 +309,7 @@ int static execjob_obj_pre(obj_searchparams dat) {
 	edbp_object_t *o = edbp_gobject(&self->edbphandle);
 
 	// get the offset for the record
-	*dat.o_objectdat = o + intrapage_row;
+	*dat.o_objectdat = o + intrapage_byteoff;
 
 	return 0;
 }
@@ -386,6 +389,129 @@ void static execjob_objcopy(edb_worker_t *self, edb_eid entryid, uint64_t rowid)
 
 	finishpage:
 	execjob_obj_post(dat);
+}
+
+static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowid) {
+
+	// easy vars
+	edb_job_t *job = self->curjob;
+	edb_err err = 0;
+
+	edb_entry_t *entrydat;
+	edb_struct_t *structdata;
+	obj_searchparams dat = (obj_searchparams){
+			self,
+			entryid,
+			rowid,
+			0,
+			&entrydat,
+			&structdata,
+			0,0 // we'll find these manually.
+	};
+	err = execjob_obj_pre(dat);
+	if(err) {
+		return;
+	}
+
+	// todo: fuck I forgot about manual creation.
+
+	// todo:
+	//  - figure out how EDB_OID_AUTOID will seek to its ID
+	//  - figure out if there needs to be another page created
+	//  - and when a page is created, make sure all locks are set in the lookups.
+	//  - also make sure if any new lookups need to be created.
+
+	// We can look at the entry's trash start variable to get our
+	// page id.
+	edb_pid trashstart = (*dat.o_entrydat)->trashstart;
+	edbp_t  *page; // todo: make sure this is opened in the next if statement
+	edbp_object_t *opage = 0;
+	edbl_lockref lock_trashoff;
+	if(!trashstart) {
+		// no valid trash pages. We must create new pages.
+		// todo: create new edbp_object pages.
+	} else {
+		// lock the page's header.trashstart_off as per spec
+		off64_t pagebyteoff  = edbp_pid2off(self->cache, trashstart) +
+		                       (off64_t)offsetof(edbp_object_t, trashstart_off);
+		lock_trashoff = (edbl_lockref){
+				.l_type = EDBL_EXCLUSIVE,
+				.l_start = pagebyteoff,
+				.l_len   = sizeof(uint16_t)
+		};
+		// **defer: edbl_set(&self->lockdir, lock_trashoff);
+		edbl_set(&self->lockdir, lock_trashoff); // todo: this must be unlocked before this function returns
+		lock_trashoff.l_type = EDBL_TYPUNLOCK; // for the future
+		edbp_start(&self->edbphandle, &trashstart);
+		page = opage = edbp_gobject(&self->edbphandle);
+		if(opage->trashstart_off == (uint16_t)-1) {
+			// todo: trash fault.
+		}
+	}
+
+	// todo: make sure lock is placed on record
+
+	// note: we know that opage is not -1 because trash faults have been
+	// handled. The page we've loaded definitely has a valid opage.
+	unsigned int intrapage_byteoff = opage->trashstart_off * structdata->fixedc;
+	off64_t dataoff = edbp_pid2off(self->cache, trashstart) + intrapage_byteoff;
+
+	// at this point, we have a lock on the trashstart_off and need
+	// to place another lock on the record.
+	edbl_lockref lock_record = (edbl_lockref ) {
+			.l_type = EDBL_EXCLUSIVE,
+			.l_start = dataoff,
+			.l_len   = structdata->fixedc,
+	};
+	// **defer: edbl_set(&self->lockdir, lock_record);
+	edbl_set(&self->lockdir, lock_record);
+	lock_record.l_type = EDBL_TYPUNLOCK; // for future use
+
+	// at this point, we have the deleted record locked as well as the
+	// trashstart. So as per spec we must update trashstart and unlock
+	// it but retain the lock on the record.
+	void *objectdat = opage + (opage->trashstart_off);
+	uint32_t *flags = (uint32_t *)objectdat;
+	opage->trashstart_off = *(uint16_t *)(objectdat +
+	                                      sizeof(uint32_t)); // + uint32 because thats the object head
+#ifdef EDB_FUCKUPS
+	{
+		// analyze the flags to make sure we're allowed to create this.
+		// If this record has fallen into the trash list and the flags
+		// don't line up, thats a error on my part.
+		// double check that this record is indeed trash.
+		// Note these errors are only critical if we eneded up here via
+		// a auto-id creation.
+		if(!(*flags & EDB_FDELETED) || *flags & EDB_FUSRLCREAT) {
+			log_critf("trash management logic has led to a row that is not not valid trash");
+			err = EDB_ECRIT;
+			edbw_jobwrite(self, &err, sizeof(err));
+			edbl_set(&self->lockdir, lock_record);
+			edbl_set(&self->lockdir, lock_trashoff);
+			goto finishpage;
+		}
+	}
+#endif
+	edbl_set(&self->lockdir, lock_trashoff);
+
+	// now have only a lock on the trash record, at this point there's
+	// no turning back, the record is no longer considered trash.
+
+	// successful call. send the caller a success reply.
+	err = 0;
+	edbw_jobwrite(self, &err, sizeof(err));
+	*flags = *flags & ~EDB_FDELETED; // set deleted flag as 0.
+
+	// write the record.
+	edbw_jobread(self, objectdat, structdata->fixedc);
+
+	finishpage:
+	// we wrote to this page. So mark it as dirty before we detach
+	edbp_mod(&self->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
+	edbp_finish(&self->edbphandle);
+	// this will release the entry locks.
+	execjob_obj_post(dat);
+
 }
 
 void static execjob_objedit(edb_worker_t *self, edb_eid entryid, uint64_t rowid) {
