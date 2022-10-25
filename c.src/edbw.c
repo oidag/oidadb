@@ -423,16 +423,22 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 
 	// We can look at the entry's trash start variable to get our
 	// page id.
-	edb_pid trashstart = (*dat.o_entrydat)->trashstart;
-	edbp_t  *page; // todo: make sure this is opened in the next if statement
+	// **defer: edbl_entrytrashlast(&self->lockdir, entryid, EDBL_TYPEUNLOCK);
+	edbl_entrytrashlast(&self->lockdir, entryid, EDBL_EXCLUSIVE);
+
+	// some vars to declare before we go into the trash logic loop.
 	edbp_object_t *opage = 0;
+	edb_pid trashlast;
 	edbl_lockref lock_trashoff;
-	if(!trashstart) {
+
+	loadtrashlast:
+	trashlast = entrydat->trashlast;
+	if(!trashlast) {
 		// no valid trash pages. We must create new pages.
 		// todo: create new edbp_object pages.
 	} else {
 		// lock the page's header.trashstart_off as per spec
-		off64_t pagebyteoff  = edbp_pid2off(self->cache, trashstart) +
+		off64_t pagebyteoff  = edbp_pid2off(self->cache, trashlast) +
 		                       (off64_t)offsetof(edbp_object_t, trashstart_off);
 		lock_trashoff = (edbl_lockref){
 				.l_type = EDBL_EXCLUSIVE,
@@ -440,24 +446,50 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 				.l_len   = sizeof(uint16_t)
 		};
 		// **defer: edbl_set(&self->lockdir, lock_trashoff);
-		edbl_set(&self->lockdir, lock_trashoff); // todo: this must be unlocked before this function returns
+		edbl_set(&self->lockdir, lock_trashoff);
 		lock_trashoff.l_type = EDBL_TYPUNLOCK; // for the future
-		edbp_start(&self->edbphandle, &trashstart);
-		page = opage = edbp_gobject(&self->edbphandle);
+		// **defer edbp_finish(&self->edbphandle)
+		edbp_start(&self->edbphandle, &trashlast);
+		opage = edbp_gobject(&self->edbphandle);
 		if(opage->trashstart_off == (uint16_t)-1) {
-			// todo: trash fault.
+
+			// if we're in here then what has happened is a trash fault.
+			// See spec for details
+
+			// take note of the trash vor, and release the page
+			uint64_t trashvor = opage->trashvor;
+
+			// it may seem compulsory to at this time set this page's trashvor to 0
+			// as a matter of neatness. However, doing so will dirty the page. And
+			// a non-0 trashvor can do no damage. so long that we take it out of the
+			// trash management.
+			//opage->trashvor = 0;
+			//edbp_mod(&self->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
+
+			// finish off this current page sense we don't need it anymore.
+			edbp_finish(&self->edbphandle);
+			edbl_set(&self->lockdir, lock_trashoff);
+
+			// update the entry's trash last to the page's trashvor.
+			// we then go back to where we loaded the trashvor and repeat the process.
+			entrydat->trashlast = trashvor;
+			goto loadtrashlast;
 		}
 	}
 
-	// todo: make sure lock is placed on record
+	// now that we've loaded in our pages with a good trash managment loop,
+	// we release the entry trash lock as per spec sense we have
+	// no reason to update it at this time.
+	// (note to self: we still have the XL lock on trashstart_off at this time)
+	edbl_entrytrashlast(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 
 	// note: we know that opage is not -1 because trash faults have been
 	// handled. The page we've loaded definitely has a valid opage.
 	unsigned int intrapage_byteoff = opage->trashstart_off * structdata->fixedc;
-	off64_t dataoff = edbp_pid2off(self->cache, trashstart) + intrapage_byteoff;
+	off64_t dataoff = edbp_pid2off(self->cache, trashlast) + intrapage_byteoff;
 
 	// at this point, we have a lock on the trashstart_off and need
-	// to place another lock on the record.
+	// to place another lock on the actual trash record.
 	edbl_lockref lock_record = (edbl_lockref ) {
 			.l_type = EDBL_EXCLUSIVE,
 			.l_start = dataoff,

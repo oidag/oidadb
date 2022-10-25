@@ -88,17 +88,33 @@ Next, what cateogyr of operations are you trying to perform?
 
 ** Object-Creating
 
+*** Auto ID Creation
   1. Place an SH clutch lock on the entry (thus same as [[Object-Reading]]
      step 1)
-  2. Is the trash-start non-0?
-     - If so: go to step XXXXXX
-     - If not:
-  3. With the trashlast page, before you load that page, you must
-     place a XL lock on the 'trashstart_off' field in the page's header.
+
+  2. Place an XL lock on the entry's trashlast field.
+
+  3. If the trashlast page is 0. Tne this means more pages are needed
+     to be created. TODO
+
+  4. With the trashlast page id, before you load that page, you must
+     place a XL lock on the 'trashstart_off' field in the page's
+     header.
+
+  5. With the trashlast page loaded, handle all trash faults by:
+     - Updating trashlast with the page loaded's trashvor.
+     - unloading the page loaded. then releasing trashstart_off lock.
+     - repeat step 4-5 until there's no more trash faults or,
+       trashlast ends up being 0. In the latter case, go to step 3.
+
+  6. Release the XL lock on the entry's trashlast field.
+
   4. Place an XL lock on the trash record you wish to modify, then
      update trashstart_off with the next step in the linked list.
+
   5. Once trashstart_off is updated, release the XL lock on it but
      keep the XL lock on the record.
+
   6. Do the creating of the record and what not. (If a user flag
      prevents its creation, simply skip this step. Note how what we've
      just done is taken out this record from the trash yet not
@@ -107,7 +123,7 @@ Next, what cateogyr of operations are you trying to perform?
      unfit to be trash. The user would have to manually create this
      with proper flags.)
   7. Release the XL lock from the record.
-  8. Release the SH lock on the entry.
+  8. Release the SH clutch lock on the entry.
 
 * Defraging
 

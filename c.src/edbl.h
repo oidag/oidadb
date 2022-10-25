@@ -89,6 +89,7 @@ int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock);
 //
 // will automatically deal with clutch locks. (See Entry-Reading)
 int edbl_entry(edbl_handle_t *lockdir, edb_eid, edbl_type);
+int edbl_entrytrashlast(edbl_handle_t *lockdir, edb_eid, edbl_type);
 
 
 // just use edbl_set for these.
