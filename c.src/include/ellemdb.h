@@ -146,7 +146,11 @@ typedef enum edb_err_em {
 	// something regarding hardware
 	EDB_EHW,
 
+	// problem with (lack of) memory
 	EDB_ENOMEM,
+
+	// problem with (lack of) disk space.
+	EDB_ENOSPACE,
 
 	EDB_ESTOPPING,
 
@@ -413,7 +417,7 @@ typedef struct edb_entry_st {
 	edb_pid ref1; // lookup chapter start
 	edb_pid ref2; // dynamic chapter start
 	edb_pid ref0c;
-	edb_pid ref1c;
+	edb_pid lastlookup;
 	edb_pid ref2c;
 	edb_pid trashlast;
 

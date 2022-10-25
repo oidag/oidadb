@@ -331,9 +331,9 @@ which all pages in that collection are.
 | Ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup                    |
 | Ref2            | [[Page ID]]  | if edbp_object: the edbp_dynamic (0 if not needed) |
 | ref0 Count      | uint64_t | Number of pages in the chapter.                    |
-| ref1 Count      | uint64_t | Number of pages in the chapter.                    |
+| lastlookup      | [[Page ID]]  | Right-most and deepest lookup page                 |
 | ref2 Count      | uint64_t | Number of pages in the chapter.                    |
-| trashlast       | [[Page ID]]  | See [[Trash Management]]                                               |
+| trashlast       | [[Page ID]]  | See [[Trash Management]]                               |
 
 
 TODO: Need to consolidate the idea that all entries are object pages :)
@@ -834,10 +834,12 @@ has been created or not)
 
 ** edbp_lookup rsvd2
 
-| Name         | Clang    | Def                                                        |
-|--------------+----------+------------------------------------------------------------|
-| Entry ID ref | uint16_t | The reference of which chapter this lookup chapter is for. |
-| Refc         | uint16_t | The amount of references in this page.                     |
+| Name         | Clang    | Def                                                                               |
+|--------------+----------+-----------------------------------------------------------------------------------|
+| Entry ID ref | uint16_t | The reference of which chapter this lookup chapter is for.                        |
+| Refc         | uint16_t | The amount of references in this page.                                            |
+| Parent       | uint64_t | The parent lookup page. If this page is the root page, then idk what this will be |
+| rsvd         | uin32_t  | rsvd                                                                              |
 
 *** Regarding Page Left / Page Right
 

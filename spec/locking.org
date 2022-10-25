@@ -87,7 +87,6 @@ Next, what cateogyr of operations are you trying to perform?
   3. Remove SH lock from entry.
 
 ** Object-Creating
-
 *** Auto ID Creation
   1. Place an SH clutch lock on the entry (thus same as [[Object-Reading]]
      step 1)
@@ -125,6 +124,20 @@ Next, what cateogyr of operations are you trying to perform?
   7. Release the XL lock from the record.
   8. Release the SH clutch lock on the entry.
 
+*** Object-Creating-Lookup
+Note the only time you should be here is from auto-id creation. Thus,
+their should be an SH clutch lock on the entry and an XL lock on the
+trashlast field. So lets continue with the lookup root
+
+ 1. With the lookup page, put an XL lock on the *second* byte of the
+    page.
+    - The reason why we don't put an XL lock on the first byte is
+      because lookups should still be able to happen (via
+      Object-Reading/Object-Writing). But with this XL lock the only
+      thing we seek to block are other attempts to modify the lookup pages.
+ 2. load the page
+ 3. navigate to the first null-reference
+  
 * Defraging
 
 Notes: PAGE-BASED CLUTCH LOCKS DONT WORK, a dead lock can happen

@@ -282,6 +282,29 @@ typedef enum {
 edb_err edbp_start (edbphandle_t *handle, edb_pid *id);
 void    edbp_finish(edbphandle_t *handle);
 
+// edbp_create will initialize blank object pages. Thread safe per handle.
+//
+//  - pagec: the amount of pages you want in strait. Must be at least 1.
+//  - o_startpid: output pointer that will be the pid of the FIRST page in the striat.
+//
+// You cannot use any edbp_create function will a page is started.
+//
+// Does not touch any lookup pages or any references, you'll have to deal with that.
+//
+// It does set the page's trashvor's so that one points to the next for ease
+// of use with auto ids. So if you create pages A, B, and C. the trashvors
+// will link A -> B -> C. Thus you'll just have to set the entry's trashlast
+// to A. Note that C's trashvor will be 0.
+// (note to self: if I ever need to create pages whilest the entry has
+// a non-0 trashlast, I should add another arguemnt that will set C's trashvor
+// to the current trashlast)
+//
+//
+// ERRORS:
+//   EDB_ENOSPACE - no disk space of file would simply be too big (logged)
+//   EDB_ECRIT
+edb_err edbp_createobj(edbphandle_t *handle, uint16_t pagec, edb_pid *o_startpid);
+
 // called between edbp_start and edbp_finish. Simply returns the
 // page that was locked successfully by edbp_start.
 //
