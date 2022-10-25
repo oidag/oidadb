@@ -47,7 +47,8 @@ typedef struct {
 	_edbp_stdhead head;
 	uint16_t entryid;
 	uint16_t refc;
-	uint8_t _tphead[12];
+	uint64_t parentlookup;
+	uint32_t rsvd;
 
 	// in memeory after this is lookup entries..
 	//edb_lookup_t objects;
