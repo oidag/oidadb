@@ -415,7 +415,7 @@ typedef struct edb_entry_st {
 	edb_pid ref0c;
 	edb_pid ref1c;
 	edb_pid ref2c;
-	edb_pid trashstart;
+	edb_pid trashlast;
 
 } edb_entry_t;
 
