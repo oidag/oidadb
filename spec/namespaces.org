@@ -1,0 +1,94 @@
+I've reached a critical point where I no longer have any idea who
+wrote what code despite the fact that I'm the only contributer to this
+entire codebase. This is a magical thing that can happen.
+
+Anyways, as I've philosphised, when it comes to seperating code,
+there's an infinate amount of ways to do it correctly. Only that it
+remains consistant. So herein I shall write the rules of when code
+should be seperated.
+
+* Code-in-file (general)
+* Namespaces
+All namespaces (following the simple schematic of =edb_=) will largely
+"make themselves nessacary". Don't try to plan ahead.
+
+For now, lets pretend that namespaces and componenets are the
+same. This may change.
+
+** Subnamespaces
+Sometimes code gets out of hand for a single namespace but is too true
+to the namespace to result in a fissure. So we make a
+subnamespace. Subnamespaces are not visible to their super
+counterparts but supers are visable to their subs.
+
+Subs are an /extension/ of their supers.
+
+* edb.h (master interface)
+The only file that will be visible after compilation. All namespaces
+are expected to have visibility to this file.
+
+* edba.h
+All (a)tions that can be done on the file following spec sheets for
+both edb, and locking.
+
+ - edbl (for installing/managing locks as per spec)
+ - edbd (for entry and structure reading/writting)
+ - edbp (for reading/writting pages)
+
+* edbd.h
+The fundemental file (d)escriptor of edb files. This mainly deals with
+all meta and static pages (pages that are not put into edbp caches).
+
+* edbx.h
+Everything needed to e(x)ecute hosting, this will simply allocate everything
+and prepare workers to start exceptiong jobs via hosts.
+
+ - edbd (opening and reading file)
+ - edbs (for booting up shared memory space)
+ - edbp (for allocating page buffer, to pass to workers)
+ - edbw (for booting up workers)
+
+* edbh.h
+The (h)andle for client connections.
+
+ - edbs (for connecting to host and communicating jobs)
+
+* edbs.h
+This is everyting used to manage the (s)hared memory data that is used
+to relay information between the host and handles.
+
+ - edbd (for basic file information to show the user)
+
+* edbl.h
+This is a smaller namespace but deals only with (l)ocking
+functions. This is used extensively for traffic control for edb's
+insanle asyncrouns enviroment. See locking.org.
+
+* edbp.h
+(P)age management for the file.
+
+ - edbd (for access to the file)
+
+* edbw.h
+Everything regarding (w)orkers.
+
+ - edba (to execute jobs)
+ - edbd (for reading basic structure information for some jobs)
+
+* Utility Namespaces
+All utility namespaces are things that do not start with =edb_=, these
+namespaces give symbols that require no handles and are all
+processor-wide.
+
+** =errors.h=
+For REPORTING errors into a specified output stream. Used for
+dianostics.
+
+** =analytics.h=
+Functions for reporting common statistics for the database for the use
+of administration to have the innerworking availabe
+
+** =options.h=
+Here are macros for building stuff. Each macro should be documented.
+
+

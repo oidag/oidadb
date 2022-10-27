@@ -6,14 +6,14 @@
 
 #include "include/ellemdb.h"
 #include "options.h"
-#include "file.h"
+#include "edbd.h"
 
 // the lock directory is split up into 2 parts in a
 // host/handle structure. The handle side is expected to
 // be edbw's. The host is expected to be edbx.
 
 typedef struct edbl_host_st {
-	const edb_file_t *fd;
+	const edbd_t *fd;
 	pthread_mutex_t mutex_index;
 	pthread_mutex_t mutex_struct;
 } edbl_host_t;
@@ -39,7 +39,7 @@ typedef enum {
 } edbl_type;
 
 // Initialize and deinitialize a host of edbl.
-edb_err edbl_init(edbl_host_t *o_lockdir, const edb_file_t *file);
+edb_err edbl_init(edbl_host_t *o_lockdir, const edbd_t *file);
 void    edbl_decom(edbl_host_t *lockdir);
 
 edb_err edbl_newhandle(edbl_host_t *host, edbl_handle_t *o_handle);

@@ -1,5 +1,7 @@
 #include "include/ellemdb.h"
 #include "edbl.h"
+#include "edba.h"
+#include "edbs.h"
 
 
 typedef enum obj_searchflags_em {
@@ -58,7 +60,7 @@ int static execjob_obj_pre(obj_searchparams dat) {
 	if(!dat.o_entrydat) {
 		return 0;
 	}
-	err = edbs_index(self->shm, entryid, dat.o_entrydat);
+	err = edbd_index(self->shm, entryid, dat.o_entrydat);
 	if(err) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_errorf("the supplied edb_oid does not have a valid entryid: %d", entryid);
@@ -71,9 +73,9 @@ int static execjob_obj_pre(obj_searchparams dat) {
 	if(!dat.o_structdata) {
 		return 0;
 	}
-	err = edbs_structs(self->shm,
-	                   entrydat->structureid,
-	                   dat.o_structdata);
+	err = edbd_struct(self->shm,
+	                  entrydat->structureid,
+	                  dat.o_structdata);
 	if (err) {
 		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
 		log_critf("failed to load structure information (%d) for some reqson for a valid entry: %d",

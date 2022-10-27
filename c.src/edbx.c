@@ -8,10 +8,9 @@
 #include <pthread.h>
 
 #include "edbx.h"
-#include "file.h"
+#include "edbd.h"
 #include "errors.h"
 #include "edbw.h"
-#include "edbs-jobs.h"
 #include "include/ellemdb.h"
 #include "edbp.h"
 #include "edbs.h"
@@ -31,7 +30,7 @@ typedef struct edb_host_st {
 	pthread_mutex_t retlock;
 
 	// the file it is hosting
-	edb_file_t       file;
+	edbd_t       file;
 
 	// configuration it has when starting up
 	edb_hostconfig_t config;
@@ -152,7 +151,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	// past this point we need pthread_mutex_destroy(&(host.bootup));
 
 	// open and lock the file
-	eerr = edb_fileopen(&(host.file), path, hostops.page_multiplier, hostops.flags);
+	eerr = edbd_open(&(host.file), path, hostops.page_multiplier, hostops.flags);
 	if(eerr) {
 		goto clean_mutex;
 	}
@@ -257,7 +256,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	// close the file
 	clean_file:
 	log_infof("closing database file...");
-	edb_fileclose(&(host.file));
+	edbd_close(&(host.file));
 
 	clean_mutex:
 	log_infof("destroying mutexes...");

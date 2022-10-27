@@ -11,7 +11,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <stdarg.h>
-#include "file.h"
+#include "edbd.h"
 #include "edbp.h"
 
 unsigned int edbp_size(const edbpcache_t *c) {
@@ -258,7 +258,7 @@ void static unlockeof(edbpcache_t *caache) {
 }
 
 // see conf->pra_algo
-edb_err edbp_init(edbpcache_t *o_cache, const edb_file_t *file, edbp_slotid slotcount) {
+edb_err edbp_init(edbpcache_t *o_cache, const edbd_t *file, edbp_slotid slotcount) {
 
 	// invals
 	if(!o_cache) return EDB_EINVAL;

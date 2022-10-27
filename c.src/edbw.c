@@ -10,10 +10,10 @@
 
 
 #include "include/ellemdb.h"
-#include "edbf.h"
+#include "edba.h"
 #include "edbw.h"
 #include "edbs-jobs.h"
-#include "file.h"
+#include "edbd.h"
 #include "edbp-types.h"
 
 typedef enum {
@@ -247,9 +247,11 @@ static edb_err selectjob(edb_worker_t * const self) {
 
 	// if we're here that means we've accepted the job at jobv[self->jobpos] and we've
 	// claimed it so other workers won't bother this job.
-	self->curjob = &jobv[self->jobpos]; // set curjob
+
+	// set curjob
+	self->curjob = edbs_jobhandle(self->shm, self->jobpos);
 	execjob(self);
-	self->curjob = 0; // null out curjob.
+	self->curjob.job = 0; // null out curjob.
 
 	// job has been completed. relinquish ownership.
 	//

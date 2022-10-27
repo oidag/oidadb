@@ -2,6 +2,7 @@
 #define _edbJOBS_H_
 
 #include "include/ellemdb.h"
+#include "edbs.h"
 
 #define EDB_OID_OP1 0x0000ffffffffffff
 #define EDB_OID_OP2 0x0000fffffffffffe
@@ -87,53 +88,21 @@ typedef enum _edb_jobclass {
 } edb_cmd;
  */
 
-// job slot structures are met to be stored in shared memory
-// and be accessed by multiple processes.
-//
-// each job has a buffer known as a 'transferbuffer' which is
-// a set amount of bytes (allocated also in shared memory) that
-// the worker and the handle can use to send information back
-// and fourth.
-//
-// Note that there is no pointer to that particular buffer here.
-// Infact, there's no pointers at all within this structure.
-// This is because we're talking about multiple processes accessing
-// shared memeory... a pointer's value in one process can
-// mean something else entirely in another process. Even if they
-// eventually point to the same spot in physical memory.
-//
-// So we must stick to offsets for guidance (transferbuffoff)
-typedef struct edb_job_st {
+typedef struct {
+	const edb_shm_t *shm;
+	edb_job_t *job;
+} edbs_jobhandler;
 
-	// Job desc is a xor'd value between 1 edb_jobclass, 1 edb_cmd.
-	// if 0 then empty job.
-	int jobdesc;
+// all this does is build up a helper structure.
+// Allows you to use the edbs_jobhandler functions
+edbs_jobhandler edbs_jobhandle(const edb_shm_t *shm, unsigned int jobindex) {
+	return (edbs_jobhandler){
+		.shm = shm,
+		.job = &shm->jobv[jobindex],
+	};
+}
 
-	// the transfer buffer for this job.
-	// the offset from shm->transferbuff and how many bytes are there.
-	//
-	// do not use these directly, use edb_jobread and edb_jobwrite instead.
-	unsigned long int transferbuffoff;
-	unsigned int      transferbuffcapacity;
-	uint32_t          futex_transferbuffc; // the amount of the buffer that is full.
-	unsigned int      writehead; // data ends at this index
-	unsigned int      readhead;  // data starts at this index
-	int state;                   // 0 means closed, 1 means open.
-	pthread_mutex_t   bufmutex;  // multiprocess mutex.
-
-	// used by the worker pool.
-	// only matters if class != EDB_JNONE.
-	// 0 means its not owned.
-	unsigned int owner;
-
-	// this is reassigned by the handles everytime they
-	// install it. uses edb_shmhead_st.nextjobid.
-	unsigned long int jobid;
-
-	// the use of data depends on the class and command.
-	//edb_data_t data;
-
-} edb_job_t;
+// todo: put job install and job select here.
 
 // analogous to read(2) and write(2).
 // Write will block if the buffer becomes full.
@@ -156,29 +125,8 @@ typedef struct edb_job_st {
 //   only 1 thread/process can call edb_jobread and another can call
 //   edb_jobwrite on the same job at the same time.
 //
-int edb_jobread(edb_job_t *job, const void *transferbuf, void *buff, int count);
-int edb_jobwrite(edb_job_t *job, void *transferbuf, const void *buff, int count);
-
-
-// jobclose will force all calls to jobread and jobwrite, waiting or not. stop and imediately return -2.
-// All subsequent calls to jobread and jobwrite will also return -2.
-//
-// jobreset will reopen the streams and allow for jobread and jobwrite to work as inteneded on a fresh buffer.
-//
-// By default, a 0'd out job starts in the closed state, so jobreset must be called beforehand. Multiple calls to
-// edb_jobclose is ok. Multiple calls to edb_jobreset is ok.
-//
-// THREADING
-//   At no point should jobclose and jobopen be called at the sametime with the same job. One
-//   must return before the other can be called.
-//
-//   However, simultainous calls to the same function on the same job is okay (multiple threads calling
-//   edb_jobclose is ok, multiple threads calling edb_jobreset is okay.)
-void edb_jobclose(edb_job_t *job);
-int edb_jobreset(edb_job_t *job);
-
-// returns 1 if the job is closed, or 0 if it is open.
-int edb_jobisclosed(edb_job_t *job);
+int edb_jobread(edbs_jobhandler *jh, void *buff, int count);
+int edb_jobwrite(edbs_jobhandler *jh, const void *buff, int count);
 
 
 #endif

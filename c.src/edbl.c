@@ -13,7 +13,7 @@
 #include "errors.h"
 #include "pthread.h"
 
-edb_err edbl_init(edbl_host_t *o_lockdir, const edb_file_t *filedesc) {
+edb_err edbl_init(edbl_host_t *o_lockdir, const edbd_t *filedesc) {
 	// todo: invals
 	o_lockdir->fd = filedesc;
 	int err = pthread_mutex_init(&o_lockdir->mutex_struct,0);

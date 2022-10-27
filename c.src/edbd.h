@@ -52,7 +52,7 @@ typedef struct edb_file_st {
 	//
 	edb_fhead *head;
 
-} edb_file_t;
+} edbd_t;
 
 
 // open, create, and close valid edb files. does not edit
@@ -68,7 +68,19 @@ typedef struct edb_file_st {
 //
 // edb_fileclose will preserve errno.
 //
-edb_err edb_fileopen(edb_file_t *file, const char *path, unsigned int pagemul, int flags);
-void edb_fileclose(edb_file_t *file);
+edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flags);
+void    edbd_close(edbd_t *file);
+
+
+// see edb_index and edb_structs.
+// these do the exact same thing but only specifically needs the shm and will return
+// the pointer to the mmap'd region rather than copy the data.
+//
+// This memory is mapped to the file. Changes are persistant.
+//
+// Note: does nothing with locks. Be sure to use edbl properly.
+edb_err edbd_index(const edbd_t *file, edb_eid eid, edb_entry_t **o_entry);
+edb_err edbd_struct(const edbd_t *file, uint16_t structureid, edb_struct_t **o_struct);
+
 
 #endif
