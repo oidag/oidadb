@@ -837,9 +837,11 @@ has been created or not)
 | Name         | Clang    | Def                                                                               |
 |--------------+----------+-----------------------------------------------------------------------------------|
 | Entry ID ref | uint16_t | The reference of which chapter this lookup chapter is for.                        |
-| Refc         | uint16_t | The amount of references in this page.                                            |
+| Refc         | uint16_t | The amount of (non-null) references in this page.                                 |
 | Parent       | uint64_t | The parent lookup page. If this page is the root page, then idk what this will be |
-| rsvd         | uin32_t  | rsvd                                                                              |
+| Depth        | uint8_t  | The depth that this lookuppage is at                                              |
+| rsvd         | uint8_t  | rsvd                                                                              |
+| rsvd         | uint16_t | rsvd                                                                              |
 
 *** Regarding Page Left / Page Right
 

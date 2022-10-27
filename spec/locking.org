@@ -94,7 +94,7 @@ Next, what cateogyr of operations are you trying to perform?
   2. Place an XL lock on the entry's trashlast field.
 
   3. If the trashlast page is 0. Tne this means more pages are needed
-     to be created. TODO
+     to be created. See [[Object-Creating-Lookup]].
 
   4. With the trashlast page id, before you load that page, you must
      place a XL lock on the 'trashstart_off' field in the page's
@@ -134,7 +134,8 @@ trashlast field. So lets continue with the lookup root
     - The reason why we don't put an XL lock on the first byte is
       because lookups should still be able to happen (via
       Object-Reading/Object-Writing). But with this XL lock the only
-      thing we seek to block are other attempts to modify the lookup pages.
+      thing we seek to block are other attempts to modify the lookup
+      pages.
  2. load the page
  3. navigate to the first null-reference
   
