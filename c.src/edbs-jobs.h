@@ -90,6 +90,14 @@ typedef enum _edb_jobclass {
 typedef struct {
 	const edb_shm_t *shm;
 	edb_job_t *job;
+
+	// this is an index inside of the job buffer. Note that
+	// this doesn't mean that its currently executing the job at this pos. You
+	// must look at the job itself for that information.
+	//
+	// Once a job is complete, the worker will attempt to find a new job by
+	// incrementing from its last position.
+	unsigned int jobpos;
 } edbs_jobhandler;
 
 // all this does is build up a helper structure.
@@ -100,8 +108,28 @@ edbs_jobhandler edbs_jobhandle(const edb_shm_t *shm, unsigned int jobindex) {
 		.job = &shm->jobv[jobindex],
 	};
 }
+// Will take care of all the mutexes and futexes inside of the shm and
+// will select a job for you and set load it into o_job.
+//
+// If there's no jobs installed in the shm yet, this function will block.
+//
+// jobpos should point to a valid number (initially set to 0). This will be
+// where the search for a new job will start. (note to self: just set this to
+// edbw.jobpos).
+//
+// ownerid should be worker id.
+//
+// Before you ever call this, make sure that o_job.jobpos is at least 0. You only
+// have to initilize that once.
+//
+// edbs_jobselect only returns critical errors.
+//
+// call edbs_jobclose if you're all done with the job.
+edb_err edbs_jobselect(const edb_shm_t *shm, edbs_jobhandler *o_job, unsigned int ownerid);
+void    edbs_jobclose(edbs_jobhandler *job);
 
-// todo: put job install and job select here.
+// todo
+edb_err edbs_jobinstall();
 
 // analogous to read(2) and write(2).
 // Write will block if the buffer becomes full.
