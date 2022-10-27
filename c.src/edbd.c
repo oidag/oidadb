@@ -14,7 +14,7 @@
 #include <errno.h>
 
 #include "include/ellemdb.h"
-#include "file.h"
+#include "edbd.h"
 #include "errors.h"
 
 // helper function to edb_open. returns 0 on success.
@@ -132,7 +132,7 @@ static edb_err validateheadintro(edb_fhead_intro head, int pagemul) {
 
 
 
-void edb_fileclose(edb_file_t *file) {
+void edbd_close(edbd_t *file) {
 	// dealloc memeory
 	int err = munmap(file->head, sysconf(_SC_PAGE_SIZE));
 	if(err == -1) {
@@ -152,18 +152,18 @@ void edb_fileclose(edb_file_t *file) {
 	}
 }
 
-edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul, int flags) {
+edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flags) {
 
 	// initialize memeory.
-	bzero(dbfile, sizeof(edb_file_t));
-	dbfile->path = path;
+	bzero(file, sizeof(edbd_t));
+	file->path = path;
 
 	int err = 0;
 	int trycreate = flags & EDB_HCREAT;
 
 	// get the stat of the file, and/or create the file if params dicates it.
 	restat:
-	err = stat(path, &(dbfile->openstat));
+	err = stat(path, &(file->openstat));
 	if(err == -1) {
 		int errnotmp = errno;
 		if(errno == ENOENT && trycreate) {
@@ -183,7 +183,7 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul,
 	}
 
 	// make sure this is a file.
-	if((dbfile->openstat.st_mode & S_IFMT) != S_IFREG) {
+	if((file->openstat.st_mode & S_IFMT) != S_IFREG) {
 		return EDB_EFILE;
 	}
 
@@ -196,12 +196,12 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul,
 	// O_NONBLOCK - set just incase mmap(2)/read(2)/write(2) are enabled to
 	//              wait for advisory locks, which they shouldn't... we manage
 	//              those locks manually. (see Mandatory locking in fnctl(2)
-	dbfile->descriptor = open64(path, O_RDWR
+	file->descriptor = open64(path, O_RDWR
 	                                | O_DIRECT
 	                                | O_SYNC
 	                                | O_LARGEFILE
-									| O_NONBLOCK);
-	if(dbfile->descriptor == -1) {
+	                                | O_NONBLOCK);
+	if(file->descriptor == -1) {
 		return EDB_EERRNO;
 	}
 
@@ -219,10 +219,10 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul,
 	};
 	// note we use OFD locks becuase the host can be started in the same
 	// process as handlers, but just use different threads.
-	err = fcntl64(dbfile->descriptor, F_OFD_SETLK, &dbflock);
+	err = fcntl64(file->descriptor, F_OFD_SETLK, &dbflock);
 	if(err == -1) {
 		int errnotmp = errno;
-		close(dbfile->descriptor);
+		close(file->descriptor);
 		if(errno == EACCES || errno == EAGAIN)
 			return EDB_EOPEN; // another process has this open.
 		// no other error is possible here except for out of memory error.
@@ -232,14 +232,14 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul,
 	}
 
 	// file open and locked. load in the head.
-	dbfile->head = mmap64(0, psize, PROT_READ | PROT_WRITE,
-						   MAP_SHARED_VALIDATE,
-						   dbfile->descriptor,
-						   0);
-	if(dbfile->head == MAP_FAILED) {
+	file->head = mmap64(0, psize, PROT_READ | PROT_WRITE,
+	                    MAP_SHARED_VALIDATE,
+	                    file->descriptor,
+	                    0);
+	if(file->head == MAP_FAILED) {
 		int errnotmp = errno;
 		log_critf("failed to call mmap(2) due to unpredictable errno: %d", errnotmp);
-		close(dbfile->descriptor);
+		close(file->descriptor);
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
@@ -250,9 +250,9 @@ edb_err edb_fileopen(edb_file_t *dbfile, const char *path, unsigned int pagemul,
 	// validate the head intro on the system to make sure
 	// it can run on this architecture.
 	{
-		edb_err valdationerr = validateheadintro(dbfile->head->intro, pagemul);
+		edb_err valdationerr = validateheadintro(file->head->intro, pagemul);
 		if(valdationerr != 0) {
-			edb_fileclose(dbfile);
+			edbd_close(file);
 			return valdationerr;
 		}
 	}

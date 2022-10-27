@@ -441,6 +441,10 @@ typedef struct edb_struct_st {
 
 // shared-memory access functions
 //
+// todo: these should probably be jobs instead of shared memory, otherwise
+//       locking management will be out of wack. ie: what if someones in the
+//       middle of an alter statement?
+//
 // edb_structs and edb_index will take in ids and copy the respective
 // information into their o_ parameters. If the o_ parameters are
 // null, then they are ignored.

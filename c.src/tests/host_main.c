@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "../include/ellemdb.h"
 #include "../edbp.h"
-#include "../file.h"
+#include "../edbd.h"
 #include <pthread.h>
 #include "../edbh.h"
 

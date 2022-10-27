@@ -6,7 +6,7 @@
 #include <pthread.h>
 
 #include "include/ellemdb.h"
-#include "file.h"
+#include "edbd.h"
 #include "errors.h"
 
 /*
@@ -220,7 +220,7 @@ unsigned int edbp_size(const edbpcache_t *c);
 // the handlers of the cache first.
 //
 // todo: update the above documentation
-edb_err edbp_init(edbpcache_t *o_cache, const edb_file_t *file, edbp_slotid slotcount);
+edb_err edbp_init(edbpcache_t *o_cache, const edbd_t *file, edbp_slotid slotcount);
 void    edbp_decom(edbpcache_t *cache);
 
 

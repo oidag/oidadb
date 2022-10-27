@@ -7,7 +7,6 @@
 #include "edbs.h"
 #include "include/ellemdb.h"
 #include "errors.h"
-#include "edbx.h"
 
 enum hoststate {
 	HOST_NONE = 0,

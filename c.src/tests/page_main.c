@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "../include/ellemdb.h"
 #include "../edbp.h"
-#include "../file.h"
+#include "../edbd.h"
 #include <pthread.h>
 #include "../edbh.h"
 
@@ -65,11 +65,11 @@ void *gothread(void *args) {
 }
 
 int main() {
-	edb_file_t file;
+	edbd_t file;
 	edbpcache_t cache;
 	edb_err err = 0;
 	unlink(".tests/page_test");
-	err = edb_fileopen(&file, ".tests/page_test", 1, EDB_HCREAT);
+	err = edbd_open(&file, ".tests/page_test", 1, EDB_HCREAT);
 	if(err) {
 		goto ret;
 	}
@@ -90,7 +90,7 @@ int main() {
 	decom:
 	edbp_decom(&cache);
 	fclose:
-	edb_fileclose(&file);
+	edbd_close(&file);
 	ret:
 	if(err) {
 		if(err == EDB_EERRNO) {

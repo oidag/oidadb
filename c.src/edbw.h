@@ -4,6 +4,7 @@
 #include "edbs.h"
 #include "edbp.h"
 #include "edbl.h"
+#include "edbs-jobs.h"
 
 typedef enum _edb_workerstate {
 	EDB_WWORKNONE = 0,
@@ -40,8 +41,9 @@ typedef struct edb_worker_st {
 	// see pages.h
 	edbphandle_t edbphandle;
 
-	// filled in the second the worker is operating on a job
-	edb_job_t *curjob;
+	// filled in the second the worker is operating on a job.
+	// if curjob.job is null that means no job currently.
+	edbs_jobhandler curjob;
 }edb_worker_t;
 
 // _init initializs a new worker and _decom decommissions it.
