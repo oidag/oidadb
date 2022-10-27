@@ -69,7 +69,6 @@ typedef enum _edb_jobclass {
 	//       - EDB_EINVAL - (EDB_CWRITE) start wasn't less than end.
 	//       - EDB_ENOENT - (EDB_CWRITE, EDB_CCOPY) oid is deleted
 	//       - EDB_EOUTBOUNDS - (EDB_CWRITE): start was higher than fixedlen.
-	//       - EDB_EEOF - entry was not valid (too large) or rowid was too large
 	//       - EDB_EULOCK - failed due to user lock (see EDB_FUSR... constants)
 	//       - EDB_EEXIST - (EDB_CCREATE): Object already exists
 	//       - EDB_ECRIT - unknown error

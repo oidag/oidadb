@@ -515,9 +515,6 @@ typedef enum _edb_usrlk {
 	EDB_FUSRLCREAT = 0x0008,
 } edb_usrlk;
 
-// need to fidn a place to put this one...
-#define EDB_FDELETED 0x1000
-
 
 
 /********************************************************************
