@@ -72,6 +72,7 @@ typedef enum _edb_jobclass {
 	//       - EDB_EULOCK - failed due to user lock (see EDB_FUSR... constants)
 	//       - EDB_EEXIST - (EDB_CCREATE): Object already exists
 	//       - EDB_ECRIT - unknown error
+	//       - EDB_ENOSPACE - (EDB_CCREATE, using AUTOID): disk/file full.
 	//
 	EDB_OBJ = 0x0003,
 
