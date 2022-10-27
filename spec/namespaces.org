@@ -1,3 +1,5 @@
+
+* Intro
 I've reached a critical point where I no longer have any idea who
 wrote what code despite the fact that I'm the only contributer to this
 entire codebase. This is a magical thing that can happen.
@@ -59,6 +61,11 @@ to relay information between the host and handles.
 
  - edbd (for basic file information to show the user)
 
+** edbs-jobs.h
+Everything specifically managing jobs
+installs/selects/statuses/transfering buffering inside the shared
+space.
+
 * edbl.h
 This is a smaller namespace but deals only with (l)ocking
 functions. This is used extensively for traffic control for edb's
@@ -68,6 +75,10 @@ insanle asyncrouns enviroment. See locking.org.
 (P)age management for the file.
 
  - edbd (for access to the file)
+
+** edbp-types.h
+This is just a bunch of structures that further describe page headers
+and what not in accordance with spec. No functional signifigance.
 
 * edbw.h
 Everything regarding (w)orkers.
