@@ -30,14 +30,6 @@ typedef struct edb_worker_st {
 	unsigned int workerid;
 	pthread_t pthread;
 
-	// this is an index inside of the job buffer. Note that
-	// this doesn't mean that its currently executing the job at this pos. You
-	// must look at the job itself for that information.
-	//
-	// Once a job is complete, the worker will attempt to find a new job by
-	// incrementing from its last position.
-	unsigned int jobpos;
-
 	// see pages.h
 	edbphandle_t edbphandle;
 

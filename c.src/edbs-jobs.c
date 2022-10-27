@@ -150,3 +150,128 @@ int edb_jobread(edb_job_t *job, const void *transferbuf, void *buff, int count) 
 	return i;
 
 }
+
+// helper func to workermain
+//
+// return an error if you need the thread to restart.
+//
+// EDB_ESTOPPING: the host has closed the futex.
+edb_err edbs_jobselect(const edb_shm_t *shm, edbs_jobhandler *o_job, unsigned int ownerid) {
+	int err;
+
+	// save some pointers to the stack for easier access.
+	o_job->shm = shm;
+	edb_shmhead_t *const head = shm->head;
+	const uint64_t jobc = head->jobc;
+	edb_job_t *const jobv = shm->jobv;
+
+
+	// now we need to find a new job.
+	// Firstly, we need to atomically lock all workers so that only one can accept a job at once to
+	// avoid the possibility that 2 workers accidentally take the same job.
+	err = pthread_mutex_lock(&head->jobaccept);
+	if (err) {
+		log_critf("critical error while attempting to lock jobaccept mutex: %d", err);
+		return EDB_ECRIT;
+	}
+
+	// note on critical errors: the job accept must be unlocked if a critical error occurs.
+
+	// at this point, we have locked the job accept mutex. But that doesn't mean there's
+	// jobs available.
+	//
+	// if there's no new jobs then we must wait. We do this by running futext_wait
+	// on the case that newjobs is 0. In which case a handle will eventually wake us after it increments
+	// newjobs.
+	err = syscall(SYS_futex, &head->futex_newjobs, FUTEX_WAIT, 0, 0, 0, 0);
+	if (err == -1 && errno != EAGAIN) {
+		pthread_mutex_unlock(&head->jobaccept);
+		log_critf("critical error while waiting on new jobs: %d", errno);
+		return EDB_ECRIT;
+	}
+
+	// if we're here that means we know that there's at least 1 new job. lets find it.
+	{
+		int i;
+		for (i = 0; i < jobc; i++) {
+
+			if (jobv[o_job->jobpos].owner != 0 || jobv[o_job->jobpos].jobdesc != 0) {
+				// this job is already owned.
+				// so this job is not owned however there's no job installed.
+				goto next;
+			}
+
+			// if we're here then we know this job is not owned
+			// and has a job. We'll break out of the for loop.
+			break;
+
+			next:
+			// increment the worker's position.
+			o_job->jobpos = (o_job->jobpos + 1) % jobc;
+		}
+		if (i == jobc) {
+			// this is a critical error. If we're here that meas we went through
+			// the entire stack and didn't find an open job. Sense futex_newjobs
+			// was supposed to be at least 1 that means I programmed something wrong.
+			//
+			// The first thread that enters into here will not be the last as futher
+			// threads will discover the same thing.
+			pthread_mutex_unlock(&head->jobaccept);
+			log_critf("although newjobs was at least 1, an open job was not found in the stack.");
+			return EDB_ECRIT;
+		}
+	}
+
+	// at this point, jobv[self->jobpos] is pointing to an open job.
+	// so lets go ahead and set the job ownership to us.
+	jobv[o_job->jobpos].owner = ownerid;
+	head->futex_newjobs--;
+
+	// we're done filing all the paperwork to have ownership over this job. thus no more need to have
+	// the ownership logic locked for other thread. We can continue to do this job.
+	pthread_mutex_unlock(&head->jobaccept);
+
+	// if we're here that means we've accepted the job at jobv[self->jobpos] and we've
+	// claimed it so other workers won't bother this job.
+
+}
+void    edbs_jobclose(edbs_jobhandler *job) {
+
+	// save some pointers to the stack for easier access.
+	edb_shm_t *shm = job->shm;
+	edb_shmhead_t *const head = shm->head;
+	const uint64_t jobc = head->jobc;
+	edb_job_t *const jobv = shm->jobv;
+
+
+	job->job = 0; // null out curjob.
+
+	// job has been completed. relinquish ownership.
+	//
+	// to do this, we have to lock the job install mutex to avoid the possiblity of a
+	// handle trying to install a job mid-way through us relinqusihing it.
+	//
+	// (this can probably be done a bit more nicely if the jobinstall mutex was held per-job slot)
+	pthread_mutex_lock(&head->jobinstall);
+
+	// we must do this by removing the owner, and then setting class to EDB_JNONE in that
+	// exact order. This is because handles look exclusively at the class to determine
+	// its ability to load in another job and we don't want it loading another job into
+	// this position while its still owned.
+	jobv[job->jobpos].jobdesc = 0;
+	jobv[job->jobpos].owner   = 0;
+	head->futex_emptyjobs++;
+
+	// close the transfer if it hasn't already.
+	// note that per edb_jobclose's documentation on threading, edb_jobclose and edb_jobopen must
+	// only be called inside the comfort of the jobinstall mutex.
+	edb_jobclose(&jobv[job->jobpos]);
+
+	pthread_mutex_unlock(&head->jobinstall);
+
+	// send out a broadcast letting at least 1 waiting handler know theres another empty job
+	int err = syscall(SYS_futex, &head->futex_emptyjobs, FUTEX_WAKE, 1, 0, 0, 0);
+	if(err == -1) {
+		log_critf("failed to wake futex_emptyjobs: %d", errno);
+	}
+}
