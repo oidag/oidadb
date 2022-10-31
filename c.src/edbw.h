@@ -3,6 +3,7 @@
 
 #include "edbs.h"
 #include "edbp.h"
+#include "edba.h"
 #include "edbl.h"
 #include "edbs-jobs.h"
 
@@ -32,6 +33,8 @@ typedef struct edb_worker_st {
 
 	// see pages.h
 	edbphandle_t edbphandle;
+
+	edbf_t *edbahandle;
 
 	// filled in the second the worker is operating on a job.
 	// if curjob.job is null that means no job currently.

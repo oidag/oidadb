@@ -34,7 +34,7 @@ typedef enum {
 #define EDB_BTREE3 0x3000
 
 // helper wrappers for accessing the job buffer more easily
-int static inline edbw_jobread(edb_worker_t *self, void *bufv, int bufc) {
+/*int static inline edbw_jobread(edb_worker_t *self, void *bufv, int bufc) {
 	return edb_jobread(self->curjob, self->shm->transbuffer, bufv, bufc);
 }
 int static inline edbw_jobwrite(edb_worker_t *self, void *bufv, int bufc) {
@@ -45,7 +45,7 @@ void static inline edbw_jobclose(edb_worker_t *self) {
 }
 int static inline edbw_jobisclosed(edb_worker_t *self) {
 	return edb_jobisclosed(self->curjob);
-}
+}*/
 
 
 // function to easily verbosely log worker and job ids
@@ -132,37 +132,114 @@ static edb_err execjob(edb_worker_t *self) {
 			break;
 	}
 
+	const edb_struct_t *st;
+	edb_usrlk *lks;
+	void *f;
+
 	// do the routing
 	switch (job->jobdesc) {
 		case EDB_OBJ | EDB_CCREATE:
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
-			execjob_objcreate(self, entryid, data_identity);
+			// **defer: edba_objectclose
+			c_err = edba_objectopenc(self->edbahandle, oid, EDBA_FCREATE | EDBA_FWRITE);
+			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
+			if(c_err) {
+				edba_objectclose(self->edbahandle);
+				break;
+			}
+			st = edba_objectstruct(self->edbahandle);
+			f = edba_objectfixed(self->edbahandle);
+
+			edbs_jobread(&self->curjob, f, st->fixedc);
+
+			edba_objectclose(self->edbahandle);
 			break;
 		case EDB_OBJ | EDB_CCOPY:
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
-			execjob_objcopy(self, entryid, data_identity);
+			// **defer: edba_objectclose
+			c_err = edba_objectopen(self->edbahandle, oid, 0);
+			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
+			if(c_err) {
+				edba_objectclose(self->edbahandle);
+				break;
+			}
+			st = edba_objectstruct(self->edbahandle);
+			f  = edba_objectfixed(self->edbahandle);
+
+			edbs_jobwrite(&self->curjob, f, st->fixedc);
+
+			edba_objectclose(self->edbahandle);
 			break;
 		case EDB_OBJ | EDB_CWRITE:
-			// we have an open stream and a id, thus, it is an edit.
 			edbw_logverbose(self, "edit object 0x%016lX", oid);
-			execjob_objedit(self, entryid, data_identity);
+			// **defer: edba_objectclose
+			c_err = edba_objectopen(self->edbahandle, oid, EDBA_FWRITE);
+			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
+			if(c_err) {
+				edba_objectclose(self->edbahandle);
+				break;
+			}
+			st = edba_objectstruct(self->edbahandle);
+			f  = edba_objectfixed(self->edbahandle);
+
+			edbs_jobread(&self->curjob, f, st->fixedc);
+
+			edba_objectclose(self->edbahandle);
 			break;
 		case EDB_OBJ | EDB_CDEL:
 			// object-deletion
 			edbw_logverbose(self, "delete object 0x%016lX", oid);
-			execjob_objdelete(self, job);
-			break;
+			// **defer: edba_objectclose
+			c_err = edba_objectopen(self->edbahandle, oid, EDBA_FWRITE);
+			if(c_err) {
+				edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
+				edba_objectclose(self->edbahandle);
+				break;
+			}
 
-		case EDB_OBJ | EDB_CUSRLK:
+			c_err = edba_objectdelete(self->edbahandle);
+
+			edba_objectclose(self->edbahandle);
+			break;
+		case EDB_OBJ | EDB_CUSRLKR:
+			edbw_logverbose(self, "cuserlock object 0x%016lX", oid);
+			// **defer: edba_objectclose
+			c_err = edba_objectopen(self->edbahandle, oid, 0);
+			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
+			if(c_err) {
+				edba_objectclose(self->edbahandle);
+				break;
+			}
+
+			lks = edba_objectlocks(self->edbahandle);
+			edbs_jobwrite(&self->curjob, lks, sizeof(edb_usrlk));
+
+			edba_objectclose(self->edbahandle);
+
+		case EDB_OBJ | EDB_CUSRLKW:
+			edbw_logverbose(self, "cuserlock object 0x%016lX", oid);
+			// **defer: edba_objectclose
+			c_err = edba_objectopen(self->edbahandle, oid, EDBA_FWRITE);
+			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
+			if(c_err) {
+				edba_objectclose(self->edbahandle);
+				break;
+			}
+
+			lks = edba_objectlocks(self->edbahandle);
+			edbs_jobread(&self->curjob, lks, sizeof(edb_usrlk));
+
+			edba_objectclose(self->edbahandle);
+
 		default:
 			err = EDB_EINVAL;
-			edbw_jobwrite(self, &err, sizeof(err));
+			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 			log_critf("execjob was given a bad jobid: %04x", job->jobdesc);
 			goto closejob;
 	}
 
 	closejob:
-	edbw_jobclose(self);
+	edbs_jobclose(&self->curjob);
 	return c_err;
 }
 
@@ -192,8 +269,13 @@ edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, edbl_t *l
 	o_worker->lockdir = lockdir; // todo, need to create handles for the lockdir.
 	o_worker->fhead = fhead;
 	o_worker->curjob.jobpos = 0;
+	o_worker->edbahandle = edba_somethingsomething();
+	if(!o_worker->edbahandle) {
+		return EDB_ECRIT;
+	}
 	eerr = edbp_newhandle(edbpcache, &o_worker->edbphandle);
 	if(eerr) {
+		edba_somethingclose(o_worker->edbahandle);
 		return eerr;
 	}
 	return 0;
@@ -201,6 +283,7 @@ edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, edbl_t *l
 
 void edb_workerdecom(edb_worker_t *worker) {
 	edbp_freehandle(&worker->edbphandle);
+	edba_somethingclose(worker->edbahandle);
 }
 
 
