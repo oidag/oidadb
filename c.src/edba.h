@@ -51,7 +51,8 @@ void edba_somethingclose(edbf_t *src);
 //
 // edba_objectclose
 //   Close the object without any special action. If EDBA_FWRITE was true
-//   then the page's are closed with dirty bit modifiers.
+//   then the page's are closed with dirty bit modifiers. This function
+//   is safe to be called redundantly but this will be logged.
 //
 // IGNORES ALL USER LOCKS.
 //
