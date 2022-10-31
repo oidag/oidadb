@@ -1,8 +1,11 @@
+* this file
 Here i shall type a buisness model following the standard business
 canvas.
 
 I'm not completely sure why I need to do this. It may end up just
-another forgotten document. But I need to get this done with and thought about otherwise I'm putting in all of this effort in making another database for nothing.
+another forgotten document. But I need to get this done with and
+thought about otherwise I'm putting in all of this effort in making
+another database for nothing.
 
 
 Tangigbla value: have profit.
@@ -193,3 +196,44 @@ with many millions of dollars though. But this fact alone is value.
 This can also mean we can use the strategic value to justify losing
 money on the subleasing program for the eventual returnn of switching
 to in-house.
+
+
+* Monologue
+I speak to myself now. As if I'm talking to someone else to hype up
+the product. this is a much needed excersise. thus i justify my
+product, thus i deam its existance. hense i cease the fire of doubt
+within me and my opponenets of this products nessecity. this recalls
+me of the flycatcher fleet.
+
+the secrent to justification is to take why /i/ can justify it and
+project it on others. another way reminds me of my goonwaffe campaing,
+don't say "probably", "might", "should"... say "will". Talk in the
+perfect futre/present tense. talk like you're already the winner but
+without the tribute of truth. Make words as serious as the product,
+and the legitmacy shall spread.
+
+
+
+*People need this technology.* With it they will develop technology
+that will run faster and more true than it ever has. I would guess
+that nearly all/90% of all information on earth are stored in
+databases, shared between MySQL, MSSQL, Oracle, MongoDB, and
+Postgres. 5 Products for that much information? It's about to be 6 and
+ours will be the most modern.
+
+The biggest in the enterprise sector are MongoDB and Oracle becuase
+they provide support. We will also provide support. We're going to up
+there with them. Between them is 10 billion dollars of revenue. Making
+just a slightly cheaper, slightly faster product and support will
+quickly conqure that 10b so long we have transition scripts.
+
+* Venture Capitalist
+Based on their previous protfolio having database technology, the
+following firms are to be considered:
+
+ - https://www.intelcapital.com/contact/
+ - https://www.iqt.org/contact-us/ (CIA/Government investor, went for mongodb)
+ - https://www.flybridge.com/ (like pre-seeding)
+ - https://www.nea.com/contact
+ - https://www.usv.com/people/
+ - https://www.sequoiacap.com/
