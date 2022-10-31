@@ -50,7 +50,7 @@ int static inline edbw_jobisclosed(edb_worker_t *self) {
 
 // function to easily verbosely log worker and job ids
 #define edbw_logverbose(workerp, fmt, ...) \
-log_debugf("worker#%d executing job#%ld: " fmt, workerp->workerid, workerp->curjob->jobid, ##__VA_ARGS__)
+log_debugf("worker#%d executing job#%ld: " fmt, workerp->workerid, workerp->curjob.job->jobid, ##__VA_ARGS__)
 
 // helper func to selectjob.
 //
@@ -66,7 +66,8 @@ log_debugf("worker#%d executing job#%ld: " fmt, workerp->workerid, workerp->curj
 static edb_err execjob(edb_worker_t *self) {
 
 	// easy pointers
-	edb_job_t *job = self->curjob;
+	edbs_jobhandler *job = &self->curjob;
+	int jobdesc = job->job->jobdesc;
 	edb_err err = 0;
 
 	// note to self: inside this function we have our own thread to ourselves.
@@ -85,7 +86,7 @@ static edb_err execjob(edb_worker_t *self) {
 
 	// FRH
 	// Cannot take jobs with a closed buffer
-	if(edbw_jobisclosed(self)) {
+	if(edbs_jobisclosed(job)) {
 		err = EDB_ECRIT;
 		log_critf("job accepted by worker but the handle did not open job buffer");
 		goto closejob;
@@ -93,30 +94,19 @@ static edb_err execjob(edb_worker_t *self) {
 
 	// check for some common errors regarding the edb_jobclass
 	edb_oid oid;
-	edb_eid entryid;
-	uint64_t data_identity; // generic term, can be rowid or otherwise structid
 	int ret;
-	edb_err c_err;
-	switch (job->jobdesc & 0x00FF) {
+	switch (jobdesc & 0x00FF) {
 		case EDB_OBJ:
 		case EDB_DYN:
 			// all of these job classes need an id parameter
-			ret = edbw_jobread(self, &oid, sizeof(oid));
+			ret = edbs_jobread(job, &oid, sizeof(oid));
 			if(ret == -1) {
-				c_err = EDB_ECRIT;
-				edbw_jobwrite(self, &c_err, sizeof(c_err));
+				err = EDB_ECRIT;
+				edbs_jobwrite(job, &err, sizeof(err));
 				goto closejob;
 			} else if(ret == -2) {
-				c_err = EDB_EHANDLE;
-				edbw_jobwrite(self, &c_err, sizeof(c_err));
-				goto closejob;
-			}
-			entryid = oid >> 0x30;
-			data_identity = oid & 0x0000FFFFFFFFFFFF;
-			if(entryid < 4) {
-				// this entry is invalid per spec
-				err = EDB_EINVAL;
-				edbw_jobwrite(self, &err, sizeof(err));
+				err = EDB_EHANDLE;
+				edbs_jobwrite(job, &err, sizeof(err));
 				goto closejob;
 			}
 			break;
@@ -126,121 +116,165 @@ static edb_err execjob(edb_worker_t *self) {
 
 
 	// check for some common errors regarding the command
-	switch (job->jobdesc & 0xFF00) {
+	switch (jobdesc & 0xFF00) {
 		case EDB_CDEL:
 		case EDB_CCOPY:
 			break;
 	}
 
+
 	const edb_struct_t *st;
 	edb_usrlk *lks;
 	void *f;
 
+	// if err is non-0 after this then it will close
+	switch (jobdesc) {
+		case EDB_OBJ | EDB_CDEL:
+		case EDB_OBJ | EDB_CUSRLKW:
+		case EDB_OBJ | EDB_CWRITE:
+			// all require write access
+			err = edba_objectopen(self->edbahandle, oid, EDBA_FWRITE);
+			break;
+
+		case EDB_OBJ | EDB_CCREATE:
+			err = edba_objectopenc(self->edbahandle, &oid, EDBA_FWRITE | EDBA_FCREATE);
+			break;
+
+		case EDB_OBJ | EDB_CUSRLKR:
+		case EDB_OBJ | EDB_CCOPY:
+			// read only
+			err = edba_objectopen(self->edbahandle, oid, 0);
+			break;
+
+		default:break;
+	}
+	if(err) {
+		edbs_jobwrite(&self->curjob, &err, sizeof(err));
+		goto closejob;
+	}
+
 	// do the routing
-	switch (job->jobdesc) {
+	switch (jobdesc) {
 		case EDB_OBJ | EDB_CCREATE:
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
-			// **defer: edba_objectclose
-			c_err = edba_objectopenc(self->edbahandle, oid, EDBA_FCREATE | EDBA_FWRITE);
-			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
-			if(c_err) {
-				edba_objectclose(self->edbahandle);
+
+			// lock check
+			lks = edba_objectlocks(self->edbahandle);
+			if(*lks | EDB_FUSRLCREAT) {
+				err = EDB_EULOCK;
+				edbs_jobwrite(&self->curjob, &err, sizeof(err));
 				break;
 			}
+
+			// err 0
+			err = 0;
+			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+
+			// read in and create object
 			st = edba_objectstruct(self->edbahandle);
-			f = edba_objectfixed(self->edbahandle);
-
+			f  = edba_objectfixed(self->edbahandle);
 			edbs_jobread(&self->curjob, f, st->fixedc);
-
-			edba_objectclose(self->edbahandle);
 			break;
+
 		case EDB_OBJ | EDB_CCOPY:
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
-			// **defer: edba_objectclose
-			c_err = edba_objectopen(self->edbahandle, oid, 0);
-			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
-			if(c_err) {
-				edba_objectclose(self->edbahandle);
+
+			// lock check
+			lks = edba_objectlocks(self->edbahandle);
+			if(*lks | EDB_FUSRLRD) {
+				err = EDB_EULOCK;
+				edbs_jobwrite(&self->curjob, &err, sizeof(err));
 				break;
 			}
+
+			// err 0
+			err = 0;
+			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+
+			// write out the object.
 			st = edba_objectstruct(self->edbahandle);
 			f  = edba_objectfixed(self->edbahandle);
-
 			edbs_jobwrite(&self->curjob, f, st->fixedc);
-
-			edba_objectclose(self->edbahandle);
 			break;
+
 		case EDB_OBJ | EDB_CWRITE:
 			edbw_logverbose(self, "edit object 0x%016lX", oid);
-			// **defer: edba_objectclose
-			c_err = edba_objectopen(self->edbahandle, oid, EDBA_FWRITE);
-			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
-			if(c_err) {
-				edba_objectclose(self->edbahandle);
+
+			// lock check
+			lks = edba_objectlocks(self->edbahandle);
+			if(*lks | EDB_FUSRLWR) {
+				err = EDB_EULOCK;
+				edbs_jobwrite(&self->curjob, &err, sizeof(err));
 				break;
 			}
+
+			// err 0
+			err = 0;
+			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+
+			// update the record
 			st = edba_objectstruct(self->edbahandle);
 			f  = edba_objectfixed(self->edbahandle);
-
 			edbs_jobread(&self->curjob, f, st->fixedc);
 
-			edba_objectclose(self->edbahandle);
 			break;
 		case EDB_OBJ | EDB_CDEL:
 			// object-deletion
 			edbw_logverbose(self, "delete object 0x%016lX", oid);
-			// **defer: edba_objectclose
-			c_err = edba_objectopen(self->edbahandle, oid, EDBA_FWRITE);
-			if(c_err) {
-				edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
-				edba_objectclose(self->edbahandle);
+
+			// lock check
+			lks = edba_objectlocks(self->edbahandle);
+			if(*lks | EDB_FUSRLWR) {
+				err = EDB_EULOCK;
+				edbs_jobwrite(&self->curjob, &err, sizeof(err));
 				break;
 			}
 
-			c_err = edba_objectdelete(self->edbahandle);
+			// (note we don't mark as no-error until after the delete)
 
-			edba_objectclose(self->edbahandle);
+			// perform the delete
+			err = edba_objectdelete(self->edbahandle);
+			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 			break;
-		case EDB_OBJ | EDB_CUSRLKR:
-			edbw_logverbose(self, "cuserlock object 0x%016lX", oid);
-			// **defer: edba_objectclose
-			c_err = edba_objectopen(self->edbahandle, oid, 0);
-			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
-			if(c_err) {
-				edba_objectclose(self->edbahandle);
-				break;
-			}
 
+		case EDB_OBJ | EDB_CUSRLKR:
+			edbw_logverbose(self, "cuserlock write object 0x%016lX", oid);
+
+			// err 0
+			err = 0;
+			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+
+			// read-out locks
 			lks = edba_objectlocks(self->edbahandle);
 			edbs_jobwrite(&self->curjob, lks, sizeof(edb_usrlk));
-
-			edba_objectclose(self->edbahandle);
+			break;
 
 		case EDB_OBJ | EDB_CUSRLKW:
-			edbw_logverbose(self, "cuserlock object 0x%016lX", oid);
-			// **defer: edba_objectclose
-			c_err = edba_objectopen(self->edbahandle, oid, EDBA_FWRITE);
-			edbs_jobwrite(&self->curjob, &c_err, sizeof(c_err));
-			if(c_err) {
-				edba_objectclose(self->edbahandle);
-				break;
-			}
+			edbw_logverbose(self, "cuserlock read object 0x%016lX", oid);
 
+			// err 0
+			err = 0;
+			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+
+			// update locks
 			lks = edba_objectlocks(self->edbahandle);
 			edbs_jobread(&self->curjob, lks, sizeof(edb_usrlk));
-
-			edba_objectclose(self->edbahandle);
+			break;
 
 		default:
 			err = EDB_EINVAL;
 			edbs_jobwrite(&self->curjob, &err, sizeof(err));
-			log_critf("execjob was given a bad jobid: %04x", job->jobdesc);
+			log_critf("execjob was given a bad jobid: %04x", jobdesc);
 			goto closejob;
+	}
+
+	if(jobdesc | EDB_OBJ) {
+		edba_objectclose(self->edbahandle);
 	}
 
 	closejob:
 	edbs_jobclose(&self->curjob);
-	return c_err;
+	return err;
 }
 
 

@@ -126,6 +126,7 @@ edbs_jobhandler edbs_jobhandle(const edb_shm_t *shm, unsigned int jobindex) {
 // call edbs_jobclose if you're all done with the job.
 edb_err edbs_jobselect(const edb_shm_t *shm, edbs_jobhandler *o_job, unsigned int ownerid);
 void    edbs_jobclose(edbs_jobhandler *job);
+int     edbs_jobisclosed(edbs_jobhandler *job);
 
 // todo
 edb_err edbs_jobinstall();
