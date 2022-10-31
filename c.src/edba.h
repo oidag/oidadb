@@ -15,6 +15,22 @@ typedef enum {
 // need to fidn a place to put this one...
 #define EDB_FDELETED 0x1000
 
+// todo: rename
+//
+// returns null on error (logged)
+edbf_t *edba_somethingsomething();
+void edba_somethingclose(edbf_t *src);
+
+// note to self: heres the flow
+//
+// edba_objectopen*
+//  |
+//  |-> edba_object(fixed|delete|undelete|locs|ect..)
+//  |-> ...
+//  V
+// edba_objectclose*
+
+
 // objects.
 //
 // All objects must be open then closed quickly. Between them being open

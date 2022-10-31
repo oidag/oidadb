@@ -1,3 +1,13 @@
+#include <stddef.h>
+#define _LARGEFILE64_SOURCE
+#include <stdint.h>
+#include <string.h>
+#include <pthread.h>
+#include <linux/futex.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <errno.h>
+
 #include "include/ellemdb.h"
 #include "edbl.h"
 #include "edba.h"

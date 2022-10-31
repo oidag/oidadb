@@ -42,9 +42,7 @@ typedef enum _edb_jobclass {
 	//     -> void *rowdata
 	//     ==
 	//  EDB_CWRITE:
-	//     (all cases with ADDITIONAL PARAMS:)
-	//        <- uint32 start (must be less than end, must be less than fixedlen)
-	//        <- uint32 end (will be clamped to fixedlen, so set to (uint32)-1 for all)
+	//     (all cases)
 	//     <- void *rowdata
 	//     ==
 	//  EDB_CCREATE:
@@ -56,9 +54,10 @@ typedef enum _edb_jobclass {
 	//  EDB_CDEL
 	//     (all cases)
 	//     ==
-	//  EDB_CUSRLK: todo: need to write out edbl before getting any deeper into this. I don't think persistant user locks are needed.
+	//  EDB_CUSRLK(R/W): (R)ead or (W)rite the persistant locks on rows.
 	//     (all cases)
-	//     <- edb_usrlk
+	//     (R) -> edb_usrlk
+	//     (W) <- edb_usrlk
 	//     ==
 	//
 	// [1] This error will describe the efforts of locating the oid
@@ -152,8 +151,8 @@ edb_err edbs_jobinstall();
 //   only 1 thread/process can call edb_jobread and another can call
 //   edb_jobwrite on the same job at the same time.
 //
-int edb_jobread(edbs_jobhandler *jh, void *buff, int count);
-int edb_jobwrite(edbs_jobhandler *jh, const void *buff, int count);
+int edbs_jobread(edbs_jobhandler *jh, void *buff, int count);
+int edbs_jobwrite(edbs_jobhandler *jh, const void *buff, int count);
 
 
 #endif

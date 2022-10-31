@@ -488,7 +488,8 @@ typedef enum edb_cmd_em {
 	EDB_CWRITE  = 0x0200,
 	EDB_CCREATE = 0x0300,
 	EDB_CDEL    = 0x0400,
-	EDB_CUSRLK  = 0x0500,
+	EDB_CUSRLKR  = 0x0500,
+	EDB_CUSRLKW  = 0x0600,
 } edb_cmd;
 
 // See spec for more specific details.
