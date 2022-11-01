@@ -22,7 +22,7 @@ void    edba_host_decom(edba_host_t *host);
 typedef struct edba_handle_st {
 	edba_host_t *parent;
 	edbl_handle_t lockh;
-	edbphandle_t  handle;
+	edbphandle_t  edbphandle;
 
 	// internal stuff:
 	edb_entry_t *clutchedentry;
