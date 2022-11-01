@@ -78,9 +78,18 @@ void    edbd_close(edbd_t *file);
 //
 // This memory is mapped to the file. Changes are persistant.
 //
+// These functions are dumb; does not check validitity of eid/structiid, thus no errors
+// can be returned.
+//
 // Note: does nothing with locks. Be sure to use edbl properly.
+//
+// ERRORS:
+//   - EDB_EEOF: returned by both when the submitted id is out of bounds.
 edb_err edbd_index(const edbd_t *file, edb_eid eid, edb_entry_t **o_entry);
 edb_err edbd_struct(const edbd_t *file, uint16_t structureid, edb_struct_t **o_struct);
+
+// returns a mmap'd pointer to
+int edbd_indexc(const edbd_t *file);
 
 
 #endif

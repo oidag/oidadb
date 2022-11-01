@@ -72,6 +72,7 @@ typedef enum _edb_jobclass {
 	//       - EDB_EEXIST - (EDB_CCREATE): Object already exists
 	//       - EDB_ECRIT - unknown error
 	//       - EDB_ENOSPACE - (EDB_CCREATE, using AUTOID): disk/file full.
+	//       - EDB_EEOF - the oid's entry or row was larger than the most possible value
 	//
 	EDB_OBJ = 0x0003,
 
