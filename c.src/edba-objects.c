@@ -11,7 +11,98 @@
 #include "include/ellemdb.h"
 #include "edbl.h"
 #include "edba.h"
+#include "edba-util.h"
 #include "edbs.h"
+#include "edbp-types.h"
+
+edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
+	edb_eid eid;
+	edb_rid rid;
+	edb_err err;
+
+	// cluth lock the entry
+	edba_u_oidextract(oid, &eid, &rid);
+	err = edba_u_clutchentry(h, eid);
+	if(err) {
+		return err;
+	}
+
+	// get the struct data
+	edb_struct_t *structdat;
+	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &structdat);
+
+	// get the chapter offset
+	edb_pid chapter_pageoff;
+	uint16_t page_byteoff;
+	edba_u_rid2chptrpageoff(h, h->clutchedentry, rid, &chapter_pageoff, &page_byteoff);
+
+	// do the oid lookup
+	edb_pid foundpid;
+	err = edba_u_lookupoid(h, h->clutchedentry->ref1, chapter_pageoff, &foundpid);
+	if(err) {
+		edba_u_clutchentry_release(h);
+		return err;
+	}
+
+	// load the page
+	err = edba_u_pageload_row(h, foundpid,
+			page_byteoff, structdat->fixedc, flags);
+	if(err) {
+		edba_u_clutchentry_release(h);
+		return err;
+	}
+
+	// everything is set.
+}
+edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
+
+}
+void    edba_objectclose(edba_handle_t *h) {
+	edba_u_pagedeload(h);
+	edba_u_clutchentry_release(h);
+}
+
+edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
+                         uint16_t page_byteoff, uint16_t fixedc,
+                         edbf_flags flags) {
+	// as per locking spec, need to place the lock on the data before we load the page.
+	// install the SH lock as per Object-Reading
+	// or install an XL lock as per Object-Writing
+	h->lock = (edbl_lockref) {
+			.l_type  = EDBL_TYPSHARED,
+			.l_start = edbp_pid2off(h->parent->pagecache, pid) + page_byteoff,
+			.l_len   = fixedc,
+	};
+	if(flags & EDBA_FWRITE) {
+		h->lock.l_type = EDBL_EXCLUSIVE;
+	}
+	// todo: ** defer: edbl_set(&self->lockdir, lock);
+	edbl_set(&h->lockh, h->lock);
+
+	// lock the page in cache
+	edb_err err = edbp_start(&h->handle, &pid);
+	if(err) {
+		h->lock.l_type = EDBL_TYPUNLOCK;
+		edbl_set(&h->lockh, h->lock);
+		return err;
+	}
+
+	// set the pointer
+	h->objectdata = edbp_graw(&h->handle) + page_byteoff;
+	h->objectc    = fixedc;
+
+	return 0;
+}
+
+void edba_u_pagedeload(edba_handle_t *h) {
+	// finish the page
+	edbp_finish(&h->handle);
+
+	// release whatever lock we saved when we loaded the page
+	h->lock.l_type = EDBL_TYPUNLOCK;
+	edbl_set(&h->lockh, h->lock);
+}
+
 
 
 typedef enum obj_searchflags_em {
@@ -20,182 +111,38 @@ typedef enum obj_searchflags_em {
 
 } obj_searchflags;
 
-typedef struct obj_searchparams_st {
 
-	// inputs:
-	edb_worker_t   *self;
-	edb_eid         entryid;
-	uint64_t        rowid;
-	obj_searchflags flags;
 
-	// outputs:
-	// all o_ params are optional, but all previous o_ params must be non-null
-	// for a given o_ param to be written too.
-	//
-	//   - o_entrydat: the entry data pulled from entryid
-	//   - o_structdata: the structure data pulled from structures
-	//   - o_objectoff: the total amount of bytes offset from the start of the file
-	//                  requires transversing the edbp_lookup btree
-	//   - o_objectdat: a pointer to the object data itself. note that o_objectdat
-	//                  will point to the start of the whole object (head/flags included)
-	edb_entry_t   **o_entrydat;
-	edb_struct_t  **o_structdata;
-	off64_t        *o_objectoff;
-	void          **o_objectdat;
-} obj_searchparams;
-
-// helper function to all execjob_obj... functions.
-//
-// This will install proper locks and get meta data needed to
-// work with objects.
-//
-// make sure to run execjob_obj_post when done with the same arguments.
-//
-// returns 1 if something is wrong and you should close out of
-// the job (return from your function). Logs and error reports all handled.
-// If returns 1 then no need for execjob_obj_post.
-//
-int static execjob_obj_pre(obj_searchparams dat) {
-	edb_err err;
-
-	edb_worker_t *self = dat.self;
-	edb_eid entryid = dat.entryid;
-	uint64_t rowid = dat.rowid;
-
+edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid) {
 	// SH lock the entry
-	// ** defer: edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
-	edbl_entry(&self->lockdir, entryid, EDBL_TYPSHARED);
-
-	// get the index entry
-	if(!dat.o_entrydat) {
-		return 0;
-	}
-	err = edbd_index(self->shm, entryid, dat.o_entrydat);
+	edbl_entry(&handle->lockh, eid, EDBL_TYPSHARED);
+	edb_err err = edbd_index(handle->parent->descriptor, eid, &handle->clutchedentry);
 	if(err) {
-		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
-		log_errorf("the supplied edb_oid does not have a valid entryid: %d", entryid);
-		edbw_jobwrite(self, &err, sizeof(err));
-		return 1;
+		edbl_entry(&handle->lockh, eid, EDBL_TYPUNLOCK);
+		return err;
 	}
-	edb_entry_t *entrydat = *dat.o_entrydat;
+	handle->clutchedentryeid = eid;
+	return 0;
+}
+void edba_u_clutchentry_release(edba_handle_t *handle) {
+	edbl_entry(&handle->lockh, handle->clutchedentryeid, EDBL_TYPUNLOCK);
+}
 
-	// get the structure data
-	if(!dat.o_structdata) {
-		return 0;
-	}
-	err = edbd_struct(self->shm,
-	                  entrydat->structureid,
-	                  dat.o_structdata);
-	if (err) {
-		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
-		log_critf("failed to load structure information (%d) for some reqson for a valid entry: %d",
-		          entrydat->structureid, entryid);
-		err = EDB_ECRIT;
-		edbw_jobwrite(self, &err, sizeof(err));
-		return 1;
-	}
-
-	// get the page/byte offset for the rowid from the start of the chapter.
-	if(!dat.o_objectoff) {
-		return 0;
-	}
-	edb_pid pageoffset;
-	edb_pid foundpage;
-	edb_struct_t *structdata = *dat.o_structdata;
-	pageoffset = rowid / entrydat->objectsperpage;
-	if (pageoffset >= entrydat->ref0c) {
-		// the page offset is larger than the amount of pages we have.
-		// thus, this rowid is impossible.
-		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
-		log_errorf("the supplied edb_oid has a page offset that is too large: %ld", pageoffset);
-		err = EDB_EEOF;
-		edbw_jobwrite(self, &err, sizeof(err));
-		return 0;
-	}
-
-	// now we know how many pages we need to go in. So we now need to go
-	// into the lookup b+tree. So lets pull up that information.
-	// the following info is extracted from spec.
-	int btree_depth = entrydat->memory >> 3;
-
-	// do the b-tree lookup
-	err = rowoffset_lookup(self,
-	                       btree_depth,
-	                       entrydat->ref1,
-	                       pageoffset,
-	                       &foundpage);
-	if(err) {
-		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
-		edbw_jobwrite(self, &err, sizeof(err));
-		return 1;
-	}
-
-	// page with the row was found.
+void edba_u_rid2chptrpageoff(edba_handle_t *handle, edb_entry_t *entrydat, edb_rid rowid,
+                             edb_pid *o_chapter_pageoff,
+							 uint16_t *o_page_byteoff) {
+	edb_struct_t *structdata;
+	edbd_struct(handle->parent->descriptor, entrydat->structureid, &structdata);
+	*o_chapter_pageoff = rowid / entrydat->objectsperpage;
 
 	// So we calculate all the offset stuff.
 	// get the intrapage byte offset
 	// use math to get the byte offset of the start of the row data
-	unsigned int intrapage_byteoff = edbp_object_intraoffset(rowid,
-	                                                         pageoffset,
-	                                                         entrydat->objectsperpage,
-	                                                         structdata->fixedc);
-	*dat.o_objectoff = edbp_pid2off(self->cache, foundpage) + intrapage_byteoff;
-
-	if(!dat.o_objectdat) {
-		return 0;
-	}
-	// as per locking spec, need to place the lock on the data before we load the page.
-	// install the SH lock as per Object-Reading
-	// or install an XL lock as per Object-Writing
-	edbl_lockref lock = (edbl_lockref) {
-			.l_type  = EDBL_TYPSHARED,
-			.l_start = (*dat.o_objectdat),
-			.l_len   = structdata->fixedc,
-	};
-	if(dat.flags & OBJ_XL) {
-		lock.l_type = EDBL_EXCLUSIVE;
-	}
-	// ** defer: edbl_set(&self->lockdir, lock);
-	edbl_set(&self->lockdir, lock);
-	lock.l_type = EDBL_TYPUNLOCK; // set this in advance for back-outs
-
-	// lock the page in cache
-	err = edbp_start(&self->edbphandle, &foundpage);
-	if(err) {
-		edbl_set(&self->lockdir, lock);
-		edbl_entry(&self->lockdir, entryid, EDBL_TYPUNLOCK);
-		log_critf("unhandled error %d", err);
-		edbw_jobwrite(self, &err, sizeof(err));
-		return 1;
-	}
-
-	// parse the page into an edbp_object page
-	edbp_object_t *o = edbp_gobject(&self->edbphandle);
-
-	// get the offset for the record
-	*dat.o_objectdat = o + intrapage_byteoff;
-
-	return 0;
+	*o_page_byteoff = edbp_object_intraoffset(rowid,
+	                                          *o_chapter_pageoff,
+	                                          entrydat->objectsperpage,
+	                                          structdata->fixedc);
 }
-void static execjob_obj_post(obj_searchparams dat) {
-	edb_worker_t *self = dat.self;
-
-	// finis the page. This function will execute all the defers in the _pre function
-	if(dat.o_objectdat) {
-		// let the cache know we're done with the page
-		edbp_finish(&self->edbphandle);
-		// let the traffic control know we're done with the record
-		edbl_lockref lock = (edbl_lockref) {
-				.l_type  = EDBL_TYPUNLOCK,
-				.l_start = (*dat.o_objectoff),
-				.l_len   = (*dat.o_structdata)->fixedc,
-		};
-		edbl_set(&self->lockdir, lock);
-	}
-	// let the traffic control know we're done with the entry
-	edbl_entry(&self->lockdir, dat.entryid, EDBL_TYPUNLOCK);
-}
-
 
 // copies the object (not including dynamic data) from the
 // database to the job buffer.
@@ -210,7 +157,7 @@ edb_err execjob_objcopy(edb_worker_t *self, edb_eid entryid, uint64_t rowid, voi
 	edb_err err = 0;
 
 	edb_entry_t *entrydat;
-	edb_struct_t *structdata;
+	edb_entry_t *structdata;
 	uint64_t dataoff;
 	edb_pid pageoffset;
 	void *recorddata;
@@ -264,7 +211,7 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 	edb_err err = 0;
 
 	edb_entry_t *entrydat;
-	edb_struct_t *structdata;
+	edb_entry_t *structdata;
 	obj_searchparams dat = (obj_searchparams){
 			self,
 			entryid,
@@ -291,7 +238,7 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 	// We can look at the entry's trash start variable to get our
 	// page id.
 	// **defer: edbl_entrytrashlast(&self->lockdir, entryid, EDBL_TYPEUNLOCK);
-	edbl_entrytrashlast(&self->lockdir, entryid, EDBL_EXCLUSIVE);
+	edbl_entrytrashlast(&self->lockh, entryid, EDBL_EXCLUSIVE);
 
 	// some vars to declare before we go into the trash logic loop.
 	edbp_object_t *opage = 0;
@@ -311,7 +258,7 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 				.l_len = 1,
 		};
 		// **defer: edbl_set(&self->lockdir, lock_lookup);
-		edbl_set(&self->lockdir, lock_lookup);
+		edbl_set(&self->lockh, lock_lookup);
 		lock_lookup.l_type = EDBL_TYPUNLOCK; // for future
 
 		// **defer: edbp_finish
@@ -330,13 +277,13 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 		err = edbp_createobj(&self->edbphandle, mps, &entrydat->trashlast);
 		if(err) {
 			// these should return the EDB_ENOSAPCE
-			edbl_set(&self->lockdir, lock_lookup);
+			edbl_set(&self->lockh, lock_lookup);
 			edbp_finish(&self->edbphandle);
 			edbw_jobwrite(self, &err, sizeof(err));
-			edbl_entrytrashlast(&self->lockdir, entryid, EDBL_TYPUNLOCK);
+			edbl_entrytrashlast(&self->lockh, entryid, EDBL_TYPUNLOCK);
 			goto finishentry;
 		}
-		edbl_set(&self->lockdir, lock_lookup);
+		edbl_set(&self->lockh, lock_lookup);
 		edbp_finish(&self->edbphandle);
 
 	}
@@ -350,7 +297,7 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 			.l_len   = sizeof(uint16_t)
 	};
 	// **defer: edbl_set(&self->lockdir, lock_trashoff);
-	edbl_set(&self->lockdir, lock_trashoff);
+	edbl_set(&self->lockh, lock_trashoff);
 	lock_trashoff.l_type = EDBL_TYPUNLOCK; // for the future
 	// **defer edbp_finish(&self->edbphandle)
 	edbp_start(&self->edbphandle, &trashlast);
@@ -372,7 +319,7 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 
 		// finish off this current page sense we don't need it anymore.
 		edbp_finish(&self->edbphandle);
-		edbl_set(&self->lockdir, lock_trashoff);
+		edbl_set(&self->lockh, lock_trashoff);
 
 		// update the entry's trash last to the page's trashvor.
 		// we then go back to where we loaded the trashvor and repeat the process.
@@ -384,7 +331,7 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 	// we release the entry trash lock as per spec sense we have
 	// no reason to update it at this time.
 	// (note to self: we still have the XL lock on trashstart_off at this time)
-	edbl_entrytrashlast(&self->lockdir, entryid, EDBL_TYPUNLOCK);
+	edbl_entrytrashlast(&self->lockh, entryid, EDBL_TYPUNLOCK);
 
 	// note: we know that opage is not -1 because trash faults have been
 	// handled. The page we've loaded definitely has a valid opage.
@@ -399,7 +346,7 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 			.l_len   = structdata->fixedc,
 	};
 	// **defer: edbl_set(&self->lockdir, lock_record);
-	edbl_set(&self->lockdir, lock_record);
+	edbl_set(&self->lockh, lock_record);
 	lock_record.l_type = EDBL_TYPUNLOCK; // for future use
 
 	// at this point, we have the deleted record locked as well as the
@@ -421,13 +368,13 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 			log_critf("trash management logic has led to a row that is not not valid trash");
 			err = EDB_ECRIT;
 			edbw_jobwrite(self, &err, sizeof(err));
-			edbl_set(&self->lockdir, lock_record);
-			edbl_set(&self->lockdir, lock_trashoff);
+			edbl_set(&self->lockh, lock_record);
+			edbl_set(&self->lockh, lock_trashoff);
 			goto finishpage;
 		}
 	}
 #endif
-	edbl_set(&self->lockdir, lock_trashoff);
+	edbl_set(&self->lockh, lock_trashoff);
 
 	// now have only a lock on the trash record, at this point there's
 	// no turning back, the record is no longer considered trash.
@@ -474,7 +421,7 @@ void static execjob_objedit(edb_worker_t *self, edb_eid entryid, uint64_t rowid)
 	}
 
 	edb_entry_t *entrydat;
-	edb_struct_t *structdata;
+	edb_entry_t *structdata;
 	uint64_t dataoff;
 	void *recorddata;
 	obj_searchparams dat = (obj_searchparams){

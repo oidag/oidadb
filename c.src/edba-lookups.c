@@ -19,13 +19,13 @@ edb_err static rowoffset_lookup(edb_worker_t *self,
 			.l_start = edbp_pid2off(self->cache, lookuppage),
 	};
 	// ** defer: edbl_set(&self->lockdir, lock);
-	edbl_set(&self->lockdir, lock);
+	edbl_set(&self->lockh, lock);
 	lock.l_type = EDBL_TYPUNLOCK; // doing this in advance
 
 	// ** defer: edbp_finish(&self->edbphandle);
 	edb_err err = edbp_start(&self->edbphandle, &lookuppage); // (ignore error audaciously)
 	if(err) {
-		edbl_set(&self->lockdir, lock);
+		edbl_set(&self->lockh, lock);
 		return err;
 	}
 	// set the lookup hint now
@@ -63,7 +63,7 @@ edb_err static rowoffset_lookup(edb_worker_t *self,
 		// So lets finish out of this page...
 		edbp_finish(&self->edbphandle);
 		// and release the lock
-		edbl_set(&self->lockdir, lock);
+		edbl_set(&self->lockh, lock);
 		return 0;
 	}
 
@@ -90,7 +90,7 @@ edb_err static rowoffset_lookup(edb_worker_t *self,
 	// So lets finish out of this page...
 	edbp_finish(&self->edbphandle);
 	// and release the lock
-	edbl_set(&self->lockdir, lock);
+	edbl_set(&self->lockh, lock);
 
 	// now we can recurse down to the next lookup page.
 	rowoffset_lookup(self,
