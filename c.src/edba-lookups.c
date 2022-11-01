@@ -45,7 +45,6 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 				break;
 			}
 		}
-		// todo: what if ref is 0? (note to self: refc will only ever be non-null referenese
 		// we know that this reference contains our page in its strait.
 		// So if our offset search is lets say 5, and this strait contained
 		// pageoffsets 4,5,6,7,8 and associating pageids of 42,43,44,45,46.
@@ -55,6 +54,8 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 		// take the end-referance and subtrack our ref offset which gives
 		// us the page offset.
 		// ie: *o_pid = 46 - (8 - 5)
+		//
+		// also note that refc will always be non-null references.
 		*o_pid = refs[i].ref - (refs[i].startoff_strait - chapter_pageoff);
 
 		// So lets finish out of this page...
@@ -76,7 +77,6 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 			// To clear out some scope, lets break out and continue
 			break;
 		}
-		// todo: what if refs[i].ref is 0?
 	}
 	// note: based on our logic in the if statement, i will never equal l->refc.
 
@@ -96,7 +96,9 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 
 edb_err edba_u_lookupoid(edba_handle_t *handle, edb_entry_t *entry,
                          edb_pid chapter_pageoff, edb_pid *o_pid) {
-
+	if(chapter_pageoff >= entry->ref0c) {
+		return EDB_EEOF;
+	}
 	return edba_u_lookup_rec(handle, entry->ref1, chapter_pageoff, o_pid, entry->memory >> 12);
 }
 
