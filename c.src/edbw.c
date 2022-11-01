@@ -200,6 +200,13 @@ static edb_err execjob(edb_worker_t *self) {
 		case EDB_OBJ | EDB_CCOPY:
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
 
+			// is it deleted?
+			if(edba_objectdeleted(handle)) {
+				err = EDB_ENOENT;
+				edbs_jobwrite(&self->curjob, &err, sizeof(err));
+				break;
+			}
+
 			// lock check
 			usrlocks = edba_objectlocks(handle);
 			if(*usrlocks & EDB_FUSRLRD) {
@@ -220,6 +227,13 @@ static edb_err execjob(edb_worker_t *self) {
 
 		case EDB_OBJ | EDB_CWRITE:
 			edbw_logverbose(self, "edit object 0x%016lX", oid);
+
+			// is it deleted?
+			if(edba_objectdeleted(handle)) {
+				err = EDB_ENOENT;
+				edbs_jobwrite(&self->curjob, &err, sizeof(err));
+				break;
+			}
 
 			// lock check
 			usrlocks = edba_objectlocks(handle);

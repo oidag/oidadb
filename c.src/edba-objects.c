@@ -38,7 +38,7 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 
 	// do the oid lookup
 	edb_pid foundpid;
-	err = edba_u_lookupoid(h, h->clutchedentry->ref1, chapter_pageoff, &foundpid);
+	err = edba_u_lookupoid(h, h->clutchedentry, chapter_pageoff, &foundpid);
 	if(err) {
 		edba_u_clutchentry_release(h);
 		return err;
@@ -80,7 +80,7 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 	edbl_set(&h->lockh, h->lock);
 
 	// lock the page in cache
-	edb_err err = edbp_start(&h->handle, &pid);
+	edb_err err = edbp_start(&h->edbphandle, &pid);
 	if(err) {
 		h->lock.l_type = EDBL_TYPUNLOCK;
 		edbl_set(&h->lockh, h->lock);
@@ -88,7 +88,7 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 	}
 
 	// set the pointer
-	h->objectdata = edbp_graw(&h->handle) + page_byteoff;
+	h->objectdata = edbp_graw(&h->edbphandle) + page_byteoff;
 	h->objectc    = fixedc;
 
 	return 0;
@@ -96,7 +96,7 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 
 void edba_u_pagedeload(edba_handle_t *h) {
 	// finish the page
-	edbp_finish(&h->handle);
+	edbp_finish(&h->edbphandle);
 
 	// release whatever lock we saved when we loaded the page
 	h->lock.l_type = EDBL_TYPUNLOCK;
@@ -142,66 +142,6 @@ void edba_u_rid2chptrpageoff(edba_handle_t *handle, edb_entry_t *entrydat, edb_r
 	                                          *o_chapter_pageoff,
 	                                          entrydat->objectsperpage,
 	                                          structdata->fixedc);
-}
-
-// copies the object (not including dynamic data) from the
-// database to the job buffer.
-//
-// returns errors:
-edb_err execjob_objcopy(edb_worker_t *self, edb_eid entryid, uint64_t rowid, void *dest) {
-
-	// easy pointers
-	edb_job_t *job = self->curjob;
-
-	// first find the object we need based of the ID from the transfer buffer
-	edb_err err = 0;
-
-	edb_entry_t *entrydat;
-	edb_entry_t *structdata;
-	uint64_t dataoff;
-	edb_pid pageoffset;
-	void *recorddata;
-	obj_searchparams dat = {0};
-	dat = (obj_searchparams){
-			self,
-			entryid,
-			rowid,
-			0,
-			&entrydat,
-			&structdata,
-			&dataoff,
-			&recorddata
-	};
-	err = execjob_obj_pre(dat);
-	if(err) {
-		return;
-	}
-
-	// get the flags
-	uint32_t flags = *(uint32_t *)recorddata;
-	void     *body  = recorddata + sizeof(uint32_t); // plus uint32_t to get past the flags
-	// is it deleted?
-	if(flags & EDB_FDELETED) {
-		err = EDB_ENOENT;
-		edbw_jobwrite(self, &err, sizeof(err));
-		goto finishpage;
-	}
-	// is it locked?
-	if(flags & EDB_FUSRLRD) {
-		err = EDB_EULOCK;
-		edbw_jobwrite(self, &err, sizeof(err));
-		goto finishpage;
-	}
-
-	// its all good.
-	err = 0;
-	edbw_jobwrite(self, &err, sizeof(err));
-
-	// throw it all in the transfer buffer
-	edbw_jobwrite(self, body, structdata->fixedc);
-
-	finishpage:
-	execjob_obj_post(dat);
 }
 
 static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowid) {
@@ -395,86 +335,4 @@ static void execjob_objcreate(edb_worker_t *self, edb_eid entryid, uint64_t rowi
 	// this will release the entry locks.
 	execjob_obj_post(dat);
 
-}
-
-void static execjob_objedit(edb_worker_t *self, edb_eid entryid, uint64_t rowid) {
-
-	// easy vars
-	edb_job_t *job = self->curjob;
-
-	edb_err err = 0;
-
-	// get additional parameters
-	uint32_t start,end;
-	int ret;
-	ret = edbw_jobread(self, &start, sizeof(start));
-	ret += edbw_jobread(self, &end, sizeof(end));
-	if(ret != sizeof(uint32_t)*2) {
-		err = EDB_EHANDLE;
-		edbw_jobwrite(self, &err, sizeof(err));
-		return;
-	}
-	if(start >= end) {
-		err = EDB_EINVAL;
-		edbw_jobwrite(self, &err, sizeof(err));
-		return;
-	}
-
-	edb_entry_t *entrydat;
-	edb_entry_t *structdata;
-	uint64_t dataoff;
-	void *recorddata;
-	obj_searchparams dat = (obj_searchparams){
-			self,
-			entryid,
-			rowid,
-			OBJ_XL,
-			&entrydat,
-			&structdata,
-			&dataoff,
-			&recorddata
-	};
-	err = execjob_obj_pre(dat);
-	if(err) {
-		return;
-	}
-
-	// check for flags
-	// was it deleted?
-	uint32_t flags = *(uint32_t *)recorddata;
-	void     *body  = recorddata + sizeof(uint32_t); // plus uint32_t to get past the flags
-	if(flags & EDB_FDELETED) {
-		err = EDB_ENOENT;
-		edbw_jobwrite(self, &err, sizeof(err));
-		goto finishpage;
-	}
-	// is it write-locked?
-	if(flags & EDB_FUSRLWR) {
-		err = EDB_EULOCK;
-		edbw_jobwrite(self, &err, sizeof(err));
-		goto finishpage;
-	}
-
-	// clamp parameters
-	if(start > structdata->fixedc) {
-		err = EDB_EOUTBOUNDS;
-		edbw_jobwrite(self, &err, sizeof(err));
-		goto finishpage;
-	}
-	if(end > structdata->fixedc) {
-		end = structdata->fixedc;
-	}
-
-	// its all good.
-	err = 0;
-	edbw_jobwrite(self, &err, sizeof(err));
-
-	// read in the data
-	edbw_jobread(self, body + start, (int)(end - start));
-
-	// sense we just modified the page then hint that its dirty.
-	edbp_mod(&self->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
-
-	finishpage:
-	execjob_obj_post(dat);
 }
