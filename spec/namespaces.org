@@ -34,7 +34,7 @@ All (a)tions that can be done on the file following spec sheets for
 both edb, and locking.
 
  - edbl (for installing/managing locks as per spec)
- - edbd (for entry and structure reading/writting)
+ - edbd (for entry and structure reading/writting (note to self: probably consolidate this into edbp))
  - edbp (for reading/writting pages)
 
 * edbd.h
@@ -47,7 +47,8 @@ and prepare workers to start exceptiong jobs via hosts.
 
  - edbd (opening and reading file)
  - edbs (for booting up shared memory space)
- - edbp (for allocating page buffer, to pass to workers)
+ - edbp (for configuring and initializing page buffer, to pass to edba)
+ - edba (for initializing edba space and pass to workers)
  - edbw (for booting up workers)
 
 * edbh.h

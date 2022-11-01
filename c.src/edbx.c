@@ -12,7 +12,7 @@
 #include "errors.h"
 #include "edbw.h"
 #include "include/ellemdb.h"
-#include "edbp.h"
+#include "edba.h"
 #include "edbs.h"
 
 
@@ -43,6 +43,7 @@ typedef struct edb_host_st {
 	edb_worker_t *workerv;
 
 	// page IO, see pages.h
+	edba_host_t ahost;
 	edbpcache_t pcache;
 
 
@@ -165,10 +166,14 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 
 	// past this point, we must edbs_dehost + edb_fileclose + pthread_mutex_destroy(&(host.bootup))
 
-	// page buffers
+	// page buffers & edba
 	eerr = edbp_init(&host.pcache, &host.file, host.config.slot_count);
 	if(eerr) {
 		goto clean_shm;
+	}
+	eerr = edba_host_init(&host.ahost, &host.pcache, &host.file);
+	if(eerr) {
+		goto clean_pages;
 	}
 
 	// configure all the workers.
@@ -182,7 +187,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 			log_critf("malloc(3) returned an unexpected error: %d", errno);
 			eerr = EDB_ECRIT;
 		}
-		goto clean_pages;
+		goto clean_ahost;
 	}
 	for(int i = 0; i < host.workerc; i++) {
 		eerr = edb_workerinit(&(host.workerv[i]), &host.pcache, &host.shm);
@@ -243,6 +248,10 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 	clean_freepool:
 	log_infof("freeing worker pool...");
 	free(host.workerv);
+
+	clean_ahost:
+	log_infof("decommissioning file actuator...");
+	edba_host_decom(&host.ahost);
 
 	clean_pages:
 	log_infof("freeing page cache...");
