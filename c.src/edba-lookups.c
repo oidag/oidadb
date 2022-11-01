@@ -1,38 +1,35 @@
 #include "edba.h"
+#include "edbp-types.h"
 
 // converts a pid offset to the actual page address
 // note to self: the only error returned by this should be a critical error
 //
 // assumptions:
 //     pidoffset_search is less than the total amount of pages in the edbp_object chapter
-edb_err static rowoffset_lookup(edb_worker_t *self,
-                                int depth,
-                                edb_pid lookuppage,
-                                edb_pid pidoffset_search,
-                                edb_pid *o_pid) {
-
-
+edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
+                          edb_pid chapter_pageoff, edb_pid *o_pid, int depth) {
 	// install sh lock on first byte of page per Object-Reading spec
 	edbl_lockref lock = (edbl_lockref){
 			.l_type = EDBL_TYPSHARED,
 			.l_len = 1,
-			.l_start = edbp_pid2off(self->cache, lookuppage),
+			.l_start = edbp_pid2off(handle->edbphandle, lookuproot),
 	};
+
 	// ** defer: edbl_set(&self->lockdir, lock);
-	edbl_set(&self->lockh, lock);
+	edbl_set(&handle->lockh, lock);
 	lock.l_type = EDBL_TYPUNLOCK; // doing this in advance
 
 	// ** defer: edbp_finish(&self->edbphandle);
-	edb_err err = edbp_start(&self->edbphandle, &lookuppage); // (ignore error audaciously)
+	edb_err err = edbp_start(&handle->edbphandle, &lookuproot);
 	if(err) {
-		edbl_set(&self->lockh, lock);
+		edbl_set(&handle->lockh, lock);
 		return err;
 	}
 	// set the lookup hint now
 	// generate the proper EDBP_HINDEX... value
 	edbp_hint h = EDBP_HINDEX0 - depth * 0x10;
-	edbp_mod(&self->edbphandle, EDBP_CACHEHINT, h);
-	edbp_lookup_t *l = edbp_glookup(&self->edbphandle);
+	edbp_mod(&handle->edbphandle, EDBP_CACHEHINT, h);
+	edbp_lookup_t *l = edbp_glookup(&handle->edbphandle);
 	edb_lref_t *refs = edbp_lookup_refs(l);
 
 	if(depth == 0) {
@@ -42,7 +39,7 @@ edb_err static rowoffset_lookup(edb_worker_t *self,
 		int i;
 		for(i = 0; i < l->refc; i++) {
 			// it is now the END offset
-			if(refs[i].startoff_strait > pidoffset_search) {
+			if(refs[i].startoff_strait > chapter_pageoff) {
 				// here is the same logic as the non-depth0 for loop but instead
 				// of reference
 				break;
@@ -58,18 +55,18 @@ edb_err static rowoffset_lookup(edb_worker_t *self,
 		// take the end-referance and subtrack our ref offset which gives
 		// us the page offset.
 		// ie: *o_pid = 46 - (8 - 5)
-		*o_pid = refs[i].ref - (refs[i].startoff_strait - pidoffset_search);
+		*o_pid = refs[i].ref - (refs[i].startoff_strait - chapter_pageoff);
 
 		// So lets finish out of this page...
-		edbp_finish(&self->edbphandle);
+		edbp_finish(&handle->edbphandle);
 		// and release the lock
-		edbl_set(&self->lockh, lock);
+		edbl_set(&handle->lockh, lock);
 		return 0;
 	}
 
 	int i;
 	for(i = 0; i < l->refc; i++) {
-		if(i+1 == l->refc || refs[i+1].startoff_strait > pidoffset_search) {
+		if(i+1 == l->refc || refs[i+1].startoff_strait > chapter_pageoff) {
 			// logically, if we're in here that means the next interation (i+1)
 			// will be the end ouf our reference list, or, will be a reference
 			// that has a starting offset that is larger than this current
@@ -88,15 +85,25 @@ edb_err static rowoffset_lookup(edb_worker_t *self,
 	edb_pid nextstep = refs[i].ref;
 
 	// So lets finish out of this page...
-	edbp_finish(&self->edbphandle);
+	edbp_finish(&handle->edbphandle);
 	// and release the lock
-	edbl_set(&self->lockh, lock);
+	edbl_set(&handle->lockh, lock);
 
 	// now we can recurse down to the next lookup page.
-	rowoffset_lookup(self,
-	                 depth-1,
-	                 nextstep,
-	                 pidoffset_search,
-	                 o_pid);
-	return 0;
+	return edba_u_lookup_rec(handle, lookuproot,
+			chapter_pageoff, o_pid, depth-1);
+}
+
+edb_err edba_u_lookupoid(edba_handle_t *handle, edb_entry_t *entry,
+                         edb_pid chapter_pageoff, edb_pid *o_pid) {
+
+	return edba_u_lookup_rec(handle, entry->ref1, chapter_pageoff, o_pid, entry->memory >> 12);
+}
+
+
+
+
+
+
+
 }

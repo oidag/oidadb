@@ -42,7 +42,7 @@ inline uint64_t edba_u_calcfileoffset(edba_handle_t *handle, edb_pid pid, uint16
 //
 // ERRORS:
 //   EDB_EEOF - chapter_pageoff was out of bounds.
-edb_err edba_u_lookupoid(edba_handle_t *handle, edb_pid lookuproot,
+edb_err edba_u_lookupoid(edba_handle_t *handle, edb_entry_t *entry,
 					  edb_pid chapter_pageoff, edb_pid *o_pid);
 
 void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid *o_rid) {
