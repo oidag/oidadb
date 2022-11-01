@@ -69,6 +69,7 @@ static edb_err execjob(edb_worker_t *self) {
 	edbs_jobhandler *job = &self->curjob;
 	int jobdesc = job->job->jobdesc;
 	edb_err err = 0;
+	edba_handle_t *handle = &self->edbahandle;
 
 	// note to self: inside this function we have our own thread to ourselves.
 	// its slightly better to be organized than efficient in here sense we have
@@ -134,23 +135,23 @@ static edb_err execjob(edb_worker_t *self) {
 		case EDB_OBJ | EDB_CUSRLKW:
 		case EDB_OBJ | EDB_CWRITE:
 			// all require write access
-			err = edba_objectopen(self->edbahandle, oid, EDBA_FWRITE);
+			err = edba_objectopen(handle, oid, EDBA_FWRITE);
 			break;
 
 		case EDB_OBJ | EDB_CCREATE:
 			if((oid & EDB_OID_AUTOID) != EDB_OID_AUTOID) {
 				// find an ID to use.
-				err = edba_objectopenc(self->edbahandle, &oid, EDBA_FWRITE | EDBA_FCREATE);
+				err = edba_objectopenc(handle, &oid, EDBA_FWRITE | EDBA_FCREATE);
 			} else {
 				// use the existing ID
-				err = edba_objectopen(self->edbahandle, oid, EDBA_FWRITE);
+				err = edba_objectopen(handle, oid, EDBA_FWRITE);
 			}
 			break;
 
 		case EDB_OBJ | EDB_CUSRLKR:
 		case EDB_OBJ | EDB_CCOPY:
 			// read only
-			err = edba_objectopen(self->edbahandle, oid, 0);
+			err = edba_objectopen(handle, oid, 0);
 			break;
 
 		default:break;
@@ -166,14 +167,14 @@ static edb_err execjob(edb_worker_t *self) {
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
 
 			// make sure this oid isn't already deleted
-			if(!edba_objectdeleted(self->edbahandle)) {
+			if(!edba_objectdeleted(handle)) {
 				err = EDB_EEXIST;
 				edbs_jobwrite(&self->curjob, &err, sizeof(err));
 				break;
 			}
 
 			// lock check
-			usrlocks = edba_objectlocks(self->edbahandle);
+			usrlocks = edba_objectlocks(handle);
 			if(*usrlocks & EDB_FUSRLCREAT) {
 				err = EDB_EULOCK;
 				edbs_jobwrite(&self->curjob, &err, sizeof(err));
@@ -185,12 +186,12 @@ static edb_err execjob(edb_worker_t *self) {
 			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 
 			// write to the created object
-			strt = edba_objectstruct(self->edbahandle);
-			data  = edba_objectfixed(self->edbahandle);
+			strt = edba_objectstruct(handle);
+			data  = edba_objectfixed(handle);
 			edbs_jobread(&self->curjob, data, strt->fixedc);
 
 			// mark this object as undeleted
-			edba_objectundelete(self->edbahandle);
+			edba_objectundelete(handle);
 
 			// return the oid of the created object
 			edbs_jobwrite(&self->curjob, &oid, sizeof(oid));
@@ -200,7 +201,7 @@ static edb_err execjob(edb_worker_t *self) {
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
 
 			// lock check
-			usrlocks = edba_objectlocks(self->edbahandle);
+			usrlocks = edba_objectlocks(handle);
 			if(*usrlocks & EDB_FUSRLRD) {
 				err = EDB_EULOCK;
 				edbs_jobwrite(&self->curjob, &err, sizeof(err));
@@ -212,8 +213,8 @@ static edb_err execjob(edb_worker_t *self) {
 			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 
 			// write out the object.
-			strt = edba_objectstruct(self->edbahandle);
-			data  = edba_objectfixed(self->edbahandle);
+			strt = edba_objectstruct(handle);
+			data  = edba_objectfixed(handle);
 			edbs_jobwrite(&self->curjob, data, strt->fixedc);
 			break;
 
@@ -221,7 +222,7 @@ static edb_err execjob(edb_worker_t *self) {
 			edbw_logverbose(self, "edit object 0x%016lX", oid);
 
 			// lock check
-			usrlocks = edba_objectlocks(self->edbahandle);
+			usrlocks = edba_objectlocks(handle);
 			if(*usrlocks & EDB_FUSRLWR) {
 				err = EDB_EULOCK;
 				edbs_jobwrite(&self->curjob, &err, sizeof(err));
@@ -233,8 +234,8 @@ static edb_err execjob(edb_worker_t *self) {
 			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 
 			// update the record
-			strt = edba_objectstruct(self->edbahandle);
-			data  = edba_objectfixed(self->edbahandle);
+			strt = edba_objectstruct(handle);
+			data  = edba_objectfixed(handle);
 			edbs_jobread(&self->curjob, data, strt->fixedc);
 
 			break;
@@ -243,7 +244,7 @@ static edb_err execjob(edb_worker_t *self) {
 			edbw_logverbose(self, "delete object 0x%016lX", oid);
 
 			// lock check
-			usrlocks = edba_objectlocks(self->edbahandle);
+			usrlocks = edba_objectlocks(handle);
 			if(*usrlocks & EDB_FUSRLWR) {
 				err = EDB_EULOCK;
 				edbs_jobwrite(&self->curjob, &err, sizeof(err));
@@ -253,7 +254,7 @@ static edb_err execjob(edb_worker_t *self) {
 			// (note we don't mark as no-error until after the delete)
 
 			// perform the delete
-			err = edba_objectdelete(self->edbahandle);
+			err = edba_objectdelete(handle);
 			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 			break;
 
@@ -265,7 +266,7 @@ static edb_err execjob(edb_worker_t *self) {
 			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 
 			// read-out locks
-			usrlocks = edba_objectlocks(self->edbahandle);
+			usrlocks = edba_objectlocks(handle);
 			edbs_jobwrite(&self->curjob, usrlocks, sizeof(edb_usrlk));
 			break;
 
@@ -277,7 +278,7 @@ static edb_err execjob(edb_worker_t *self) {
 			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 
 			// update locks
-			usrlocks = edba_objectlocks(self->edbahandle);
+			usrlocks = edba_objectlocks(handle);
 			edbs_jobread(&self->curjob, usrlocks, sizeof(edb_usrlk));
 			break;
 
@@ -289,7 +290,7 @@ static edb_err execjob(edb_worker_t *self) {
 	}
 
 	if(jobdesc & EDB_OBJ) {
-		edba_objectclose(self->edbahandle);
+		edba_objectclose(handle);
 	}
 
 	closejob:
@@ -311,33 +312,26 @@ void static *workermain(void *_selfv) {
 			edbs_jobclose(&self->curjob);
 		}
 	}
+	return 0;
 }
 
 unsigned int nextworkerid = 1;
-edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, edbl_t *lockdir, const edb_shm_t *shm, edb_fhead *fhead) {
-	edb_err eerr = 0;
+edb_err edb_workerinit(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_shm_t *shm) {
+	edb_err eerr;
 	//initialize
 	bzero(o_worker, sizeof (edb_worker_t));
 	o_worker->workerid = nextworkerid++;
 	o_worker->shm = shm;
-	o_worker->lockdir = lockdir; // todo, need to create handles for the lockdir.
-	o_worker->fhead = fhead;
 	o_worker->curjob.jobpos = 0;
-	o_worker->edbahandle = edba_somethingsomething();
-	if(!o_worker->edbahandle) {
-		return EDB_ECRIT;
-	}
-	eerr = edbp_newhandle(edbpcache, &o_worker->edbphandle);
+	eerr = edba_handle_init(edbahost, &o_worker->edbahandle);
 	if(eerr) {
-		edba_somethingclose(o_worker->edbahandle);
 		return eerr;
 	}
 	return 0;
 }
 
 void edb_workerdecom(edb_worker_t *worker) {
-	edbp_freehandle(&worker->edbphandle);
-	edba_somethingclose(worker->edbahandle);
+	edba_handle_decom(&worker->edbahandle);
 }
 
 

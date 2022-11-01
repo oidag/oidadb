@@ -14,12 +14,7 @@ typedef enum _edb_workerstate {
 } edb_workerstate;
 
 typedef struct edb_worker_st {
-	edbpcache_t *cache;
-	edbl_handle_t lockdir;
 	const edb_shm_t *shm;
-
-	// fhead points to static memory
-	edb_fhead *fhead;
 
 	edb_workerstate state;
 
@@ -31,10 +26,7 @@ typedef struct edb_worker_st {
 	unsigned int workerid;
 	pthread_t pthread;
 
-	// see pages.h
-	edbphandle_t edbphandle;
-
-	edbf_t *edbahandle;
+	edba_handle_t edbahandle;
 
 	// filled in the second the worker is operating on a job.
 	// if curjob.job is null that means no job currently.
@@ -44,7 +36,7 @@ typedef struct edb_worker_st {
 // _init initializs a new worker and _decom decommissions it.
 //
 // edb_workerdecom will only crit out.
-edb_err edb_workerinit(edb_worker_t *o_worker, edbpcache_t *edbpcache, edbl_t *lockdir, const edb_shm_t *shm, edb_fhead *fhead);
+edb_err edb_workerinit(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_shm_t *shm);
 void edb_workerdecom(edb_worker_t *worker);
 
 // once initialized, a worker can be started with either of these functions.
