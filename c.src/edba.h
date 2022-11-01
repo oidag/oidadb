@@ -22,6 +22,15 @@ void    edba_host_decom(edba_host_t *host);
 typedef struct edba_handle_st {
 	edba_host_t *parent;
 	edbl_handle_t lockh;
+	edbphandle_t  handle;
+
+	// internal stuff:
+	edb_entry_t *clutchedentry;
+	edb_eid clutchedentryeid;
+	void *objectdata;
+	unsigned int objectc;
+	edbl_lockref lock;
+
 } edba_handle_t;
 edb_err edba_handle_init(edba_host_t *host, edba_handle_t *o_handle);
 void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
@@ -109,8 +118,7 @@ edb_err edba_objectundelete(edba_handle_t *h);
 // edbf_objectentry
 //   Will return the (readonly) structure data.
 //   This will point to whatever is given by edbd.
-const edb_struct_t *edba_objectstruct(edba_handle_t *h);
+const edb_entry_t *edba_objectstruct(edba_handle_t *h);
 const edb_entry_t *edba_objectentry(edba_handle_t *h);
-
 
 #endif

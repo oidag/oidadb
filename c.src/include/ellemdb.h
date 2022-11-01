@@ -9,6 +9,7 @@
 typedef uint64_t edb_did;
 typedef uint64_t edb_oid;
 typedef uint16_t edb_eid;
+typedef uint64_t edb_rid; // rowid
 
 // hanlder
 
@@ -473,7 +474,7 @@ typedef struct edb_struct_st {
 //   is making substantial modifications to the chapter, thus locking the
 //   entry, these functions will block until that lock is released.
 edb_err edb_index(edbh *handle, edb_eid eid, edb_entry_t *o_entry);
-edb_err edb_structs(edbh *handle,uint16_t structureid, edb_struct_t *o_struct);
+edb_err edb_structs(edbh *handle, uint16_t structureid, edb_entry_t *o_struct);
 
 
 /*edb_err edb_structcopy (edbh *handle, const edb_struct_t *strct);
