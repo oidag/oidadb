@@ -45,7 +45,7 @@ void edba_somethingclose(edbf_t *src);
 //   will have you the ability to modify its contents.
 //
 // edba_objectopenc
-//   open an object that has been marked as deleted.
+//   open an object that has been marked as deleted (outputs oid of what if found)
 //   using EDBA_FCREATE create room for a new one if no deleted ones
 //   are found.
 //
