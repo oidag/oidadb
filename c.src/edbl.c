@@ -320,14 +320,6 @@ int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock) {
 	return f.l_type == F_UNLCK;
 }
 
-edb_err edbl_setp(edbl_handle_t *lockdir, edbl_lockrefp lock, unsigned int pagesize) {
-	return edbl_set(lockdir, (edbl_lockref){
-		.l_type = lock.l_type,
-		.l_start = lock.l_page * pagesize + lock.l_intrapageoff,
-		.l_len = lock.l_len,
-	});
-}
-
 edb_err edbl_set(edbl_handle_t *lockdir, edbl_lockref lock) {
 #ifdef EDB_FUCKUPS
 	if(lock.l_len == 0) {

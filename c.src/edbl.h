@@ -51,13 +51,6 @@ typedef struct {
 	unsigned int l_len;
 } edbl_lockref;
 
-typedef struct {
-	edbl_type    l_type;
-	edb_pid      l_page;
-	uint16_t     l_intrapageoff;
-	unsigned int l_len;
-} edbl_lockrefp;
-
 // edbl_... functions all lock various items of the database
 // which provide for swift traffic control in a super multi-threaded
 // enviromenet.
@@ -87,7 +80,6 @@ typedef struct {
 edb_err edbl_index(edbl_handle_t *lockdir,  edbl_type type);
 edb_err edbl_struct(edbl_handle_t *lockdir, edbl_type type);
 edb_err edbl_set(edbl_handle_t *lockdir, edbl_lockref lock);
-edb_err edbl_setp(edbl_handle_t *lockdir, edbl_lockrefp lock, unsigned int pagesize);
 
 // returns 1 if the lock can be installe, returns 0 otherwise.
 // note by the time this function returns, the answer may be out of date.
