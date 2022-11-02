@@ -51,12 +51,113 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 		edba_u_clutchentry_release(h);
 		return err;
 	}
-
-	// everything is set.
 }
+
 edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
+	edb_eid eid;
+	edb_rid rid;
+	edb_err err;
+	edb_pid trashlast;
 
+	// cluth lock the entry
+	edba_u_oidextract(*o_oid, &eid, &rid);
+	err = edba_u_clutchentry(h, eid);
+	if(err) {
+		return err;
+	}
+
+	// xl lock on the trashlast.
+	// **defer: edba_u_entrytrashunlk
+	edba_u_entrytrashlk(h);
+
+#ifdef EDB_FUCKUPS
+	int create_trashlast_check = 0;
+#endif
+
+	// read the trashlast
+	seektrashlast:
+	if(!h->clutchedentry->trashlast) {
+		// if its 0 then we must make pages.
+		// If we were not given EDBA_FCREATE, then we cannot make pages.
+		// Otherwise we call edba_u_lookupdeepright which will create pages
+		// and update trashlast.
+		if(!(flags & EDBA_FCREATE) || edba_u_lookupdeepright(h)) {
+			edba_u_entrytrashunlk(h);
+			edba_u_clutchentry_release(h);
+			return EDB_ENOSPACE;
+		}
+#ifdef EDB_FUCKUPS
+		if(create_trashlast_check) {
+			// if we're here that means we previously set create_trashlast_check = 1
+			// yet 'goto seektrashlast' was still invoked due to trash fault
+			log_critf("while auto creation id, pages were created yet a trash fault occured."
+					  " When pages are added to trashlast in the same opperation as trashlast is discovered as 0, that means"
+					  "trashlast should have been pointing to a blank page, thus no fault should be possible.");
+		}
+		create_trashlast_check = 1;
+#endif
+	}
+
+	// at this point, we know trashlast is pointing to a leaf page.
+	edba_u_locktrashstartoff(h, h->clutchedentry->trashlast);
+
+	// check for trashfault
+	edbp_start(&h->edbphandle, &h->clutchedentry->trashlast);
+	edbp_object_t *o = edbp_gobject(&h->edbphandle);
+	if(o->trashstart_off == (uint16_t)-1) {
+		// trashfault, update trashlast
+		h->clutchedentry->trashlast = o->trashvor;
+		// close this page because there's no trash on it.
+		edbp_finish(&h->edbphandle);
+		// unlock the trashoff of this page.
+		edba_u_locktransstartoff_release(h);
+		// retry the updated trashlast
+		goto seektrashlast;
+	}
+
+	// at this point, we have a page started with its trashstart offset
+	// locked and non-0. We can release the XL lock on the chapter's trashlast
+	// sense we have no reason to update it anymore. (as per spec)
+	edb_pid pageid = h->clutchedentry->trashlast;
+	edba_u_entrytrashunlk(h);
+
+	// place our lock on the entry
+	edb_struct_t *structdat;
+	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &structdat);
+	uint16_t intrapagebyteoff = EDBP_HEADSIZE + structdat->fixedc * o->trashstart_off;
+	h->lock = (edbl_lockref) {
+		.l_type = EDBL_EXCLUSIVE,
+		.l_len = structdat->fixedc,
+		.l_start = edbp_pid2off(h->parent->pagecache, pageid) + intrapagebyteoff,
+	};
+	edbl_set(&h->lockh, h->lock);
+
+	// now load in the object data
+	h->objectdata = edbp_graw(&h->edbphandle) + intrapagebyteoff;
+	h->objectc    = structdat->fixedc,
+
+	// todo: shit. i just realize that we're dumping the dynamic data pointers into the streams
+	// todo: output OID
+
+	// lock aquired, as per spec, update trashstart_off and then release the lock
+	// as per spec, for a deleted record, the first 2 bytes after the uint32_t header
+	// is a rowid of the next item.
+	o->trashstart_off = *(uint16_t *)(h->objectdata + sizeof(uint32_t));
+	// trashstart_off is updated. we can unlock it. note we still have our
+	// h->lock on the entry itself.
+	edba_u_locktransstartoff_release(h);
+
+	// as per this function's description, and the fact we just removed it
+	// from the trash management, we will make sure its not marked as deleted.
+	// todo: make some fuck up checks looking at the flags
+	uint32_t *objflags = (uint32_t *)(h->objectdata);
+	*objflags = *objflags & ~EDB_FDELETED; // set deleted flag as 0.
+
+	// todo: compare this function with the old create function make sure notes line up
+
+	// todo: make sure the only locks left are the h->lock and the clutch lock.
 }
+
 void    edba_objectclose(edba_handle_t *h) {
 	edba_u_pagedeload(h);
 	edba_u_clutchentry_release(h);

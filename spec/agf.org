@@ -427,7 +427,7 @@ access. Both of bits of information are stored in the structure.
 | Name            | Clang        | Definition                                            |
 |-----------------+--------------+-------------------------------------------------------|
 | Structure flags | uint16_t     | See [[Structure Flags]]                                   |
-| Fixed len       | uint16_t     | The fixed length of data                              |
+| Fixed len       | uint16_t     | The fixed length of data, includes heads and pointers |
 | data pointers   | uint8_t      | The amount of pointers per record                     |
 | Conf. Size      | uint16_t     | The size of the configuration                         |
 | subpage sizes   | uint8_t[]... | The [[subpage size]] of the the pointer's ag_data [[subpage]] |
@@ -559,12 +559,8 @@ intera-page offset. Before we create our record we make note of this.
 Upon/after creation (and dealing with whatever asyncrounous
 specificaitons), we update the page's =trashstart_off= be the next
 trash record offset we took note of earlier. If this offset is -1, we
-have extra work to do:
-
- - Sense we've just marked this page as "stuffed" (no trash within
-   this page), we must update the entry's =trashlast= to point to the
-   next page ID with trash in it. We can get the next page via the
-   current page's =trashvor=.
+actually just ignore it and just set =trashstart_off= as -1. The next
+create operation will take care of the trashfault.
 
 *** Trash faults
 It is important to point out that =trashlast= is *not* guarenteed to

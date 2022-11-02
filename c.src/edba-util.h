@@ -15,7 +15,28 @@
 edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid);
 void edba_u_clutchentry_release(edba_handle_t *host);
 
-// loads and unloads pages into the handle's page assignment
+// places an XL lock on the trash field.
+// This effects the entry you put the clutchlock on.
+// must be called AFTER edba_u_clutchentry
+void edba_u_entrytrashlk(edba_handle_t *handle);
+void edba_u_entrytrashunlk(edba_handle_t *handle);
+
+// must be called AFTER edba_u_clutchentry
+// must be called AFTER edba_u_entrytrashlk
+//
+// Will add pages to the clutched chapter and update
+// trashlast. returns EDB_ENOSPACE if theres no more lookup
+// references left and/or was too large for the hardware.
+//
+// a return of 0 means that trashlast has been updated successfully.
+edb_err edba_u_lookupdeepright(edba_handle_t *handle);
+
+// places a XL lock on the trashstart_off as per
+// locking spec for autoid creation.
+void edba_u_locktrashstartoff(edba_handle_t *handle, edb_pid pageid);
+void edba_u_locktransstartoff_release(edba_handle_t *handle);
+
+// loads and unloads pages into the handle's page assignment.
 // between pageload and pagedeload you can use edbp_ functions
 // between edbp_start and edbp_finish with the pagecache handle
 // in handle.

@@ -25,7 +25,7 @@ typedef struct edba_handle_st {
 	edbphandle_t  edbphandle;
 
 	// internal stuff:
-	edb_entry_t *clutchedentry;
+	edb_entry_t *clutchedentry; // (note to self: points to persistant mem)
 	edb_eid clutchedentryeid;
 	void *objectdata;
 	unsigned int objectc;
@@ -71,9 +71,10 @@ typedef enum {
 //   will have you the ability to modify its contents.
 //
 // edba_objectopenc
-//   open an object that has been marked as deleted (outputs oid of what if found)
+//   open an object that has been marked as deleted (outputs oid of what is found)
 //   using EDBA_FCREATE create room for a new one if no deleted ones
-//   are found.
+//   are found. o_oid must have a valid entry id. the row id is set as output.
+//   The returned object will automatically be UNDELETED status.
 //
 // edba_objectclose
 //   Close the object without any special action. If EDBA_FWRITE was true
@@ -85,7 +86,8 @@ typedef enum {
 // RETURNS:
 //  - EDB_EINVAL - oid's entry id was invalid (below min/above max)
 //  - EDB_NOENT - oid's rowid was too high
-//  - EDB_ENOSPACE - (edba_objectopenc) failed to allocate more space, disk/file ful)
+//  - EDB_ENOSPACE - (edba_objectopenc w/ EDBA_FCREATE) failed to allocate more space, disk/file ful)
+//  - EDB_ENOSPACE - (edba_objectopenc w/o EDBA_FCREATE) no free space without needing creation
 edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags);
 edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags);
 void    edba_objectclose(edba_handle_t *h);
