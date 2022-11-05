@@ -191,17 +191,17 @@ have nothing to do with [[Object ID]]s.
 ** Page Header
 Every page will have a header.
 
-| Name             | Type     | Definition                                                                                |
-|------------------+----------+-------------------------------------------------------------------------------------------|
-| Checksum         | uint32_t | Checksum of the page (consitutes everything except itself, including the head)            |
-| Host-Instance ID | uint32_t | Written when first loaded into the host. Set to 0 when deloaded. See [[Host-Instance ID]]     |
-| rsvd2            | uint32_t | (reserved)                                                                                |
-| Flags            | uint8_t  | The page type as well as any flags.                                                       |
-| Page Type        | uint8_t  | The page type as reflected in the chapter                                                 |
-| rsvd0            | uint16_t |                                                                                           |
-| Page Left        | [[Page ID]]  | The previous page to navigate too                                                         |
-| Page Right       | [[Page ID]]  | The next page in the chapter to navigate too. If equal to =0= then there is no next page. |
-| rsvd1            | char[16] | Page-type specific header information                                                     |
+| Name             | Type     | Definition                                                                            |
+|------------------+----------+---------------------------------------------------------------------------------------|
+| Checksum         | uint32_t | Checksum of the page (consitutes everything except itself, including the head)        |
+| Host-Instance ID | uint32_t | Written when first loaded into the host. Set to 0 when deloaded. See [[Host-Instance ID]] |
+| rsvd2            | uint32_t | (reserved)                                                                            |
+| Flags            | uint8_t  | The page type as well as any flags.                                                   |
+| Page Type        | uint8_t  | The page type as reflected in the chapter                                             |
+| rsvd0            | uint16_t |                                                                                       |
+| rsvdL            | uint64_t  | The previous page to navigate too                                                     |
+| rsvdR            | uint64_t  | The next page in the chapter to navigate too.                                         |
+| rsvd1            | char[16] | Page-type specific header information                                                 |
 
 NOTE TO SELF: Cannot include "pages left in strait"... because adding
 to a strait would require a mass loading of all previous pages and
@@ -507,6 +507,15 @@ never strattle across 2 pages.
 
 The edbp_object chapter itself only stors the fixed-length data. All
 dynamic data is stored in the edbp_dynamic reference.
+
+** Page Header rsvdL
+The =rsvdL= field shall be the page's offset from the start of the
+chapter. This is used to determain object OIDs when the page is
+accessed directly. This offset is 0-based.
+
+Without this, the =trashlast= and any other direct page ids
+referencing object pages would have no way to determain what the OID's
+of the objects would be.
 
 ** Page Header rsvd1
 
