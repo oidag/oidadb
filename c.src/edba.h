@@ -5,6 +5,10 @@
 #include "edbp.h"
 #include "edbd.h"
 
+typedef enum {
+	EDBA_FWRITE = 0x0001,
+	EDBA_FCREATE = 0x0002,
+} edbf_flags;
 
 // edba host stuff.
 //
@@ -24,12 +28,15 @@ typedef struct edba_handle_st {
 	edbl_handle_t lockh;
 	edbphandle_t  edbphandle;
 
-	// internal stuff:
+	// internal stuff, don't touch outside of edba namespace:
 	edb_entry_t *clutchedentry; // (note to self: points to persistant mem)
 	edb_eid clutchedentryeid;
 	void *objectdata;
 	unsigned int objectc;
 	edbl_lockref lock;
+	edb_type opened;
+	edbf_flags openflags;
+
 
 } edba_handle_t;
 edb_err edba_handle_init(edba_host_t *host, edba_handle_t *o_handle);
@@ -52,10 +59,7 @@ void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 //  V
 // edba_objectclose*
 
-typedef enum {
-	EDBA_FWRITE = 0x0001,
-	EDBA_FCREATE = 0x0002,
-} edbf_flags;
+
 
 // objects.
 //
@@ -156,6 +160,8 @@ const edb_entry_t *edba_entrydatr(edba_handle_t *h);
 // e.structureid - can be changed only with EDBA_FCREATE or EDBA_FWRITE
 // everything else: ignored.
 //
-// todo: list errors
+// ERRORS:
+//   - EDB_ECRIT - programmer failed to read documentation
+//   - EDB_EINVAL - e.type was not EDB_TOBJ
 edb_err edba_entryset(edba_handle_t *h, edb_entry_t e);
 #endif
