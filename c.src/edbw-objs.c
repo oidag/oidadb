@@ -28,32 +28,17 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 	// check for some common errors regarding the edb_jobclass
 	edb_oid oid;
 	int ret;
-	switch (jobdesc & 0x00FF) {
-		case EDB_OBJ:
-			// all of these job classes need an id parameter
-			ret = edbs_jobread(job, &oid, sizeof(oid));
-			if(ret == -1) {
-				err = EDB_ECRIT;
-				edbs_jobwrite(job, &err, sizeof(err));
-				return err;
-			} else if(ret == -2) {
-				err = EDB_EHANDLE;
-				edbs_jobwrite(job, &err, sizeof(err));
-				return err;
-			}
-			break;
-
-		default: break;
+	// all of these job classes need an id parameter
+	ret = edbs_jobread(job, &oid, sizeof(oid));
+	if(ret == -1) {
+		err = EDB_ECRIT;
+		edbs_jobwrite(job, &err, sizeof(err));
+		return err;
+	} else if(ret == -2) {
+		err = EDB_EHANDLE;
+		edbs_jobwrite(job, &err, sizeof(err));
+		return err;
 	}
-
-
-	// check for some common errors regarding the command
-	switch (jobdesc & 0xFF00) {
-		case EDB_CDEL:
-		case EDB_CCOPY:
-			break;
-	}
-
 
 	// some easy variables we'll be needing
 	const edb_struct_t *strt;
@@ -62,15 +47,15 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 	// if err is non-0 after this then it will close
 	// **defer: edba_objectclose
-	switch (jobdesc) {
-		case EDB_OBJ | EDB_CDEL:
-		case EDB_OBJ | EDB_CUSRLKW:
-		case EDB_OBJ | EDB_CWRITE:
+	switch (jobdesc & 0xFF00) {
+		case EDB_CDEL:
+		case EDB_CUSRLKW:
+		case EDB_CWRITE:
 			// all require write access
 			err = edba_objectopen(handle, oid, EDBA_FWRITE);
 			break;
 
-		case EDB_OBJ | EDB_CCREATE:
+		case EDB_CCREATE:
 			if((oid & EDB_OID_AUTOID) != EDB_OID_AUTOID) {
 				// find an ID to use.
 				err = edba_objectopenc(handle, &oid, EDBA_FWRITE | EDBA_FCREATE);
@@ -80,13 +65,14 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			}
 			break;
 
-		case EDB_OBJ | EDB_CUSRLKR:
-		case EDB_OBJ | EDB_CCOPY:
+		case EDB_CUSRLKR:
+		case EDB_CCOPY:
 			// read only
 			err = edba_objectopen(handle, oid, 0);
 			break;
 
-		default:break;
+		default:
+			return EDB_EJOBDESC;
 	}
 	if(err) {
 		edbs_jobwrite(&self->curjob, &err, sizeof(err));
@@ -229,11 +215,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			usrlocks = edba_objectlocks(handle);
 			edbs_jobread(&self->curjob, usrlocks, sizeof(edb_usrlk));
 			break;
-		default:
-			err = EDB_EINVAL;
-			edbs_jobwrite(&self->curjob, &err, sizeof(err));
-			log_critf("execjob was given a bad jobid: %04x", jobdesc);
-			return err;
+		default:break;
 	}
 	edba_objectclose(handle);
 	return 0;

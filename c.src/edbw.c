@@ -58,9 +58,11 @@ static edb_err execjob(edb_worker_t *self) {
 			err = edbw_u_entjob(self);
 			break;
 		default:
-			err = EDB_ECRIT;
-			log_critf("execjob was given a bad jobid: %04x", jobdesc);
+			err = EDB_EJOBDESC;
 			break;
+	}
+	if(err == EDB_EJOBDESC) {
+		log_errorf("invalid job description hash: %04x", jobdesc);
 	}
 
 	closejob:
