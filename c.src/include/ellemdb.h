@@ -161,6 +161,9 @@ typedef enum edb_err_em {
 
 	// operation failed due to user lock
 	EDB_EULOCK,
+
+	// something was wrong with the job description
+	EDB_EJOBDESC,
 } edb_err;
 
 // All of these functions will work regardless of the open transferstate of
@@ -393,9 +396,15 @@ edb_err edb_hoststop(const char *path);
 // edb_create will fail if the file already exists.
 edb_err edb_open(edbh *handle, edb_open_t params);   // will create if not existing. Not thread safe.
 edb_err edb_close(edbh *handle);
-			   
 
 
+#define EDB_TNONE  0
+#define EDB_TDEL   1
+#define EDB_TSTRCT 2
+#define EDB_TOBJ   3
+#define EDB_TENTS  4
+#define EDB_TPEND  5
+typedef uint8_t edb_type;
 
 /********************************************************************
  *
@@ -407,7 +416,7 @@ edb_err edb_close(edbh *handle);
 typedef struct edb_entry_st {
 
 	// paramaters
-	uint8_t type;
+	edb_type type;
 	uint8_t rsvd;
 	uint16_t memory;
 	uint16_t structureid;

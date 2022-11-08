@@ -87,8 +87,12 @@ int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock);
 
 // returns 1 if there's a clutch on this entry
 //
-// will automatically deal with clutch locks. (See Entry-Reading)
+// will automatically deal with clutch locks. (See Entry-* chapters)
+//
+// edbl_entrycreation locks and unlocks the creation mutex
 int edbl_entry(edbl_handle_t *lockdir, edb_eid, edbl_type);
+int edbl_entrycreaiton_lock(edbl_handle_t *lockdir);
+int edbl_entrycreaiton_release(edbl_handle_t *lockdir);
 int edbl_entrytrashlast(edbl_handle_t *lockdir, edb_eid, edbl_type);
 
 

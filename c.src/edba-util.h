@@ -12,7 +12,7 @@
 // updates: handle->clutchentry
 //          handle->clutchentryeid
 //
-edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid);
+edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl);
 void edba_u_clutchentry_release(edba_handle_t *host);
 
 // places an XL lock on the trash field.

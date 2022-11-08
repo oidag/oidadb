@@ -22,7 +22,7 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 
 	// cluth lock the entry
 	edba_u_oidextract(oid, &eid, &rid);
-	err = edba_u_clutchentry(h, eid);
+	err = edba_u_clutchentry(h, eid, 0);
 	if(err) {
 		return err;
 	}
@@ -61,7 +61,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// cluth lock the entry
 	edba_u_oidextract(*o_oid, &eid, &rid);
-	err = edba_u_clutchentry(h, eid);
+	err = edba_u_clutchentry(h, eid, 0);
 	if(err) {
 		return err;
 	}
@@ -198,6 +198,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 void    edba_objectclose(edba_handle_t *h) {
 	edba_u_pagedeload(h);
 	edba_u_clutchentry_release(h);
+
 }
 
 edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
@@ -248,23 +249,6 @@ typedef enum obj_searchflags_em {
 	OBJ_XL = 0x0001,
 
 } obj_searchflags;
-
-
-
-edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid) {
-	// SH lock the entry
-	edbl_entry(&handle->lockh, eid, EDBL_TYPSHARED);
-	edb_err err = edbd_index(handle->parent->descriptor, eid, &handle->clutchedentry);
-	if(err) {
-		edbl_entry(&handle->lockh, eid, EDBL_TYPUNLOCK);
-		return err;
-	}
-	handle->clutchedentryeid = eid;
-	return 0;
-}
-void edba_u_clutchentry_release(edba_handle_t *handle) {
-	edbl_entry(&handle->lockh, handle->clutchedentryeid, EDBL_TYPUNLOCK);
-}
 
 void edba_u_rid2chptrpageoff(edba_handle_t *handle, edb_entry_t *entrydat, edb_rid rowid,
                              edb_pid *o_chapter_pageoff,
