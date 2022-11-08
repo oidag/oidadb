@@ -20,6 +20,9 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	edb_rid rid;
 	edb_err err;
 
+	h->opened = EDB_TOBJ;
+	h->openflags = flags;
+
 	// cluth lock the entry
 	edba_u_oidextract(oid, &eid, &rid);
 	err = edba_u_clutchentry(h, eid, 0);
@@ -58,6 +61,9 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	edb_rid rid;
 	edb_err err;
 	edb_pid trashlast;
+
+	h->opened = EDB_TOBJ;
+	h->openflags = flags;
 
 	// cluth lock the entry
 	edba_u_oidextract(*o_oid, &eid, &rid);

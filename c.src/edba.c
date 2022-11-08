@@ -16,6 +16,7 @@ void    edba_host_decom(edba_host_t *host) {
 }
 
 edb_err edba_handle_init(edba_host_t *host, edba_handle_t *o_handle) {
+	bzero(host, sizeof(edba_host_t));
 	edbl_newhandle(&host->lockhost, &o_handle->lockh);
 }
 
