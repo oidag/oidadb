@@ -406,14 +406,17 @@ edb_err edb_close(edbh *handle);
 // see spec.
 typedef struct edb_entry_st {
 
+	// paramaters
 	uint8_t type;
 	uint8_t rsvd;
 	uint16_t memory;
 	uint16_t structureid;
 
+	// cached values
 	uint16_t objectsperpage;
 	uint16_t lookupsperpage;
 
+	// references
 	edb_pid ref0; // starting chapter start
 	edb_pid ref1; // lookup chapter start
 	edb_pid ref2; // dynamic chapter start
