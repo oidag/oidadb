@@ -74,7 +74,21 @@ typedef enum _edb_jobclass {
 	//       - EDB_ENOSPACE - (EDB_CCREATE, using AUTOID): disk/file full.
 	//       - EDB_EEOF - the oid's entry or row was larger than the most possible value
 	//
-	EDB_OBJ = 0x0003,
+	EDB_OBJ = 0x0004,
+
+	// Modify the entries, updating the index itself.
+	//
+	// EDB_ENT | EDB_CCREATE
+	//   <- edb_entry_t entry. Only the "parameters" group of the structure is used.
+	//      This determains the type and other parameters.
+	//   -> edb_err error
+	//   -> uint16_t entryid of created ID
+	//
+	// EDB_ENT | EDB_CDEL
+	//   <- uint16_t entryid of ID that is to be deleted
+	//   -> edb_err error
+	//
+	EDB_ENT = 0x0008,
 
 } edb_jobclass;
 
