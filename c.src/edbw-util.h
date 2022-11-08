@@ -9,6 +9,11 @@
 //   - self has a valid job selected
 //   - the jobdescription falls in the function's namespace (EDB_OBJ, EDB_DYM, ect)
 //   - once these function return, the jobclose will be called regardless of error.
+//
+// RETURNS:
+// All errors returned by these functions are ignored with the following
+// special exceptions:
+//   - EDB_EJOBDESC: a special log_errorf notice is made
 edb_err edbw_u_objjob(edb_worker_t *self);
 edb_err edbw_u_entjob(edb_worker_t *self);
 
