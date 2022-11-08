@@ -16,6 +16,9 @@ void log_noticef(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 void log_info(const char *log);
 void log_infof(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
+void log_warn(const char *log);
+void log_warnf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+
 void log_debug(const char *log);
 void log_debugf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
