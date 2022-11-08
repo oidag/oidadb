@@ -38,12 +38,42 @@ Next, what cateogyr of operations are you trying to perform?
 
 
 * Entry
+** XL Clutch Lock
+ 1. put a XL lock on the first byte (clutch lock)
+ 2. put a XL lock on the second byte.
+ 3. remove XL lock from the first byte
+ 4. Do whatever you need to do with the lock
+ 5. release the lock from the second byte.
+** SH Clutch Lock
+ 1. put a SH lock on the first byte (clutch lock)
+ 2. put a SH lock on the second byte.
+ 3. remove SH lock from the first byte
+ 4. Do whatever you need to do with the lock
+ 5. release the lock from the second byte.
+** Entry-Creating
+  1. Lock the entry-creation mutex
+  2. Surf the index for an EDB_TNONE entry.
+  3. Place an XL clutch lock on that entry.
+  4. Set the type to EDB_TPEND to deter other creation attemps.
+  5. Unlock the entry-creation mutex
+  6. Whiest retaining the XL clutch lock, make whatever edits are
+     needed to the entry and chapter.
+  7. Release the XL clutch lock.
+** Entry-Deleting
+  1. Place an XL clutch lock on that entry.
+  2. Whiest retaining the XL clutch lock, make whatever edits are
+     needed to the entry and chapter. DO NOT TOUCH ITS TYPE yet.
+  3. Lock the entry-creation mutex
+  4. Set the type to EDB_TNONE
+  5. Release the XL clutch lock.
+  6. Unlock the entry-creation mutex
+** Entry-Writting
+  1. Place an XL clutch lock on the entry you wish to create.
+  2. Whiest retaining the XL clutch lock, make whatever edits are
+     needed to the entry and chapter.
+  3. Release the XL clutch lock.
 ** Entry-Reading
-
   1. Make sure the entry doesn't have a clutch lock
-     - put a SH lock on the first byte (clutch lock)
-     - put a SH lock on the second byte.
-     - remove SH lock from the first byte
   2. At this point, if you'd like to confidently pull in structure
      information, you can do it here.
 
