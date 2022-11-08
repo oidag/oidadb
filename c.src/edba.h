@@ -92,7 +92,6 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags);
 edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags);
 void    edba_objectclose(edba_handle_t *h);
 
-
 // edba_objectfixed
 //   Will return a pointer to the fixed data of the object.
 //   You can change the contents of the object so long you opened this
@@ -112,7 +111,6 @@ int     edba_objectdeleted(edba_handle_t *h);
 edb_err edba_objectdelete(edba_handle_t *h);
 edb_err edba_objectundelete(edba_handle_t *h);
 
-
 // edbf_objectstruct
 //   Will return the (readonly) structure data.
 //   This will point to whatever is given by edbd.
@@ -121,6 +119,43 @@ edb_err edba_objectundelete(edba_handle_t *h);
 //   Will return the (readonly) structure data.
 //   This will point to whatever is given by edbd.
 const edb_struct_t *edba_objectstruct(edba_handle_t *h);
-const edb_entry_t *edba_objectentry(edba_handle_t *h);
+const edb_entry_t  *edba_objectentry(edba_handle_t *h);
 
+// entry (ent) mods
+
+// While an entry is opened, only the calling handle has access to anything
+// within that entry. So if you're screwing with existing entries, be quick.
+//
+// edba_entryopenc
+//   create an entry and return the eid.
+//   Flags can include EDBA_FWRITE.
+//   Flags must include EDBA_FCREATE.
+//   Once opened you can use subsequent edba_entry... functions.
+//
+// edba_entryclose
+//   close out of the entry once done editting it.
+//
+// ERRORS:
+//
+//   - EDB_ECRIT: programmer error (can be ignored) (will be logged)
+//   - EDB_ENOSPACE: (edba_entryopenc) no more entry slots availabe
+edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags);
+void    edba_entryclose(edba_handle_t *h);
+
+// Get a pointer to the entry for read-only purposes.
+const edb_entry_t *edba_entrydatr(edba_handle_t *h);
+
+// update the entry's contents to match that supplied of
+// e. This may not be successful, as several validation steps
+// must happen. Only certain fields in e are actionable.
+// If no error is returned then the changes are successfully applied
+// and will reflect in edba_entrydatr.
+//
+// e.type - ignored unless EDBA_FCREATE
+// e.memory - ignored unless EDBA_FCREATE
+// e.structureid - can be changed only with EDBA_FCREATE or EDBA_FWRITE
+// everything else: ignored.
+//
+// todo: list errors
+edb_err edba_entryset(edba_handle_t *h, edb_entry_t e);
 #endif
