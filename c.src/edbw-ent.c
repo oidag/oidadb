@@ -9,5 +9,14 @@ edb_err edbw_u_entjob(edb_worker_t *self) {
 	edb_err err = 0;
 	edba_handle_t *handle = &self->edbahandle;
 
-
+	// get params
+	edb_entry_t entryparams;
+	switch (jobdesc & 0xFF00) {
+		case EDB_CCREATE:
+			edbs_jobread(job, &entryparams, sizeof(entryparams));
+		case EDB_CDEL:
+		default:
+			return EDB_EJOBDESC;
+	}
+	return 0;
 }
