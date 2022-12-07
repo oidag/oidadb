@@ -404,6 +404,7 @@ edb_err edb_close(edbh *handle);
 #define EDB_TOBJ   3
 #define EDB_TENTS  4
 #define EDB_TPEND  5
+#define EDB_TLOOKUP 6
 typedef uint8_t edb_type;
 
 /********************************************************************
