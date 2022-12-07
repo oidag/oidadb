@@ -807,7 +807,7 @@ structure.
 
 | Name           | Type    | Desc                                                                                |
 |----------------+---------+-------------------------------------------------------------------------------------|
-| Ref            | [[Page ID]] | The page ID of the branch/leaf. If leaf, it references a start of a possible strait |
+| Ref            | [[Page ID]] | The page ID of the branch/leaf. If leaf, it references a start of a possible strait. If 0, null refrance |
 | Start/End Off. | uint64  | The starting /OR/ end page offset referenced. See notes |
 
 *** Start/End Off.
