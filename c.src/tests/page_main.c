@@ -7,22 +7,6 @@
 #include <pthread.h>
 #include "../edbh.h"
 
-int createapage(edbphandle_t *handle) {
-	int err = 0;
-	edb_pid id = -1;
-	err = edbp_start(handle, &id);
-	if (err) {
-		return err;
-	}
-	edbp_t mypage = edbp_graw(handle);
-	char *mybod = edbp_graw(handle).bodyv;
-	mybod[0] = 'a';
-	mypage.head->pleft  = 0xFFFFFFFFEEEEEEEE;
-	mypage.head->pright = 0xCCCCCCCCAAAAAAAA;
-	edbp_mod(handle, EDBP_CACHEHINT, EDBP_HDIRTY);
-	edbp_finish(handle);
-	return err;
-}
 
 void *gothread(void *args) {
 	edbpcache_t *cache = args;
@@ -52,7 +36,7 @@ void *gothread(void *args) {
 	// if the number is divisable by 3, then load
 	for(int i = 0; i < 256; i++) {
 		edb_pid ir = rand() % 255 + 1;
-		edbp_start(&handle, &ir);
+		edbp_start(&handle, ir);
 		edbp_t mypage = edbp_graw(&handle);
 		char *mybody = mypage.bodyv;
 		mybody[i] = (char)i;
