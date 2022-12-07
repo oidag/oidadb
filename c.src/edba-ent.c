@@ -50,6 +50,99 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	return 0;
 }
 
+edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
+#ifdef EDB_FUCKUPS
+	if(!(h->openflags & EDBA_FWRITE) || h->opened != EDB_TENTS) {
+		log_critf("edba_entryset: no FWRITE on EDB_TENTS");
+		return EDB_ECRIT;
+	}
+#endif
+
+	// easy pointers
+	edb_entry_t *entry = h->clutchedentry;
+	edbd_t *descriptor = h->parent->descriptor;
+	edbphandle_t *edbphandle = &h->edbphandle;
+	edb_struct_t *strck;
+	edb_err err;
+
+	// value assumptions
+	// clear out all bits that are not used
+	e.memory = e.memory & 0x3f0f;
+
+	// validation
+	if(h->openflags & EDBA_FCREATE) {
+		switch (e.type) {
+			case EDB_TOBJ:
+				break;
+			default: return EDB_EINVAL;
+		}
+	}
+	err = edbd_struct(descriptor, e.structureid, &strck);
+	if(err) {
+		// EDB_EEOF
+		return err;
+	}
+
+	// atp (at this point): entry imput parameters is good. Time to get some
+	// work done.
+
+	if(!(h->openflags & EDBA_FWRITE)) {
+		// they're updating, lets put a implement here.
+		// todo: implement structure updating
+		implementme();
+		return EDB_ECRIT;
+	}
+
+	// atp: the structure is valid and they're trying to create a new entry
+	// with valid parameters. We know that entry is initialized with 0's save
+	// for the type which still be EDB_TPEND.
+	// but we can copy over the memory and structure settings
+
+
+	// later: need to reuse deleted pages rather than creating them by utilizing the
+	//        deleted page / trash line
+
+	// to make corruption easy to detect: we set *entry = e; at the very last.
+
+	// ref0: objects page(s)
+	e.ref0 = 0;
+	e.ref0c = 0;
+
+	// ref2: dynamic page(s)
+	// these are created as we go.
+	e.ref2c = 0;
+	e.ref2 = 0;
+
+	// ref1: lookup-oid page root
+	edbp_lookup_t lookup_header;
+	lookup_header.entryid = h->clutchedentryeid;
+	lookup_header.parentlookup = 0;
+	lookup_header.head.pleft = 0;
+	lookup_header.head.pright = 0;
+	err = edba_u_pagecreate_lookup(h, lookup_header, &e.ref1);
+	if(err) {
+		return err;
+	}
+	e.lastlookup = e.ref1;
+
+	// remaining red-tape
+	// 0 out the reserved block just for future refeance.
+	e.rsvd = 0;
+	//e.type = EDB_TOBJ; (just to make corruptiong VERY obvious, we'll save this after)
+	e.lookupsperpage = (edbp_size(edbphandle->parent) - EDBP_HEADSIZE) / sizeof(edb_lref_t);
+	e.objectsperpage = (edbp_size(edbphandle->parent) - EDBP_HEADSIZE) / strck->fixedc;
+	e.trashlast = 0;
+
+	// we're all done, save to persistant memory.
+	*entry = e;
+	entry->type = EDB_TOBJ; // the final "we're done" marker.
+	return 0;
+}
+
+const edb_entry_t *edba_entrydatr(edba_handle_t *h) {
+	return h->clutchedentry;
+}
+
 void    edba_entryclose(edba_handle_t *h) {
 	edba_u_clutchentry_release(h);
 }

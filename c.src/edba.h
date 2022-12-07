@@ -153,15 +153,20 @@ const edb_entry_t *edba_entrydatr(edba_handle_t *h);
 // e. This may not be successful, as several validation steps
 // must happen. Only certain fields in e are actionable.
 // If no error is returned then the changes are successfully applied
-// and will reflect in edba_entrydatr.
+// and will reflect in edba_entrydatr as well as be stored in the
+// persistant index memory.
 //
 // e.type - ignored unless EDBA_FCREATE
-// e.memory - ignored unless EDBA_FCREATE
+// e.memory - ignored unless EDBA_FCREATE (will be normallized)
 // e.structureid - can be changed only with EDBA_FCREATE or EDBA_FWRITE
 // everything else: ignored.
 //
 // ERRORS:
-//   - EDB_ECRIT - programmer failed to read documentation
-//   - EDB_EINVAL - e.type was not EDB_TOBJ
+//   - EDB_ECRIT - programmer failed to read documentation / other error
+//   - EDB_EINVAL - (FUCKUPS) e.type was not EDB_TOBJ or handle doesn't have
+//                  the entry open in write mode
+//   - EDB_EEOF - e.structureid was too high / does not exist
+//   - EDB_ENOSPACE - no more space left in file for blank pages.
+//   - EDB_ENOMEM - no memory for operaiton
 edb_err edba_entryset(edba_handle_t *h, edb_entry_t e);
 #endif

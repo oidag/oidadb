@@ -319,34 +319,36 @@ ag_index Pages consitute a collection of what are known as
 Entries. Each entry provides a start page also describes the type to
 which all pages in that collection are.
 
-| Name            | Clang    | Definition                                         |
-|-----------------+----------+----------------------------------------------------|
-| Type            | uint8_t  | See [[Entry Type]]                                     |
-| rsvd            | uint8_t  | rsvd (used for edbn?)                              |
-| Memory Settings | uint16_t | [[Memory Settings]]                                    |
-| Struct ID       | uint16_t | if edbp_object: the structure ID                   |
-| objectsperpage  | uint16_t | cached amount of objects per page.                 |
-| lookupsperpage  | uint16_t | cached amount of lookups per page                  |
-| Ref0            | [[Page ID]]  | The starting page of the chapter                   |
-| Ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup                    |
-| Ref2            | [[Page ID]]  | if edbp_object: the edbp_dynamic (0 if not needed) |
-| ref0 Count      | uint64_t | Number of pages in the chapter.                    |
-| lastlookup      | [[Page ID]]  | Right-most and deepest lookup page                 |
-| ref2 Count      | uint64_t | Number of pages in the chapter.                    |
-| trashlast       | [[Page ID]]  | See [[Trash Management]]                               |
+| Name            | Clang    | Definition                                        |
+|-----------------+----------+---------------------------------------------------|
+| Type            | uint8_t  | See [[Entry Type]]                                    |
+| rsvd            | uint8_t  | rsvd (used for edbn?)                             |
+| Memory Settings | uint16_t | [[Memory Settings]]                                   |
+| Struct ID       | uint16_t | if edbp_object: the structure ID                  |
+| objectsperpage  | uint16_t | cached amount of objects per page.                |
+| lookupsperpage  | uint16_t | cached amount of lookups per page                 |
+| Ref0            | [[Page ID]]  | The starting page of the chapter (0 if none)      |
+| Ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup (will never be 0) |
+| Ref2            | [[Page ID]]  | if edbp_object: the edbp_dynamic (0 if none)      |
+| ref0 Count      | uint64_t | Number of pages in the chapter.                   |
+| lastlookup      | [[Page ID]]  | Right-most and deepest lookup page                |
+| ref2 Count      | uint64_t | Number of pages in the chapter.                   |
+| trashlast       | [[Page ID]]  | See [[Trash Management]]                              |
 
 
 TODO: Need to consolidate the idea that all entries are object pages :)
 ** Entry Type
- - =EDB_TINIT 0= - initialized page (all 0s). These should only exist
-   toward the end of the file when new pages are being created. If
-   there's a crash then hmmmmmmmmmmmmmmm todo
+ - =EDB_TINIT 0= - initialized page (all 0s). Pages of this type
+   should only exist temporarly.  If you happen to start hosting and
+   you see EDB_TINIT pages, you can assume they are corrupted and can
+   be marked as deleted.
  - =EDB_TDEL   1= - =edbp_deleted=
  - =EDB_TSTRCT 2= - =edbp_struct=
  - =EDB_TOBJ   3= - =edbp_object=
  - =EDB_TENTS  4= - The index itself
- - =EDB_TPEND  5= - Temporary status between TNONE and whatever it is
-   trying to become.
+ - =EDB_TPEND  5= - Temporary status between EDB_TINIT and whatever it is
+   trying to become. Used only for traffic control. Like EDB_TINIT, any
+   entries found in this type on start-up are considered corrupt.
 ** Entry ID
 All Entrieshave an Entry ID, the Entry ID is a uint16, meaning that an
 AG database can have a maximum of 2^16-1 total entries. Entry 0 /is/
