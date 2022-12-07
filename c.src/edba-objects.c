@@ -20,6 +20,7 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	edb_rid rid;
 	edb_err err;
 
+	// handle-status poltiics.
 	h->opened = EDB_TOBJ;
 	h->openflags = flags;
 
@@ -54,6 +55,10 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 		edba_u_clutchentry_release(h);
 		return err;
 	}
+
+	// note to self: at this point we have the page loaded and the entry
+	// shared-clutched locked.
+	return 0;
 }
 
 edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
