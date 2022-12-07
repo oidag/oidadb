@@ -435,14 +435,14 @@ data. Fixed length is always more consistant and faster to
 access. Both of bits of information are stored in the structure.
 
 
-| Name            | Clang        | Definition                                            |
-|-----------------+--------------+-------------------------------------------------------|
-| Structure flags | uint16_t     | See [[Structure Flags]]                                   |
-| Fixed len       | uint16_t     | The fixed length of data, includes heads and pointers |
-| data pointers   | uint8_t      | The amount of pointers per record                     |
-| Conf. Size      | uint16_t     | The size of the configuration                         |
-| subpage sizes   | uint8_t[]... | The [[subpage size]] of the the pointer's ag_data [[subpage]] |
-| Conf            | char[]...    | See [[Arbitrary Configuration]]                           |
+| Name            | Clang        | Definition                                                    |
+|-----------------+--------------+---------------------------------------------------------------|
+| Structure flags | uint16_t     | See [[Structure Flags]]                                           |
+| Fixed len       | uint16_t     | The fixed length of data, includes header flags, and pointers |
+| data pointers   | uint8_t      | The amount of pointers per record                             |
+| Conf. Size      | uint16_t     | The size of the configuration                                 |
+| subpage sizes   | uint8_t[]... | The [[subpage size]] of the the pointer's ag_data [[subpage]]         |
+| Conf            | char[]...    | See [[Arbitrary Configuration]]                                   |
 
 To fully understand data pointers and subpage sizes, see [[edbp_dynamic]].
 ** No Editing Structures
@@ -536,7 +536,7 @@ of the objects would be.
 | =trashstart_off= | uint16 | Intra-page row offset. See [[Trash Management]].                  |
 | =trashvor=       | uint64 | Page id or -1, See [[Trash Management]].                          |
 | =trashc=         | uint16 | the amount of trash recrods in the trash linked list.         |
-| rsvd             | uint16 | rsvd                                                          |
+| EntryID          | uint16 | the entry id this page belongs too. use only for pmaint |
 
 ** Trash Management
 Firstly lets define "Trash" as not only records that have been
@@ -684,7 +684,7 @@ given elements.
 | content  | char[]... | the raw content of the row (count is found in structure) |
 
 ** Record Flags
-*** System Locks
+*** TODO System Locks
 *System locks* are installed by the workers of the host and are used for
 mutex purposes. It is up to the host to manage the relationship of who
 has what lock.
@@ -704,8 +704,8 @@ During [[Host-Instance Fault][HIFs]], All Row Locks on all System Locks of the p
 Attributes describe specific cases that data is under.
 
  - EDB_FDELETED - The record is marked as deleted. The first 2 bytes
-   of the fixed content is the next position of the next deleted
-   row. Or (uint16_t)(-1) for end of list.
+   of the rows content is the next position of the next deleted
+   row id (offset row, not offset byte). Or (uint16_t)(-1) for end of list.
 
 *** User Locks
 *User Locks* allow the user to install locks on rows at their

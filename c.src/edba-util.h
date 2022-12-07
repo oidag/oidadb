@@ -67,6 +67,7 @@ void edba_u_pagedeload(edba_handle_t *handle);
 // edba_u_pagecreate_objects - object page straits.
 //   required header fields:
 //     - header.structureid
+//     - header.entryid
 //     - header.trashvor
 //       note this function will also automatically set the trashvor of each page in
 //       the strait to the page behind it, except for the first page of the strait

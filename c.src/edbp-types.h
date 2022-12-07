@@ -30,7 +30,7 @@ typedef struct {
 	uint16_t trashstart_off;
 	uint64_t trashvor;
 	uint16_t trashc;
-	uint16_t rsvd;
+	uint16_t entryid;
 
 	// in memeory after this is structures.
 	//edb_obj_t objects;
