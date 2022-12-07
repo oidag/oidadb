@@ -20,7 +20,7 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 	lock.l_type = EDBL_TYPUNLOCK; // doing this in advance
 
 	// ** defer: edbp_finish(&self->edbphandle);
-	edb_err err = edbp_start(&handle->edbphandle, &lookuproot);
+	edb_err err = edbp_start(&handle->edbphandle, lookuproot);
 	if(err) {
 		edbl_set(&handle->lockh, lock);
 		return err;

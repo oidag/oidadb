@@ -398,7 +398,7 @@ edb_err edb_open(edbh *handle, edb_open_t params);   // will create if not exist
 edb_err edb_close(edbh *handle);
 
 
-#define EDB_TNONE  0
+#define EDB_TINIT  0
 #define EDB_TDEL   1
 #define EDB_TSTRCT 2
 #define EDB_TOBJ   3

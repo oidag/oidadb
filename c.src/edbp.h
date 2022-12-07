@@ -86,7 +86,7 @@ typedef struct {
 
 	// all of thee other fields can be modified so long the caller
 	// has an exclusive lock on the page.
-	uint8_t  ptype;
+	edb_type ptype;
 	uint16_t rsvd;
 	uint64_t pleft;
 	uint64_t pright;
@@ -242,27 +242,26 @@ typedef enum {
 	EDBP_CACHEHINT = 0x1002,
 } edbp_options;
 
+// edbp_create will create a page strait of length straitc and will return the
+// first page in that strait's id in o_pid.
+//
+// RETURNS:
+//   EDB_EINVAL - (EDB_FUCKUPS) id was null or straitc was 0.
+//   EDB_ENOSPACE - file size would exceed maximum file size
+edb_err edbp_create(edbphandle_t *handle, uint8_t straitc, edb_pid *o_id);
+
 // edbp_start and edbp_finish allow workers to access pages in a file while managing
-// page caches, access, allocations, ect.
+// page caches, access, allocations, ect., also allows for the creation of new pages.
 //
-// id (wich is functionally the offset) and pagec are used to describe which page
-// how many pages should be allocated. Passing in a pointer to (edbp_id)(-1)
-// for id will result in a new pages being created and id being written to
-// as the newly created id. Note that when creating pages, strait pages will
-// always be created, but not all of them may be loaded at that time.
-//
-// straits is the amount of pages that
-// will be loaded in, must be at least 1. This is the
-// best way to load multiple pages in a strait at once. The actual amount of
-// pages loaded may be less than straits (see edbphandle_t.lockedslotc)... but
-// will always be at least 1.
-//
-// only 1 handle can have a single page opened at one time. These functions are
+// Only 1 handle can have a single page opened at one time. These functions are
 // methods of starting and finishing operations on the pages, these functions
 // ARE NOT used for just normal locking mechanisms, only to ensure operations
-// are performed to their completeness without having the page kicked out of cache.
+// are performed to their completeness without having the page kicked out of
+// cache.
 //
-// calling edbp_finish without having started a lock will do nothing.
+// edbp_start will load an existing page of a given id.
+//
+// calling edbp_finish without having started a page will do nothing.
 //
 // THREADING:
 //   edbp_start and edbp_finish must be called from the same thread per handle.
@@ -271,15 +270,19 @@ typedef enum {
 //   to access that same page, they will all return at once with the same result
 //   but only the first call would have actually performed the swap.
 //
+//   There is an internal EOF-mutex that makes sure that concurrent calls to
+//   edbp_startc doesn't result in weaving page straits.
+//
 // ERRORS:
-//   EDB_EINVAL - edbp_start id was null or *id was 0.
-//   EDB_EINVAL - edbp_start was called twice without calling edbp_finish
+//   EDB_EINVAL - (EDB_FUCKUPS) edbp_start id was 0.
+//   EDB_EINVAL - (EDB_FUCKUPS) edbp_start was called twice without calling edbp_finish
+//   EDB_EEOF   - (EDB_FUCKUPS) supplied id does not exist
 //   EDB_ENOMEM - no memory left
 //   EDB_ECRIT
 //
 // UNDEFINED:
 //   - using an unitialized handle / uninitialized cache
-edb_err edbp_start (edbphandle_t *handle, edb_pid *id);
+edb_err edbp_start (edbphandle_t *handle, edb_pid id);
 void    edbp_finish(edbphandle_t *handle);
 
 // edbp_create will initialize blank object pages. Thread safe per handle.

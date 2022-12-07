@@ -21,8 +21,8 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 
 	// note the absence of edba_u_clutchentry. We manually clutch it here because
 	// we need to surf through the index.
-	// find the first EDB_TNONE
-	for (h->clutchedentryeid = 0; !err && h->clutchedentry->type != EDB_TNONE; h->clutchedentryeid++) {
+	// find the first EDB_TINIT
+	for (h->clutchedentryeid = 0; !err && h->clutchedentry->type != EDB_TINIT; h->clutchedentryeid++) {
 		err = edbd_index(descriptor, h->clutchedentryeid, &h->clutchedentry);
 	}
 	if(err) {
@@ -38,7 +38,7 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	*o_eid = h->clutchedentryeid;
 
 	// at this point we know that h->clutchedentry and o_eid is pointing to valid
-	// EDB_TNONE and we are inside the creation mutex.
+	// EDB_TINIT and we are inside the creation mutex.
 	// As per spec, now we get an XL mutex.
 	edbl_entry(&h->lockh, h->clutchedentryeid, EDBL_EXCLUSIVE);
 	h->clutchedentry->type = EDB_TPEND;

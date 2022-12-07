@@ -109,7 +109,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	edba_u_locktrashstartoff(h, h->clutchedentry->trashlast);
 
 	// check for trashfault
-	edbp_start(&h->edbphandle, &h->clutchedentry->trashlast);
+	edbp_start(&h->edbphandle, h->clutchedentry->trashlast);
 	edbp_object_t *o = edbp_gobject(&h->edbphandle);
 	if(o->trashstart_off == (uint16_t)-1) {
 
@@ -225,7 +225,7 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 	edbl_set(&h->lockh, h->lock);
 
 	// lock the page in cache
-	edb_err err = edbp_start(&h->edbphandle, &pid);
+	edb_err err = edbp_start(&h->edbphandle, pid);
 	if(err) {
 		h->lock.l_type = EDBL_TYPUNLOCK;
 		edbl_set(&h->lockh, h->lock);

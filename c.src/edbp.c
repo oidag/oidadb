@@ -11,6 +11,8 @@
 #include <limits.h>
 #include <errno.h>
 #include <stdarg.h>
+
+#include "options.h"
 #include "edbd.h"
 #include "edbp.h"
 
@@ -349,52 +351,113 @@ void    edbp_freehandle(edbphandle_t *handle) {
 	handle->parent = 0;
 }
 
-edb_err edbp_start (edbphandle_t *handle, edb_pid *id) {
-	if(id == 0 || *id == 0) return EDB_EINVAL;
+edb_err edbp_start (edbphandle_t *handle, edb_pid id) {
+#ifdef EDB_FUCKUPS
+	// invals
+	if(id == 0) {
+		log_critf("attempting to start id 0");
+		return EDB_EINVAL;
+	}
 	if(handle->lockedslotv != -1) {
 		log_errorf("cache handle attempt to double-lock");
 		return EDB_EINVAL;
 	}
-	edb_pid setid = *id;
+#endif
 
 	// easy vars
 	edbpcache_t *parent = handle->parent;
 	int fd = handle->parent->fd;
 	int err = 0;
 
-	// are they trying to create a new page?
-	if(setid == -1) {
-		// new page must be created.
-		lockeof(parent);
-		//seek to the end and grab the next page id while we're there.
-		off64_t fsize = lseek64(fd, 0, SEEK_END);
-		setid = edbp_off2pid(parent, fsize + 1); // +1 to put us at the start of the next page id.
-		// we HAVE to make sure that fsize/id is set properly. Otherwise
-		// we end up truncating the entire file, and thus deleting the
-		// entire database lol.
-		if(setid == 0 || fsize == -1) {
-			log_critf("failed to seek to end of file");
-			unlockeof(parent);
-			return EDB_ECRIT;
-		}
-		// do old-fasioned writes(2)s of some fresh pages
-		size_t werr = ftruncate64(fd, fsize + edbp_size(parent));
-		if(werr == -1) {
-			log_critf("failed to truncate-extend for new pages");
-			unlockeof(parent);
-			return EDB_ECRIT;
-		}
-		unlockeof(parent);
-		*id = setid;
+	// make sure the id is within range
+#ifdef EDB_FUCKUPS
+	off64_t size = lseek64(fd, 0, SEEK_END);
+	if((off64_t)id * (off64_t)edbp_size(parent) > size) {
+		log_critf("attempting to access page id that doesn't exist");
+		return EDB_EEOF;
 	}
+#endif
 
 	// lock in the pages
-	err = lockpages(parent, setid,
+	err = lockpages(parent, id,
 					&handle->lockedslotv);
 
 	// later: HIID stuff should go here.
 	return err;
 }
+
+edb_err edbp_create(edbphandle_t *handle, uint8_t straitc, edb_pid *o_id) {
+#ifdef EDB_FUCKUPS
+	// invals
+	if(o_id == 0) {
+		log_critf("invalid ops for edbp_startc");
+		return EDB_EINVAL;
+	}
+	if(straitc == 0) {
+		log_critf("call to edbp_create with straitc of 0.");
+		return EDB_EINVAL;
+	}
+#endif
+
+	// easy vars
+	edbpcache_t *parent = handle->parent;
+	int fd = handle->parent->fd;
+	edb_pid setid;
+
+	// new page must be created.
+	// lock the eof mutex.
+	// **defer: unlockeof(parent);
+	lockeof(parent);
+	//seek to the end and grab the next page id while we're there.
+	off64_t fsize = lseek64(fd, 0, SEEK_END);
+	setid = edbp_off2pid(parent, fsize + 1); // +1 to put us at the start of the next page id.
+	// we HAVE to make sure that fsize/id is set properly. Otherwise
+	// we end up truncating the entire file, and thus deleting the
+	// entire database lol.
+	if(setid == 0 || fsize == -1) {
+		log_critf("failed to seek to end of file");
+		unlockeof(parent);
+		return EDB_ECRIT;
+	}
+
+#ifdef EDB_FUCKUPS
+	// double check to make sure that the file is block-aligned.
+	// I don't see how it wouldn't be, but just incase.
+	if(fsize % edbp_size(parent) != 0) {
+		log_critf("for an unkown reason, the file isn't page aligned "
+				  "(modded over %ld bytes). Crash mid-write?", fsize % edbp_size(parent));
+		unlockeof(parent);
+		return EDB_ECRIT;
+	}
+#endif
+
+	// using ftruncate we expand the size of the file by the amount of
+	// pages they want. As per ftruncate(2), this will initialize the
+	// pages with 0s.
+	size_t werr = ftruncate64(fd, fsize + edbp_size(parent) * straitc);
+	unlockeof(parent);
+	if(werr == -1) {
+		int err = errno;
+		log_critf("failed to truncate-extend for new pages");
+		if(err == EINVAL) {
+			return EDB_ENOSPACE;
+		}
+		return EDB_ECRIT;
+	}
+
+	// As noted just a second ago, the pages we have created are nothing
+	// but 0s. And by design, this means that the heads of these pages
+	// are actually defined as per specification. Sense the _edbp_stdhead.ptype
+	// will be 0, that means it takes the definiton of EDB_TINIT.
+
+	// later: however, I need to think about what happens if the thing
+	//        crashes mid-creating. I need to roll back all these page
+	//        creats.
+
+	*o_id = setid;
+	return 0;
+}
+
 void    edbp_finish(edbphandle_t *handle) {
 	if(handle->lockedslotv != -1) {
 		unlockpage(handle->parent,
@@ -402,6 +465,8 @@ void    edbp_finish(edbphandle_t *handle) {
 	}
 	handle->lockedslotv = -1;
 }
+
+
 
 edbp_t *edbp_graw(edbphandle_t *handle) {
 	if (handle->lockedslotv == -1) {
