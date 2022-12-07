@@ -36,13 +36,6 @@ typedef struct {
 	//edb_obj_t objects;
 } edbp_object_t;
 
-// later: this is an edb structure. not sure if it should be here.
-//        but its never in the sight of the handle. hmm.
-typedef struct {
-	pid_t ref;
-	uint64_t startoff_strait;
-} edb_lref_t;
-
 typedef struct {
 	_edbp_stdhead head;
 	uint16_t entryid;
@@ -51,8 +44,15 @@ typedef struct {
 	uint32_t rsvd;
 
 	// in memeory after this is lookup entries..
-	//edb_lookup_t objects;
+	//edb_lref_t objects;
 } edbp_lookup_t;
+
+// later: this is an edb structure. not sure if it should be here.
+//        but its never in the sight of the handle. hmm.
+typedef struct {
+	pid_t ref;
+	uint64_t startoff_strait;
+} edb_lref_t;
 
 // see spec, 'DSM'
 typedef struct {
