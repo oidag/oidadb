@@ -243,7 +243,7 @@ typedef enum {
 } edbp_options;
 
 // edbp_create will create a page strait of length straitc and will return the
-// first page in that strait's id in o_pid.
+// first page in that strait's id in o_pid. The page's binary will be 0-initialized
 //
 // RETURNS:
 //   EDB_EINVAL - (EDB_FUCKUPS) id was null or straitc was 0.
