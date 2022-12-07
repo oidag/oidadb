@@ -102,10 +102,6 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	// for the type which still be EDB_TPEND.
 	// but we can copy over the memory and structure settings
 
-
-	// later: need to reuse deleted pages rather than creating them by utilizing the
-	//        deleted page / trash line
-
 	// to make corruption easy to detect: we set *entry = e; at the very last.
 
 	// ref0: objects page(s)
@@ -121,6 +117,7 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	edbp_lookup_t lookup_header;
 	lookup_header.entryid = h->clutchedentryeid;
 	lookup_header.parentlookup = 0;
+	lookup_header.depth = 0;
 	lookup_header.head.pleft = 0;
 	lookup_header.head.pright = 0;
 	err = edba_u_pagecreate_lookup(h, lookup_header, &e.ref1);
