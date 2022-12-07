@@ -5,6 +5,7 @@
 #define _EDBA_UTIL_ 1
 
 #include "edba.h"
+#include "edbp-types.h"
 
 
 // returns EDB_EEOF if eid is out of bounds
@@ -49,6 +50,39 @@ edb_err edba_u_pageload_row(edba_handle_t *handle, edb_pid pid,
 					 uint16_t page_byteoff, uint16_t fixedc,
 					     edbf_flags flags);
 void edba_u_pagedeload(edba_handle_t *handle);
+
+
+// blank page creators
+
+// edba_u_pagecreate_lookup - single lookup node
+//   required fields:
+//     - header.entryid
+//     - header.parentlookup (can be 0 if root)
+//     - header.head.pleft & header.head.pright (if applicable)
+edb_err edba_u_pagecreate_lookup(edba_handle_t *handle, edbp_lookup_t header, edb_pid *o_pid);
+
+// edba_u_pagecreate_objects - object page straits.
+//   required header fields:
+//     - header.structureid
+//     - header.trashvor
+//       note this function will also automatically set the trashvor of each page in
+//       the strait to the page behind it, except for the first page of the strait
+//       which takes on header.trashvor. Make sure to update the entry's trashlast
+//       with o_pid+straitc if you're creating these pages for just extra room.
+//     - header.head.rsvdL
+//       subsequent pages in the strait have rsvdL incrementally.
+edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
+								  edbp_object_t header,
+								  const edb_struct_t *strct,
+								  uint8_t straitc, edb_pid *o_pid);
+
+// edba_u_pagedelete - mark a page range as deleted.
+//   Note this is all it does, just add it to the deleted page list.
+//   Make sure these pages are not referenced anywhere else before this.
+//   It doesn't matter what the pages were before, they could be random bytes
+//   for it cares, it will have it deleted.
+// only returns critical errors.
+edb_err edba_u_pagedelete(edba_handle_t *handle, edb_pid pid, uint16_t straitc);
 
 // converts a intra-chapter row offset to a intra-chapter page offset
 // as well as its intra-page byte offset.
