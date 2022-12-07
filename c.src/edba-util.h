@@ -53,14 +53,17 @@ void edba_u_pagedeload(edba_handle_t *handle);
 
 
 // blank page creators
-
+//
+// called agnostically, no prior calls needed. but... CANNOT be called
+// in the middle of edbp_start / edbp_end
+//
 // edba_u_pagecreate_lookup - single lookup node
-//   required fields:
+//   required fields (none are verified, everything else will be initialized):
+//     - header.depth
 //     - header.entryid
 //     - header.parentlookup (can be 0 if root)
 //     - header.head.pleft & header.head.pright (if applicable)
-edb_err edba_u_pagecreate_lookup(edba_handle_t *handle, edbp_lookup_t header, edb_pid *o_pid);
-
+//
 // edba_u_pagecreate_objects - object page straits.
 //   required header fields:
 //     - header.structureid
@@ -71,6 +74,11 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle, edbp_lookup_t header, ed
 //       with o_pid+straitc if you're creating these pages for just extra room.
 //     - header.head.rsvdL
 //       subsequent pages in the strait have rsvdL incrementally.
+//
+// RETURNS:
+//   - EDB_ENOSPACE - no more space left in file / cannot expand
+//   - EDB_ENOMEM - no memeory left
+edb_err edba_u_pagecreate_lookup(edba_handle_t *handle, edbp_lookup_t header, edb_pid *o_pid);
 edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 								  edbp_object_t header,
 								  const edb_struct_t *strct,
