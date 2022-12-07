@@ -10,6 +10,10 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	}
 #endif
 
+	// handle-status politics
+	h->opened = EDB_TENTS;
+	h->openflags = flags;
+
 	// easy pointers
 	edbd_t *descriptor = h->parent->descriptor;
 	edbl_handle_t *lockh = &h->lockh;
