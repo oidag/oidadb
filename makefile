@@ -1,12 +1,15 @@
 
 publish: build/manual.html build/publish-index.html
+	@mkdir -p build
 	cd build && ../scripts/ftp-publish.sh publish-index.html
 	cd build && ../scripts/ftp-publish.sh manual.html
 
 build/publish-index.html:  spec/publish-index.m4.html build/metrics.m4
+	@mkdir -p build
 	m4 build/metrics.m4 $< > $@
 
 build/manual.html: spec/manual.org
+	@mkdir -p build
 	emacs $< $@ --batch --kill -f org-html-export-to-html
 
 
@@ -17,6 +20,7 @@ REVISION=$(shell git log -1 --format=%H)
 LINECOUNT=$(shell ( find ./c.src -type f -print0 | xargs -0 cat ) | wc -l)
 SPECLINECOUNT=$(shell ( find ./spec -type f -print0 | xargs -0 cat ) | wc -l)
 build/metrics.m4: .force
+	@mkdir -p build
 	echo 'dnl' > $@
 	echo 'define(PUBLISHDATE, $(PUBLISHDATE))dnl' >> $@
 	echo 'define(COMMITS, $(COMMITS))dnl' >> $@
@@ -26,4 +30,7 @@ build/metrics.m4: .force
 	echo 'define(SPECLINECOUNT, $(SPECLINECOUNT))dnl' >> $@
 
 
-.PHONY: publish .force
+clean:
+	-rm -r build
+
+.PHONY: publish .force clean
