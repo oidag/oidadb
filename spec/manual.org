@@ -1,0 +1,119 @@
+#+SETUPFILE: ~/.emacs.d/themes/stylish_white.theme
+#+TITLE: OidaDB Programmer's Manual
+#+AUTHOR: Kevin Marschke
+
+* Preface
+** About this Book
+** Audience
+** Terms
+* Programming Overview
+** Interface Model
+talk about how errors are returned, typcial call patterns
+** Note on Namespaces
+* OidaDB and Conventional SQL Differences
+** Good Applications
+Talk about what types of applicaitons can utilize oidadb to its
+fullest, and how.
+** Bad Applications
+Talk about what oidadb shouldn't be used for.
+** Naming Symatics
+Is this database relational or non-relation? The answer is:
+yes. OidaDB doesn't exist on this specturm.
+** Queries
+** Streams vs Transactions
+* Hardware
+Talk about how it only runs on linux, but which versions are
+officially supported.
+
+Talk about how its agnostic to systemd and all of that because the
+caller is also the hoster.
+** Use of CPUs
+** Use of Memory
+** Use of Disk
+* Pages
+Talk about the importance of pages and how the programmer will
+potential take advantage of them.
+** Encrypted Pages
+* Communication
+For each subheading, talk about how bytes are sent and received, and
+also talk about how traffic control is conducted
+** Inner-thread
+** Inner-process
+** Inner-node
+** Concurrency Controls
+Talk about the use of pthread mutexes, linux futexes, file advisory
+locks, and inner-node mutexes.
+* The OidaDB File
+** Specification
+Give a brief summary of its layout
+** Lenting
+* Configuration
+Also note here that configuration is the core database. For network
+configuration, see Architectual Configuration
+** Page Size
+** Memory Settings
+** Network Settings
+* Architectual Configuration
+** Network
+** Nodes
+Make sure to warn them about overly complex architecutres in leu of
+just using a single machine.
+** Node Polymorphism
+** Host Nodes
+** Event Nodes
+** Maintance Nodes
+** Index Nodes
+* Initialization
+** Configuring
+** Hosting
+** Connecting
+* Event Stream
+** Application
+talk about how the event stream is unique compared to the normal
+relation/non relation database.
+** Subscriptions
+** Event Miss
+* Errors
+** Error Conventions
+Talk about error levels.
+** Error Definitions
+Talk about the error enum
+** Critical Errors
+* Jobs
+everything below this heading should be jobs (structures, entries, ect)
+** Job Lifecycle
+** Installing
+** Job Buffers
+** Failed Jobs
+* Structures
+** Structure Index
+** Structure Anatomy
+Make sure to talk about how they're stupid, deliberately.
+** Creating Structures
+** Updating Structures
+Talk about how you can't delete structures, only recreate
+** Deleting Structures
+* Entries
+** Entry Index
+** Entry Anatomy
+*** Minimum Page Straits
+** Creating Entries
+** Updating Entries
+** Deleting Entries
+* Objects
+** Creating Objects
+** Updating Objects
+** Deleting Objects
+** Parallel Executions
+** Trash Management
+*** Trash Faults
+** User Locks
+* Dynamics
+** Dynamic Configuration
+* Lookups
+** Native Lookups
+** Extended Lookups
+* Automatted Maintance
+** Defragging
+** Excretion
+
