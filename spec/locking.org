@@ -37,6 +37,19 @@ Next, what cateogyr of operations are you trying to perform?
 | *Delete* | clutch on   | clutches on, structure mutex | clutch off, xl locks |
 
 
+* Note on Page deletion
+Sometimes pages are created for an operaiton but that operation ends
+up failing for other reasons. In these cases, the operation tries its
+best to delete those pages before that operation cleans up lock it
+posseses.
+
+Thus, marking pages as deleted in any sort of way must be a completely
+independant locking mechanism. Avoid this, look closely and you'll see
+a deadlock:
+
+ Op1 (ok): Locks ABC -> creates pages -> operation fails -> Locks Deletion -> Deletes -> unlocks deletion -> unlocks ABC
+ Op2 (bad): Locks Deletion -> Locks ABC -> does stuff -> Unlocks ABC -> Unlocks Deletion
+
 * Entry
 ** XL Clutch Lock
  1. put a XL lock on the first byte (clutch lock)
