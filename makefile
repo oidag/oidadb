@@ -1,8 +1,8 @@
 
 publish: build/manual.html build/publish-index.html
 	@mkdir -p build
-	cd build && ../scripts/ftp-publish.sh publish-index.html
-	cd build && ../scripts/ftp-publish.sh manual.html
+	cd build && timeout 30 ../scripts/ftp-publish.sh publish-index.html
+	cd build && timeout 30 ../scripts/ftp-publish.sh manual.html
 
 build/publish-index.html:  spec/publish-index.m4.html build/metrics.m4
 	@mkdir -p build
