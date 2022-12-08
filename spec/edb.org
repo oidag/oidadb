@@ -1,3 +1,4 @@
+#+SETUPFILE: ~/.emacs.d/themes/stylish_white.theme
 #+TITLE: AGF (database technology)
 #+AUTHOR: Kevin Marschke
 
