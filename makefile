@@ -10,7 +10,8 @@ build/publish-index.html:  spec/publish-index.m4.html build/metrics.m4
 
 build/manual.html: spec/manual.org
 	@mkdir -p build
-	emacs $< $@ --batch --kill -f org-html-export-to-html
+	emacs $< --batch --kill -f org-html-export-to-html
+	mv spec/manual.html build
 
 
 PUBLISHDATE=$(shell date '+%F')
