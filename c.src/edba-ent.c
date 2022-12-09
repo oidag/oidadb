@@ -72,6 +72,7 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	// value assumptions
 	// clear out all bits that are not used
 	e.memory = e.memory & 0x3f0f;
+	int depth = e.memory >> 0xC;
 
 	// validation
 	if(h->openflags & EDBA_FCREATE) {
@@ -114,17 +115,38 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	e.ref2 = 0;
 
 	// ref1: lookup-oid page root
-	edbp_lookup_t lookup_header;
-	lookup_header.entryid = h->clutchedentryeid;
-	lookup_header.parentlookup = 0;
-	lookup_header.depth = 0;
-	lookup_header.head.pleft = 0;
-	lookup_header.head.pright = 0;
-	err = edba_u_pagecreate_lookup(h, lookup_header, &e.ref1);
-	if(err) {
-		return err;
+	// We must create a full stack of OID lookup pages so we can
+	// fill out lastlookup, last lookup must point to a page of max depth.
+	edb_pid parentid = 0;
+	edb_pid lookuppages[depth+1];
+	for (int i = 0; i <= depth; i ++) { // "<=" because depth is 0-based.
+		edbp_lookup_t lookup_header;
+		lookup_header.entryid = h->clutchedentryeid;
+		lookup_header.parentlookup = parentid;
+		lookup_header.depth = i;
+		lookup_header.head.pleft = 0;
+		lookup_header.head.pright = 0;
+		err = edba_u_pagecreate_lookup(h, lookup_header, &lookuppages[i]);
+		if(err) {
+			// failed for whatever reason,
+			// roll back page creations
+			i--; // roll back to the last itoration where we did successfully create a page.
+			for( ; i >= 0; i--) {
+				if(edba_u_pagedelete(h, lookuppages[i], 1)) {
+					log_critf("page leak: %ld", lookuppages[i]);
+				}
+			}
+			return err;
+		}
+		if(i == 0) {
+			// this is the root page so it's ref1.
+			e.ref1 = lookuppages[i];
+		}
+		parentid = lookuppages[i];
 	}
-	e.lastlookup = e.ref1;
+	// parentid will be set to the deepest lookup page, and sense
+	// this is our only branch, this is by definition the deep-right.
+	e.lastlookup = parentid;
 
 	// remaining red-tape
 	// 0 out the reserved block just for future refeance.
