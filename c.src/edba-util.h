@@ -23,13 +23,27 @@ void edba_u_entrytrashlk(edba_handle_t *handle);
 void edba_u_entrytrashunlk(edba_handle_t *handle);
 
 // must be called AFTER edba_u_clutchentry
-// must be called AFTER edba_u_entrytrashlk
+// must be called AFTER edba_u_entrytrashlk (XL)
 //
 // Will add pages to the clutched chapter and update
 // trashlast. returns EDB_ENOSPACE if theres no more lookup
 // references left and/or was too large for the hardware.
 //
+// will update handle->clutchedentry->trashlast (assumed to be 0)
+//
+// This will also update lastlookup (the deep right lookup) if it finds
+// the current deepright is full.
+//
+// will add lookup pages if needed. will always add object pages if successful
+// todo: make sure entry creation makes at least a whole depth so deep right is
+//       always at max depth.
 // a return of 0 means that trashlast has been updated successfully.
+//
+// RETURNS:
+//   - EDB_ENOMEM - no memory to perform operation.
+//   - EDB_ENOSPACE - No more lookup refs are available to use to point to more object pages.
+//   - EDB_ENOSPACE - no more space left in file / cannot expand (will output in crit)
+//   - Everything else - either criticals or fuckups
 edb_err edba_u_lookupdeepright(edba_handle_t *handle);
 
 // places a XL lock on the trashstart_off as per
@@ -55,7 +69,8 @@ void edba_u_pagedeload(edba_handle_t *handle);
 // blank page creators
 //
 // called agnostically, no prior calls needed. but... CANNOT be called
-// in the middle of edbp_start / edbp_end
+// in the middle of edbp_start / edbp_end as these functions load the
+// created page and initialize it.
 //
 // edba_u_pagecreate_lookup - single lookup node
 //   required fields (none are verified, everything else will be initialized):
@@ -73,7 +88,7 @@ void edba_u_pagedeload(edba_handle_t *handle);
 //       the strait to the page behind it, except for the first page of the strait
 //       which takes on header.trashvor. Make sure to update the entry's trashlast
 //       with o_pid+straitc if you're creating these pages for just extra room.
-//     - header.head.rsvdL
+//     - header.head.rsvdL (aka page offset)
 //       subsequent pages in the strait have rsvdL incrementally.
 //
 // RETURNS:
@@ -90,6 +105,9 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 //   Make sure these pages are not referenced anywhere else before this.
 //   It doesn't matter what the pages were before, they could be random bytes
 //   for it cares, it will have it deleted.
+//
+//   MAYBE ALSO THIS (todo): If the pages are found to be at the very end of
+//   the file, then it will truncate the pages out instead of retaining them.
 // only returns critical errors.
 edb_err edba_u_pagedelete(edba_handle_t *handle, edb_pid pid, uint16_t straitc);
 
