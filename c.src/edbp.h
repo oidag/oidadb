@@ -56,7 +56,9 @@ typedef enum {
 	// the loweset.
 	//
 	// They will always be these exact values, you're welcome to
-	// mathmatically generate them.
+	// mathmatically generate them:
+	//
+	//   EDBP_HINDEX3 * (4-depth)
 	//
 	// Only one of these may be xord at once.
 	EDBP_HINDEX0 = 0x40, // 0100 0000

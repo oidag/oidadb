@@ -282,7 +282,11 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 
 	// note: don't need to write the header, we can leave it as all 0s.
 
-	// close the page
+	// set some cache hints
+	// we'll set use soon because its almost impossible to create a lookup page
+	// without needing to write something in it.
+	edbp_mod(edbp, EDBP_CACHEHINT, EDBP_HDIRTY
+	                               | EDBP_HUSESOON| (EDBP_HINDEX3 * (4-header.depth)));
 	edbp_finish(edbp);
 
 	return 0;
@@ -354,12 +358,18 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 			return err;
 		}
 		// **defer: edbp_finish(edbp);
+
+		// initiate the page
 		void *page = edbp_graw(edbp);
 		initobjectspage(page, header, strct, objectsperpage);
+
 		// we do the referance  logic after so the first iteration of
 		// initobjectspage uses the trashvor/pleaft supplied by the caller of this
 		// function.
 		header.trashvor = *o_pid + i;
+
+		// set hints and close
+		edbp_mod(edbp, EDBP_CACHEHINT, EDBP_HDIRTY);
 		edbp_finish(edbp);
 	}
 
