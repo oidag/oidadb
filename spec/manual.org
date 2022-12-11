@@ -255,6 +255,7 @@ Make sure to talk about how they're stupid, deliberately.
 Talk about how you can't delete structures, only recreate
 ** Deleting Structures
 * Entries
+** Tables
 ** Entry Index
 ** Entry Anatomy
 *** Minimum Page Straits
@@ -262,6 +263,7 @@ Talk about how you can't delete structures, only recreate
 ** Updating Entries
 ** Deleting Entries
 * Objects
+** Rows
 ** Creating Objects
 ** Updating Objects
 ** Deleting Objects
