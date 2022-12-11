@@ -4,12 +4,56 @@
 
 * Preface
 ** About this Book
+This book, manual, documentaiton, what ever you want to call it is for
+OidaDB. OidaDB is what is known as a proactive database. This database
+has many moving parts, and many ways to be configured: some may say
+"enough rope to hang yourself".
+
+This manual will provide you everything you could possibly know about
+how to use OidaDB. It will also discuss pitfalls and way to take
+advantages of it.
+** Version
+Unfinished.
 ** Audience
-** Terms
+** A note about writting skills
+*** Spelling
+So I'm going to be honest here. I'm bad at english spelling. Like
+/really/ bad. I'm nearly certain I have Dysgraphia outside of an
+official diagnosis, although funny enough when I was in Austria my
+german spelling skills were normal.
+
+Regardless, I am going to be typing 90% of this manual in an editor
+with no spell-checking. I'll only go through and have someone else
+edit it when it's done.
+
+I'm not saying this as an excuse for someone to have bad spelling. I'm
+saying this so I can avoid getting hundreds of emails of people
+pointing out my misspellings. I know. If you read it, and you
+understood it: then my job is done. You can be a picky imperical
+englishman to the person who will eventually edit this.
+*** 2nd-Person
+I like to make all my technical writtings Feynman-style (an idol of
+mine). As you've already seen, I will write this as if /I'm/ talking
+to /you/, as if its a discussion between /us/, as if /we/ are working
+side by side.
+
+Its worth noting that Feynman didn't make physics. But I did make
+OidaDB. So a lot of information is perscribed by my perspective.
 * Programming Overview
 ** Interface Model
 talk about how errors are returned, typcial call patterns
 ** Note on Namespaces
+
+ - =edba=: (a)ctionalbe functions
+ - =edbd=: file (d)escriptors
+ - =edbx=: Host e(x)ecution logic
+ - =edbh=: (h)andle wrappers
+ - =edbs=: (s)hared memory (intra-node communcation)
+ - =edbl=: (l)ocks and concurrency control
+ - =edbn=: (n)etwork interfacing
+ - =edbp=: file (p)aging
+ - =edbw=: (w)orker logic
+
 * OidaDB and Conventional SQL Differences
 ** Good Applications
 Talk about what types of applicaitons can utilize oidadb to its
@@ -22,27 +66,144 @@ yes. OidaDB doesn't exist on this specturm.
 ** Queries
 ** Streams vs Transactions
 * Hardware
-Talk about how it only runs on linux, but which versions are
-officially supported.
+** Use of OS
+OidaDB (as of now) makes heavy use of linux system calls. So don't try
+to run this thing on a TI-89 calculator or even worse, don't try to
+run it on Windows.
 
-Talk about how its agnostic to systemd and all of that because the
-caller is also the hoster.
+On a more specific note regarding which version of linux OidaDB
+depends on is *Linux 3.17 and above* due to its use of the
+=memfd_create= system call. This may change in the future. But as of
+now that's what I'm writting down.
+
+(note to self: when I eventually make use of =vsocks(7)=, this may up the
+minimum version all the way up to 4.8)
+** Use of External Code
+OidaDB requires the following libraries to operate:
+
+ - pthreads
+ - libc (w/ =_GNU_SOURCE= due to use of non-POSIX Open file
+   description locks, see =man fcntl=)
+
 ** Use of CPUs
 ** Use of Memory
 ** Use of Disk
+** Use of External Processes (systemd, dbus, ect)
+As of now, OidaDB is but a library. It is not an executable. So unless
+I plan to incorporate a front-end specification to this manual, OidaDB
+is agnostic to the enviroment processes.
+
 * Pages
-Talk about the importance of pages and how the programmer will
-potential take advantage of them.
+If you do not know what pages are in computer memory, then you have
+some homework to do before really start utilizing OidaDB. In short:
+all memory and all data on computer must be stored in blocks of memory
+known as pages. The exact size of these pages depends on the computer,
+but for nearly all modern computers, that size is 4KiB.
+
+** Page-Load efficiency
+To get the truely best speed and efficiency from OidaDB, it comes down
+to your utilization of pages. Follow this rule:
+
+ - *Bytes that's accessed at the same time should be on the same
+   page.*
+
+OidaDB allows you to follow this rule. OidaDB also allows you to take
+advantage of the practical existance of pages. I have always disliked
+how databases try to "hide" the importance of pages dispite the amount
+of work that is put into moving them around.
+
+If we have a user in a database, that user has some associated
+information to them. Maybe even some many-to-many relationships with
+other objects in our database. Lets explore this theoretical against
+our rule:
+
+ 1. If we have a user, we shall also have his name, location,
+    password, and email.
+ 2. How often do we access all of this information at once? Well very
+    often, of course. I mean everytime they log in we have to pull
+    most of it up just to allow it for them to log in. Thus, It's
+    benificial to keep all this information on the same Object (which
+    intern will be kept on the same page).
+ 3. How often do we access only parts of this information? Not very
+    often. However, lets say we needed to make a very-active emailing
+    script, if we kept all the information in one page, this would
+    force our script to load all the user's data despite the fact we
+    only need their email.
+    - In that case, it may be a good idea to keep a seperate array
+      that holds /just/ their emails so the script can work
+      efficiently. Such a seperate array can just be updated the
+      instant any email is updated in the user table (up-/down-stream
+      relationship).
+
 ** Encrypted Pages
-* Communication
-For each subheading, talk about how bytes are sent and received, and
-also talk about how traffic control is conducted
-** Inner-thread
-** Inner-process
-** Inner-node
+* System Communication
+Here I'll let you in on the architecture of OidaDB and how the various
+modules and softwares talk to eachother. I won't talk about exactly
+what it is that's communicated, just the medium to how it is
+communicated.
+
+** Intra-host
+Host processes typcially like to keep all the processing "in
+house". That is, likes to use threads instead of processes. These are
+known as workers, which we'll cover in detail later. 
+
+So with the use of threads, intra-host communication comes down to
+managing multiple threads with intra-process concurrency control.
+
+** Inner-process/Intra-node
+Inside of a given node we have a host process and 1-to-many handle
+processes. The handle processes connect to the host and communicate
+via shared memory. The module that handles this communication known as
+=edbs=, which is one of the few bits of code shared between host and
+handle.
+
+ - See also: =man shm_overview=
+
+** Inner-node/Intra-database
+When you start to use more than 1 node, the exact means of
+communication between these nodes starts to become much more
+configuratble. This is where you can start to dictate what's best for
+your database. You may set up 5 nodes in virtual enviroments on the
+same machine, you may set up 5 nodes in the same rack, you may set up
+5 nodes in the same country: all of which very in the best possible
+way they could communicate.
+
+So with that being said, nodes communicate via highly configruable
+linux sockets. So while configuring your nodes, read up on =man
+socket= and its various ways to communicate.
+
 ** Concurrency Controls
-Talk about the use of pthread mutexes, linux futexes, file advisory
-locks, and inner-node mutexes.
+Concurrency control is by far the most complex element of any
+high-performance database. The reaction to a mere suggestion of
+high-performance concurrency will identify the boys from the men. If I
+had limited this database to a single process and a single thread the
+entire thing would be done in a few hours.
+
+So believe me that concurrency control is of paramount importance to a
+database. And it is with concurrency controls OidaDB obtains its
+massive advantages. It takes months of planning, hours and hours of
+drawing lines and boxes in dozends of notebooks, and waking up in the
+middle of the nights reallizing previously unknown edgecases.
+
+I'm not going to bore you with the details. Just know that when you
+use this product your abilities of concurrency control to mine. This
+topic is where OidaDB gets most of its value as a product but
+ironically its the topic no one cares about.
+
+But there's key terminology you should at least know of:
+
+ - [[https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap04.html][Mutexes]] (See chptr 4.12)
+ - [[https://kernel.org/doc/ols/2002/ols2002-pages-479-495.pdf][Futexes]]
+ - [[https://man7.org/linux/man-pages/man2/fcntl.2.html][Shared and Exclusive Locks]] (See Advisory record locking)
+ - Clutch Locks (an invention of my own)
+
+See Also:
+
+ - [[https://github.com/torvalds/linux/blob/master/Documentation/locking/locktypes.rst][Linux Locking definitions]]
+
+*** Clutch Locks
+todo
+
 * The OidaDB File
 ** Specification
 Give a brief summary of its layout
@@ -116,4 +277,33 @@ Talk about how you can't delete structures, only recreate
 * Automatted Maintance
 ** Defragging
 ** Excretion
+* Appendix
+** Glossary
+(todo: alphabetically sort when done)
 
+ - Pages: [[Pages]]
+ - Table: [[Tables]]
+ - Objects: [[Objects]]
+ - Rows: [[Rows]]
+
+** See Also
+Here's some continued reading that influanced OidaDB in one way or
+another:
+
+ - https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout
+ - https://www.percona.com/blog/2019/11/12/watch-out-for-disk-i-o-performance-issues-when-running-ext4/
+ - https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html
+ - http://www.dba-oracle.com/t_row_locks_vs_table_locks.htm
+ - https://blog.jcole.us/2013/01/03/the-basics-of-innodb-space-file-layout/
+ - https://blog.jcole.us/2013/01/07/the-physical-structure-of-innodb-index-pages/
+ - https://blog.jcole.us/2013/01/04/page-management-in-innodb-space-files/
+ - https://blog.jcole.us/2013/01/10/btree-index-structures-in-innodb/
+ - https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-row-format.html
+ - https://www.youtube.com/watch?v=0Dj96yFl1SE
+ - https://www.cs.cmu.edu/~christos/courses/721-resources/p297-o_neil.pdf
+ - https://mariadb.com/resources/blog/does-innodb-page-size-matter/
+ - https://dev.mysql.com/doc/refman/5.7/en/sorted-index-builds.html
+ - https://en.wikipedia.org/wiki/R-tree
+ - https://www.postgresql.org/files/documentation/pdf/15/postgresql-15-A4.pdf
+   - (Part VII)
+   - Shoutout to Postgres team
