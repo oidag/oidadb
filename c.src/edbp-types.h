@@ -52,7 +52,7 @@ typedef struct {
 // later: this is an edb structure. not sure if it should be here.
 //        but its never in the sight of the handle. hmm.
 typedef struct {
-	pid_t ref;
+	edb_pid ref;
 	uint64_t startoff_strait;
 } edb_lref_t;
 
