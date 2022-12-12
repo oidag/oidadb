@@ -104,7 +104,7 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 //   Note this is all it does, just add it to the deleted page list.
 //   Make sure these pages are not referenced anywhere else before this.
 //   It doesn't matter what the pages were before, they could be random bytes
-//   for it cares, it will have it deleted.
+//   for it cares, even in the header, it will have it deleted.
 //
 //   MAYBE ALSO THIS (todo): If the pages are found to be at the very end of
 //   the file, then it will truncate the pages out instead of retaining them.
