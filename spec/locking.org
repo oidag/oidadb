@@ -146,7 +146,9 @@ and quit.
   1. Place an SH clutch lock on the entry (thus same as [[Object-Reading]]
      step 1)
 
-  2. Place an XL lock on the entry's trashlast field.
+  2. Place an XL lock on the entry's trashlast field. This will
+     prevent two workers from simultaniously creating 2 sets of new
+     page to be used as trash pages.
 
   3. If the trashlast page is 0. Tne this means more pages are needed
      to be created. See [[Object-Creating-Lookup]].

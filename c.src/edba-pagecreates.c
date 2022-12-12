@@ -1,6 +1,48 @@
 #include "edba-util.h"
 #include "edba.h"
 #include "edbp-types.h"
+#include "analytics.h"
+
+// helper function
+static edb_err xlloadlookup(edba_handle_t *handle,
+                            edb_pid lookuppid,
+                            edbl_lockref *lock,
+                            edbp_lookup_t **lookuphead,
+                            edb_lref_t **lookuprefs) {
+	edb_err err;
+	edbphandle_t *edbp = &handle->edbphandle;
+
+	// as per locking spec, we must place an XL lock on the second
+	// byte on the page before we open it.
+	lock->l_type = EDBL_EXCLUSIVE;
+	lock->l_start = edbp_pid2off(edbp->parent, lookuppid) + 1;
+	lock->l_len = 1;
+	edbl_set(&handle->lockh, *lock);
+	// **defer: edbl_set(&handle->lockh, lock);
+
+	// load the page now that we have an XL lock
+	err = edbp_start(edbp, lookuppid);
+	if (err) {
+		edbl_set(&handle->lockh, *lock);
+		return err;
+	}
+	// **defer: edbp_finish
+	// get the void pointer of the existing lookup page
+	void *lookup = edbp_graw(edbp);
+	*lookuphead = lookup;
+	*lookuprefs = lookup + EDBP_HEADSIZE;
+
+	// we can set this hint now to save us from doing it on the
+	// several exits.
+	edbp_mod(edbp, EDBP_CACHEHINT, EDBP_HINDEX3 * (4-(*lookuphead)->depth));
+}
+
+static void deloadlookup(edba_handle_t *handle,
+                         edbl_lockref *lock) {
+	lock->l_len = EDBL_TYPUNLOCK;
+	edbp_finish(&handle->edbphandle);
+	edbl_set(&handle->lockh, *lock);
+}
 
 // Okay now listen here, sunny. We must now create a bunch of new
 // pages. And then we must remember that crashes can happen at
@@ -31,6 +73,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	edb_struct_t *structdat;
 	edbd_struct(handle->parent->descriptor, entry->structureid, &structdat);
 
+	// (if-error-then-destroy)
 	// The next 2 paragraphs of code will create the object but it will not
 	// actually reference them anywhere. You
 	// may ask, "why don't you create them only right before you need them
@@ -68,16 +111,17 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	// ... so we set trashlast to the newly created pageid plus strait
 	//     (see edba_u_pagecreate_objects comment)
 	header.trashvor = 0;
-	header.head.pleft = entry->ref0c;
+	edb_pid newobjectpage_offsetid = entry-ref0c;939393;hmmmmmmm should we lock ref0c too? cuz we cant have someone else fucking with it.
+	header.head.pleft = newobjectpage_offsetid;
 	unsigned int straitc = 1 << (entry->memory & 0x000F);
-	edb_pid newpid;
-	err = edba_u_pagecreate_objects(handle, header, structdat, straitc, &newpid);
+	edb_pid newobjectpid;
+	err = edba_u_pagecreate_objects(handle, header, structdat, straitc, &newobjectpid);
 	if(err) {
 		return err;
 	}
-	// **defer on error: edba_u_pagedelete(handle, newpid, straitc);
+	// **defer on error: edba_u_pagedelete(handle, newobjectpid, straitc);
 
-	// atp: we have the new object pages created at newpid to newpid + straitc, but
+	// atp: we have the new object pages created at newobjectpid to newobjectpid + straitc, but
 	// they're entirely unreferanced (so make sure to clean them up on failure).
 	// In total: we have no trashlast, we have object pages, now we need to
 	// first put them in the lookup and then update trashlast.
@@ -86,10 +130,12 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	// open. Eventually, we'll set selectedref to a pointer to a loaded page
 	// that is a null referance we can install our leaf (object pages)
 	edb_pid lookuppid = entry->lastlookup;
-	edbp_lookup_t *lookuphead;
 	edb_lref_t *selectedref;
+	edb_lref_t *lookuprefs;
+	edbp_lookup_t *lookuphead;
 	int depth = entry->memory >> 0xC;
 
+	// (the-2-loops)
 	// We are going to keep track of a few things across 2 loops.
 	// The first loop will only loop if and only if the deep-righ
 	// lookup is full. And if its parent is also full, it will loop
@@ -101,33 +147,23 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	// The first loop will create lookup pages and store their PIDs in
 	// newlookups. These pages are entirely unreferenced. The second
 	// loop will then reference them.
-	edb_pid newlookups[depth+1]; // will be empty if deep-right is currently spacious
+	// (note to self: if depth is 0, that means newlookups is null, which makes
+	//  sense because we shouldn't be creating any lookups if our root page is our
+	//  only page.)
+	edb_pid newlookups[depth]; // will be empty if deep-right is currently spacious
+	unsigned int refmax = handle->clutchedentry->lookupsperpage;
 	int i;
-	for(i = depth; i >= 0; i++) { // note: '>=' because depth is 0-based
+	edbl_lockref lock;
+	for(i = depth; i >= 0; i--) { // note: '>=' because depth is 0-based
 
-		// as per locking spec, we must place an XL lock on the second
-		// byte on the page before we open it.
-		edbl_lockref lock;
-		lock.l_type = EDBL_EXCLUSIVE;
-		lock.l_start = edbp_pid2off(edbp->parent, lookuppid) + 1;
-		lock.l_len = 1;
-		edbl_set(&handle->lockh, lock);
-		lock.l_len = EDBL_TYPUNLOCK; // set for future use
-		// **defer: edbl_set(&handle->lockh, lock);
-
-		// load the page now that we have an XL lock
-		err = edbp_start(edbp, lookuppid);
-		if (err) {
-			edbl_set(&handle->lockh, lock);
-			goto rollbackcreatedpages;
-		}
-		// **defer: edbp_finish
-		void *lookup = edbp_graw(edbp);
-		lookuphead = lookup;
-		edb_lref_t *lookuprefs = lookup + EDBP_HEADSIZE;
+		xlloadlookup(handle,
+		             lookuppid,
+		             &lock,
+		             &lookuphead,
+		             &lookuprefs);
+		// **defer: deloadlookup(handle, &lock)
 
 		// now we ask, is this page full?
-		unsigned int refmax = handle->clutchedentry->lookupsperpage;
 		if (lookuphead->refc == refmax) {
 			// this page is full, we must add a new lookup page to
 			// newlookups that will be utilized and refanced correctly
@@ -139,7 +175,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 			// return EDB_ENOSPACE
 			if(i == 0) {
 
-				// the lowest level branch page is full, this means we
+				// the root branch page is full, this means we
 				// have no more space in the lookup tree.
 				log_warnf("attempted to create object pages with full OID lookup tree: entry#%d", entryid);
 				err = EDB_ENOSPACE;
@@ -149,16 +185,30 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 			}
 
 			// this lookup page is full, but we have more branches above us.
-			// So lets go up to the parent.
+			// So lets go up to the parent. Lookupid will be used next loop.
 			lookuppid = lookuphead->parentlookup;
 			// as per spec we deload and unlock this page.
-			edbp_finish(edbp);
-			edbl_set(&handle->lockh, lock);
+			deloadlookup(handle, &lock);
 
-			// todo: WAIT HOLDON... what if someone is putting in a new
-			//       lookup reference in our parent at this very instant?
-			//       should we lock the parent if we know we're about to
-			//       create a sibling? hmmmmmmmmm
+			// (lookup-creation-assumptions)
+			// At this time, with no other page loaded into our edbp handle, we
+			// can create the lookup page we can /eventually/ reference in the
+			// afformentioned parent. However, we have some (solved) edge cases that should
+			// be noted here:
+			//
+			// Firstly, as of now we only have a shared clutch on the entry and an XL
+			// on the trashlast. We do NOT have XL locks on the parents, which technically
+			// means, that as we are creating this new lookup page, our parent is currently
+			// being edited by another worker. We know that other worker cannot be doing
+			// this to add space to the table, because you need to have XL-trashlast to
+			// do that. So we assume that whatever that other worker is doing with our parent
+			// is unrelated and unintrusive to our assumptions thus far.
+			//
+			// Lastly, these lookup pages have the same cavet about the if-error-then-destroy
+			// inefficiency mentioned about the object pages at the start of this function.
+
+
+			// Create the (sibling) lookup page
 			edbp_lookup_t newheader;
 			newheader.depth = i;
 			newheader.entryid = entryid;
@@ -166,16 +216,26 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 			// a sibling of the page we saw, so they'll have the
 			// same parent.
 			newheader.parentlookup = lookuppid;
-			// we can't set pleft
+			// we can't set pleft at this point. As mentioned in the
+			// (lookup-creation-assumptions) comment, the parent could have pages being added
+			// at this very instant, so we won't know our pleft and pright until we actually
+			// get an XL lock on the page and see for ourselves. It's unlikely that our pleft
+			// will not be the page we just finished off, but its still possible.
 			newheader.head.pleft = 0;
-			newheader.head.pright = 0;
-			edba_u_pagecreate_lookup()
-			newlookups[i] =
+			newheader.head.pright = 0; // pright will always be 0 beacuse this should be the rightest page
+			edba_u_pagecreate_lookup(handle, newheader, &newlookups[i-1]);
 
+			// Now, we can loop over all the logic again with our parent.
 			continue;
 		} else {
-			// todo: type out the logic here that describes what we do now that
-			//       we found a lookup page that isn't full
+			// note we don't do refc-1 here because refc is the amount of /non/ null references.
+			// We need the next reference right after the full ones.
+			selectedref = &lookuprefs[lookuphead->refc];
+
+			// note to self: we still have the page locked and loaded
+			// note to self: we always must break in this logic otherwise
+			//  "i" will go to -1.
+			break;
 		}
 	}
 
@@ -192,35 +252,87 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 		// atp: selectedref is pointing to a null ref in a non-leaf-bearing
 		// lookup page. So we must use this reference to install the page
 		// we created in the accending loop (pid stored in newlookups).
+		// lookuphead/lookuprefs is also pointing to the head of that page.
 
 		// note to self: pages in newlookups will have their parentlookup
-		// header already set. check that logic out to make sure you do
-		// this in the right order.
-
+		// header already set.
 		// note to self: pleft and pright are NOT set in the last loop.
-		// good reason for it: concurrent processes
 
-		// todo:
+		// the index of newlookups will reflect it's depth minus 1.
+		// so  index 0 will always have a page with depth of 1,
+		// and index 1 will alwasy have a page with depth of 2,
+		// ect.
+		edb_pid _lookuppiddelta = lookuppid; // used for analytics
+		lookuppid = newlookups[depth-i-1];
+
+		// grab the pleft from the parent so we can set it in the child
+		// page we're agout to reference
+		edb_pid next_pleft = 0;
+		if(lookuphead->refc != 0) {
+			next_pleft = lookuprefs[lookuphead->refc - 1].ref;
+		}
+
+		// fill in the reference. For an explination on startoff_strait, see
+		// spec.
+		selectedref->ref = lookuppid;
+		selectedref->startoff_strait = newobjectpage_offsetid;
+
+		// this reference is set, so we're done with referencing the new lookup
+		// page into its parent. Now we can close out of it and open the child.
+		edbp_mod(edbp, EDBP_CACHEHINT, EDBP_HDIRTY); // sense we updated ref.
+		deloadlookup(handle, &lock);
+		analytics_newlookuppages(entryid, _lookuppiddelta);
+
+		// load up the newly referenced lookup page.
+		xlloadlookup(handle,
+		             lookuppid,
+		             &lock,
+		             &lookuphead,
+		             &lookuprefs);
+
+		// we can now confidenlty set the pleft sense we wrote this page's
+		// reference in its parent while also at the same time checking
+		// its previous sibling.
+		lookuphead->head.pleft = next_pleft;
+
+		// realign our selected ref to the new page's reference.
+		selectedref = &lookuprefs[lookuphead->refc];
+
+		// atp: we started this for-loop iteration with a parent page and
+		//      in that parent page we added a reference to a new child. We
+		//      then deloaded the parent and now we have the child loaded.
+		//      As discussed in (the-2-loops), this loop will not iterate again
+		//      if said child is a leaf-baring page. If said child is a branch-baring
+		//      page then this for loop will go again.
 	}
 
 
-	// atp: We have a lookup page locked (for writting) and loaded that has a null
-	//      referance at lookuprefs[lookuphead->refc - 1]. Thus, we
-	//      must create a new referance.
-	// todo: make sure to increment refc!
+	// atp: We have a leaf-baring lookup page locked and loaded that has a null
+	//      referance at selectedref.
 
-	edb_lref_t *nullref = lookuprefs[lookuphead->refc - 1];
+	// reference the object pages we made all the way at the start
+	// of this function.
+	// if you're wondering why we add straitc here, see spec regarding startoff_strait.
+	selectedref->ref = newobjectpid;
+	selectedref->startoff_strait = newobjectpage_offsetid + straitc;
+
+
+	// todo: increment ref0c. and unlock it? see start of function "hhmmm"
+
 	//HMMMMMMMMMMMMMMMM how do we fill out this ref? We need to create
 	// a new lookup page, yet we already have this page locked. Thus,
 	// we must create that lookup page before we get in this loop.
 
 	// atp: selectedref is a null reference and we have it XL locked.
-	selectedref->ref = newpid;
+	selectedref->ref = newobjectpid;
 	selectedref->startoff_strait = header.head.pleft + straitc;
 	hmmmmm need to yet again confirm the above logic
 
 
 	// todo: handle->clutchedentry->ref0c += straitc
+
+	// todo:
+	void analytics_newobjectpages(unsigned int entryid, edb_pid startpid, int straitc);
 
 	// todo: see defers. make sure selectedref is unlocked
 
@@ -230,12 +342,12 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	//  and then the object pages
 	asdfasdfasdfasdfasdfasfasdfasf
 	// roll back the look page
-	if (edba_u_pagedelete(handle, newpid, straitc)) {
-		log_critf("page leak: pid %ld-%ld", newpid, newpid + straitc);
+	if (edba_u_pagedelete(handle, newobjectpid, straitc)) {
+		log_critf("page leak: pid %ld-%ld", newobjectpid, newobjectpid + straitc);
 	}
 	// roll back the object pages
-	if (edba_u_pagedelete(handle, newpid, straitc)) {
-		log_critf("page leak: pid %ld-%ld", newpid, newpid + straitc);
+	if (edba_u_pagedelete(handle, newobjectpid, straitc)) {
+		log_critf("page leak: pid %ld-%ld", newobjectpid, newobjectpid + straitc);
 	}
 	return err;
 }

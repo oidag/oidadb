@@ -809,27 +809,28 @@ structure.
 | Name           | Type    | Desc                                                                                |
 |----------------+---------+-------------------------------------------------------------------------------------|
 | Ref            | [[Page ID]] | The page ID of the branch/leaf. If leaf, it references a start of a possible strait. If 0, null refrance |
-| Start/End Off. | uint64  | The starting /OR/ end page offset referenced. See notes |
+| Start/End Off. | uint64  | The starting /OR/ end left-page offset referenced. See notes |
 
 *** Start/End Off.
 Depending on the depth, this field can either mean the starting page
-offset of this branch, or the end page offset of this leaf. Thus, to
-know what the number means, you need to know if this reference is
-either a branch or a leaf.
+offset of the referenced branch, or the end page offset of the
+referenced leaf. Thus, to know what the number means, you need to know
+if this reference is either a branch or a leaf.
 
 Now, why are they treated differently? Hopefully I get this answer
 right: because of engineering. When it comes to branch nodes, they are
 expected to grow, and fill out their reference nodes starting from the
 top of the list down.
 
-For example, reference A will specify that the starting offset is '0',
-while the next sibling (reference B) is a null reference. Thus, you
-can deduce that reference A has not yet been filled up sense reference
-B has not been needed yet. When it comes to adding that infmous object
-that requires reference B to finally be filled out, only then do you
-have to worry about writting to the *Starting* offset of reference B
-without needing to worry about reference A. Data is expected to always
-grow, and this favors that.
+For example, reference A, which is a referance to a branch, will
+specify that the starting offset is '0', while the next sibling
+(reference B) is a null reference. Thus, you can deduce that reference
+A has not yet been filled up sense reference B has not been needed
+yet. When it comes to adding that infmous object that cascades into
+filling up refernce A, and thus requires reference B to finally be
+used (aka /un-nulled/), only then do you have to worry about writting
+to the *Starting* offset of reference B without needing to worry about
+reference A. Data is expected to always grow, and this favors that.
 
 Now why is this logic not used when the reference is a leaf reference?
 Well it boils down to the fact that newly created pages are unlikely
@@ -861,6 +862,9 @@ has been created or not)
 | rsvd         | uint16_t | rsvd                                                                              |
 
 *** Regarding Page Left / Page Right
+
+Page right will always be 0 (as of now, until I can find a reason to
+make this a 2-way linked list). So you can only transverse forward.
 
 For the root node, Page Left and Page Right are effectively
 useless. For all branch nodes, Page Left / Page Right describe the
