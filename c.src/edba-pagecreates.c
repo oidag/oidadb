@@ -354,7 +354,8 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 
 edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 								 edbp_lookup_t header,
-								 edb_pid *o_pid) {
+								 edb_pid *o_pid,
+								 edb_lref_t ref) {
 
 	// easy ptrs
 	edbphandle_t *edbp = &handle->edbphandle;
@@ -382,6 +383,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	// **defer: edbp_finish(edbp);
 	void *page = edbp_graw(edbp);
 	edbp_lookup_t *pageheader = (edbp_lookup_t *)page;
+	edb_lref_t *pagerefs = page + EDBP_HEADSIZE;
 
 	// write the header
 	pageheader->entryid = header.entryid;
@@ -391,6 +393,9 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	pageheader->head.ptype = EDB_TLOOKUP;
 	pageheader->head.pleft = header.head.pleft;
 	pageheader->head.pright = header.head.pright;
+
+	// first header
+	pagerefs[0] = ref;
 
 	// note: don't need to write the header, we can leave it as all 0s.
 

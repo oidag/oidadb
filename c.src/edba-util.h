@@ -78,6 +78,7 @@ void edba_u_pagedeload(edba_handle_t *handle);
 //     - header.entryid
 //     - header.parentlookup (can be 0 if root)
 //     - header.head.pleft & header.head.pright (if applicable)
+//   ref will be the first reference written into the lookup before the function returns.
 //
 // edba_u_pagecreate_objects - object page straits.
 //   required header fields:
@@ -94,7 +95,10 @@ void edba_u_pagedeload(edba_handle_t *handle);
 // RETURNS:
 //   - EDB_ENOSPACE - no more space left in file / cannot expand
 //   - EDB_ENOMEM - no memeory left
-edb_err edba_u_pagecreate_lookup(edba_handle_t *handle, edbp_lookup_t header, edb_pid *o_pid);
+edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
+								 edbp_lookup_t header,
+								 edb_pid *o_pid,
+								 edb_lref_t ref);
 edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 								  edbp_object_t header,
 								  const edb_struct_t *strct,
