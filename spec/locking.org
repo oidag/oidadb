@@ -195,19 +195,47 @@ and quit.
   8. Release the SH clutch lock on the entry.
 
 *** Object-Creating-Lookup
+See [[Note on adding object/lookup pages]]
 Note the only time you should be here is from auto-id creation. Thus,
 their should be an SH clutch lock on the entry and an XL lock on the
-trashlast field. So lets continue with the lookup root
+trashlast field. However, trashlast is 0 which means we need more
+pages. Let's continue on:
 
- 1. With the lookup page, put an XL lock on the *second* byte of the
-    page.
+
+ 1. Place an XL lock on the ref0c field. This will prevent any other
+    job from creating any new pages what so ever.
+    - It should be noted that this mechnism is mostly redundant as we
+      have an XL lock on the trashlast field. But locking the
+      trashlast field - by definition - doesn't prevent other jobs
+      from adding pages, only from other jobs from adding pages to be
+      used as blank space. We must lock this for means of having
+      consistent offsetids for the object pages.
+    - Also it should be noted that, at this time, there is no need to
+      place any SH locks on ref0c. ref0c should only ever be updated
+      at the very end of this process so any reads of refc will be
+      truthful.
+ 2. Create the (currently unreferenced) object pages
+ 3. Look at the entry's =lastlookup=, place an XL lock on second byte
+    of that page then load it.
     - The reason why we don't put an XL lock on the first byte is
       because lookups should still be able to happen (via
       Object-Reading/Object-Writing). But with this XL lock the only
       thing we seek to block are other attempts to modify the lookup
       pages.
- 2. load the page
- 3. navigate to the first null-reference
+ 4.1. If this lookup is full: unlock and unload this lookup. Then:
+    a. Create a sibling for the lookup we just unloaded.
+       - While creating this sibling, you should set the first
+         reference of that sibling. This first reference will either
+         be the object pages if this sibling is leaf bearing, or will
+         be the child lookup page created in a previous iteration.
+    b. follow up to this lookup's parent (be sure to put an XL lock on its parent).
+    c. If this parent is also full:
+       - If full: go back to step 4.
+       - If not full: update and unlock =lastlookup= then go to step 5.
+ 4.2. If this lookup is not full: refernece the object pages and the
+      increment its =refc=.
+ 5. You can then update and unlock =ref0c=.
+ 6. Update =trashlast= and go back to the parent instrunctions
   
 * Defraging
 
