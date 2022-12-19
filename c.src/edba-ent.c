@@ -126,7 +126,7 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 		lookup_header.depth = i;
 		lookup_header.head.pleft = 0;
 		lookup_header.head.pright = 0;
-		err = edba_u_pagecreate_lookup(h, lookup_header, &lookuppages[i]);
+		err = edba_u_pagecreate_lookup(h, lookup_header, &lookuppages[i], (edb_lref_t){0});
 		if(err) {
 			// failed for whatever reason,
 			// roll back page creations

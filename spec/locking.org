@@ -49,7 +49,17 @@ a deadlock:
 
  Op1 (ok): Locks ABC -> creates pages -> operation fails -> Locks Deletion -> Deletes -> unlocks deletion -> unlocks ABC
  Op2 (bad): Locks Deletion -> Locks ABC -> does stuff -> Unlocks ABC -> Unlocks Deletion
+* Note on adding object/lookup pages
+Nothing shall add/reference any object (or nessacary lookup) pages
+without having =ref0c= XL locked. Incrementing ref0c should be the
+last step in all processes.
 
+You must lock =ref0c= before you follow =deepright=. This will prevent
+two workers from both trying to update deepright in the chance of a
+lookup fault.
+
+You must wait to unlock =ref0c= until only after deepright and ref0c
+has been fully updated.
 * Entry
 ** XL Clutch Lock
  1. put a XL lock on the first byte (clutch lock)
@@ -143,12 +153,15 @@ and quit.
 
 ** Object-Creating
 *** Auto ID Creation
+	EDIT THIS TO MATCH NEW LOOKUP CREATION
+
   1. Place an SH clutch lock on the entry (thus same as [[Object-Reading]]
      step 1)
 
-  2. Place an XL lock on the entry's trashlast field. This will
-     prevent two workers from simultaniously creating 2 sets of new
-     page to be used as trash pages.
+  2. Place an XL lock on the entry's trashlast field.
+     - This will prevent 2 workers trying to handle 2 seperate
+       trashfaults at the same time, which can inadvertantnly remove
+       pages out of the trash cycle.
 
   3. If the trashlast page is 0. Tne this means more pages are needed
      to be created. See [[Object-Creating-Lookup]].
