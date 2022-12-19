@@ -93,7 +93,10 @@ int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock);
 int edbl_entry(edbl_handle_t *lockdir, edb_eid, edbl_type);
 int edbl_entrycreaiton_lock(edbl_handle_t *lockdir);
 int edbl_entrycreaiton_release(edbl_handle_t *lockdir);
-int edbl_entrytrashlast(edbl_handle_t *lockdir, edb_eid, edbl_type);
+
+// note: if you try to lock 2-times-in-row, this is no error. That's fine, just send out a debug message
+// the lock is uneffected.
+int edbl_entryref0c(edbl_handle_t *lockdir, edb_eid, edbl_type);
 
 
 // just use edbl_set for these.

@@ -863,13 +863,7 @@ has been created or not)
 
 *** Regarding Page Left / Page Right
 
-Page right will always be 0 (as of now, until I can find a reason to
-make this a 2-way linked list). So you can only transverse forward.
-
-For the root node, Page Left and Page Right are effectively
-useless. For all branch nodes, Page Left / Page Right describe the
-previous and next nodes on that same level. However, this should not
-be the main method of transversal except for pmaint bookkeeping.
+Only pleft is used in non-root pages to show the left-sibling lookup page 
 
 * edbp_dynamic
 ** subpage
