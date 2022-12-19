@@ -263,7 +263,8 @@ edb_err edbp_create(edbphandle_t *handle, uint8_t straitc, edb_pid *o_id);
 //
 // edbp_start will load an existing page of a given id.
 //
-// calling edbp_finish without having started a page will do nothing.
+// calling edbp_finish without having started a page will do nothing (safe to call
+// twice)
 //
 // THREADING:
 //   edbp_start and edbp_finish must be called from the same thread per handle.
