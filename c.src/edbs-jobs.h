@@ -33,7 +33,7 @@ typedef enum _edb_jobclass {
 	// Perform CRUD operations with a single object.
 	// see edb_obj() for description
 	//
-	// All cases:
+	// all cases:
 	//     <- edb_oid (see also: EDB_OID_... constants)
 	//     (additional params, if applicable)
 	//     -> edb_err [1]

@@ -528,6 +528,9 @@ typedef enum _edb_usrlk {
 	// This will also make it implicitly unable to be used
 	// with creating via an AUTOID.
 	EDB_FUSRLCREAT = 0x0008,
+
+	// Used for normalizing / masking
+	_EDB_FUSRLALL = 0x000F,
 } edb_usrlk;
 
 
