@@ -123,7 +123,8 @@ edb_usrlk *edba_objectlocks(edba_handle_t *h);
 //   Also despite the simple structure between these two functions you must
 //   remember that when objectdelete is called, the data that was in that object
 //   IS actually clobbered. So "undelete" doesn't undo the delete, it just
-//   makes the object open to being written too again.
+//   makes the object open to being written too again. (in other words, once calling
+//   edba_objectdelete there's no going back in terms of what data was there)
 //
 // IGNORES ALL USER LOCKS.
 //
