@@ -42,9 +42,6 @@ typedef struct edba_handle_st {
 edb_err edba_handle_init(edba_host_t *host, edba_handle_t *o_handle);
 void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 
-// need to fidn a place to put this one...
-#define EDB_FDELETED 0x1000
-
 // todo: rename
 //
 // returns null on error (logged)
