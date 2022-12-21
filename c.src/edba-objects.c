@@ -168,6 +168,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// now to get the next item on the trash list to set to trashstartoff
 	// before we can release it
 	edbp_t *page = edbp_graw(&h->edbphandle);
+	h->objectoff  = intrapagebyteoff;
 	h->objectdata = page + intrapagebyteoff;
 	h->objectc    = structdat->fixedc;
 
@@ -238,6 +239,7 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 	}
 
 	// set the pointer
+	h->objectoff  = page_byteoff;
 	h->objectdata = edbp_graw(&h->edbphandle) + page_byteoff;
 	h->objectc    = fixedc;
 
