@@ -34,7 +34,7 @@ typedef struct {
 	_edbp_stdhead head;
 	uint16_t structureid;
 	uint16_t trashstart_off;
-	uint64_t trashvor;
+	uint64_t trashvor; // careful accessing this outside of a =trashlast= lock.
 	uint16_t trashc;
 	uint16_t entryid;
 

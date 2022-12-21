@@ -125,12 +125,13 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 		// trashfault, update trashlast
 		h->clutchedentry->trashlast = o->trashvor;
 
-		// it may seem compulsory to at this time set this page's trashvor to 0
-		// as a matter of neatness. However, doing so will dirty the page. And
-		// a non-0 trashvor can do no damage. so long that we take it out of the
-		// trash management.
-		//opage->trashvor = 0;
-		//edbp_mod(&self->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
+		// Although it will dirty the page, we must set the trashvor to this
+		// page to 0 so that it knows it's not in the trash linked list. This
+		// information is needed for when the page faces so many manual deletions
+		// it needs to know if its in the entry-page-trash linked list to avoid
+		// adding itself twice (which will break the linked list)
+		o->trashvor = 0;
+		edbp_mod(&h->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
 
 		// close this page because there's no trash on it.
 		edbp_finish(&h->edbphandle);
@@ -224,6 +225,16 @@ unsigned int edba_objectdeleted(edba_handle_t *h) {
 #endif
 	return (*((edb_object_flags *)h->objectdata) & EDB_FDELETED);
 }
+
+// this function must be the same across all databases, all tables.
+// must return the same result for any 2 inputs regardless.
+//
+//
+//
+// returns 0 for shouldn't really be added trash list.
+// returns 1 for should be added to trash list
+#define EDB_TRASHCRITCALITY(trashcount, total)
+
 edb_err edba_objectdelete(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
 	if(h->opened != EDB_TOBJ || !(h->openflags & EDBA_FWRITE)) {
@@ -244,6 +255,8 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	edba_u_locktrashstartoff(h, edbp_gpid(&h->edbphandle));
 	// **defer: edba_u_locktransstartoff_release(h);
 
+	int trashcrit1 = EDB_TRASHCRITCALITY(objheader->trashc, h->clutchedentry->objectsperpage);
+
 	// mark as deleted
 	// We do this first just incase we crash by the time we get to the trash linked list
 	// we'd rather have it marked as deleted so future query processes won't try to use it.
@@ -258,13 +271,40 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	objheader->trashstart_off = h->objectoff;
 	objheader->trashc++;
 
+	int trashcrit2 = EDB_TRASHCRITCALITY(objheader->trashc, h->clutchedentry->objectsperpage);
 	edba_u_locktransstartoff_release(h);
+	if(trashcrit2 == 0) {
+		return 0;
+	}
 
-	// todo: add this page to entry-level trash management if criticality is hit.
+	// later: see task "page strait awareness"
 
+	// atp: we know this page has hit trash criticality. Now we must find out if this
+	//      page is in the trash cycle yet. We can do this efficiently by checking the
+	//      trashcrit delta. If the delta hasn't changed, we don't need to do anything
+	if(trashcrit1 == trashcrit2) {
+		// we can assume it's already in the trash cycle sense the criticality hasn't
+		// changed sense the last time we called it.
+		return 0;
+	}
+
+	// if this page MUST be added to trash list. We'll have to use strict locking as to
+	// make sure no one touches this pages =trashvor= nor the entry's trashlast
+	edba_u_entrytrashlk(h, EDBL_EXCLUSIVE);
+#ifdef EDB_FUCKUPS
+	if(objheader->trashvor != 0 ||
+	   h->clutchedentry->trashlast == edbp_gpid(&h->edbphandle)) {
+		// oddly enough, this page is already inside of the trash cycle.
+		log_critf("page already in trash yet trash criticality delta said it shouldn't be");
+		return 0;
+	}
+#endif
+	objheader->trashvor = h->clutchedentry->trashlast;
+	h->clutchedentry->trashlast = edbp_gpid(&h->edbphandle);
+	edba_u_entrytrashlk(h, EDBL_TYPUNLOCK);
 	return 0;
-
 }
+
 edb_err edba_objectundelete(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
 	if(h->opened != EDB_TOBJ || !(h->openflags & EDBA_FWRITE)) {

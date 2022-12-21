@@ -260,12 +260,17 @@ meaning putting it into trash circulaiton.
       all (versus Object-Creation where we know it already exists).
  3. Put the object in the page's trash management linked list (See
     Deleting in the Object trash managmement spec).
- 4. Unlock =trashstart_off=.
- 5. Optionally, if the page's =trashc= has reached a critical value
-    and =trashvor= is null (see discussion in Deleting in object
-    trash managmenet) then you can continue on to step 6. otherwise,
-    you're good to stop here.
- 6. TODO
+ 4. Optionally, if the page's =trashc= has reached a critical value
+    (see discussion in Deleting in object trash managmenet) then you
+    can continue on to step 5 and beyond. otherwise, you're good to
+    stop at step 5.
+ 5. Unlock =trashstart_off=.
+ 6. (If the page is valid for entry-trash-list) Place an XL Lock the
+    entry's =trashlast=.
+    - This SH lock will prevent anyone from touching our page's
+      =trashvor= and the entry's =trashlast= needed for the next step.
+ 7. Update the page's =trashvor= to be the previous =trashlast= and
+    set the =trashlast= to be the page's =trashvor=.
 * Defraging
 
 Notes: PAGE-BASED CLUTCH LOCKS DONT WORK, a dead lock can happen
