@@ -29,12 +29,16 @@ typedef struct edba_handle_st {
 	edbphandle_t  edbphandle;
 
 	// internal stuff, don't touch outside of edba namespace:
+
 	edb_entry_t *clutchedentry; // (note to self: points to persistant mem)
 	edb_eid clutchedentryeid;
-	void *objectdata;
-	unsigned int objectc;
+
+	uint16_t objectoff; // byte offset from the page until objectdata.
+	void *objectdata; // pointer starts at object flags
+	unsigned int objectc; // same as the object's struct->fixedc
+
 	edbl_lockref lock;
-	edb_type opened;
+	edb_type opened; // what type of operation was opened
 	edbf_flags openflags;
 
 
