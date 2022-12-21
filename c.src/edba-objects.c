@@ -79,7 +79,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// xl lock on the trashlast.
 	// **defer: edba_u_entrytrashunlk
-	edba_u_entrytrashlk(h);
+	edba_u_entrytrashlk(h, EDBL_EXCLUSIVE);
 
 #ifdef EDB_FUCKUPS
 	int create_trashlast_check = 0;
@@ -93,7 +93,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 		// Otherwise we call edba_u_lookupdeepright which will create pages
 		// and update trashlast.
 		if(!(flags & EDBA_FCREATE) || edba_u_lookupdeepright(h)) {
-			edba_u_entrytrashunlk(h);
+			edba_u_entrytrashlk(h, EDBL_TYPUNLOCK);
 			edba_u_clutchentry_release(h);
 			return EDB_ENOSPACE;
 		}
@@ -145,7 +145,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// sense we have no reason to update it anymore. (as per spec)
 	// (note to self: we still have the XL lock on trashstart_off at this time)
 	// (note to self: we know that opage is not -1 because trash faults have been handled)
-	edba_u_entrytrashunlk(h);
+	edba_u_entrytrashlk(h, EDBL_TYPUNLOCK);
 
 	// at this point, we have a lock on the trashstart_off and need
 	// to place another lock on the actual trash record.
@@ -177,7 +177,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// for a deleted record, the first 2 bytes after the uint32_t header
 	// is a rowid of the next item.
-	o->trashstart_off = *(uint16_t *)(h->objectdata + sizeof(uint32_t));
+	o->trashstart_off = *(uint16_t *)(h->objectdata + sizeof(edb_object_flags));
 	// trashstart_off is updated. we can unlock it. note we still have our
 	// h->lock on the entry itself.
 	edba_u_locktransstartoff_release(h);
@@ -187,7 +187,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// as per this function's description, and the fact we just removed it
 	// from the trash management, we will make sure its not marked as deleted.
-	uint32_t *objflags = (uint32_t *)(h->objectdata);
+	edb_object_flags *objflags = (edb_object_flags *)(h->objectdata);
 #ifdef EDB_FUCKUPS
 	// analyze the flags to make sure we're allowed to create this.
 	// If this record has fallen into the trash list and the flags
