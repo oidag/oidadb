@@ -233,7 +233,9 @@ unsigned int edba_objectdeleted(edba_handle_t *h) {
 //
 // returns 0 for shouldn't really be added trash list.
 // returns 1 for should be added to trash list
-#define EDB_TRASHCRITCALITY(trashcount, total)
+static inline int EDB_TRASHCRITCALITY(uint16_t trashcount, uint16_t total) {
+	return trashcount > (total / 2);
+}
 
 edb_err edba_objectdelete(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
