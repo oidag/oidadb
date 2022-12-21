@@ -466,7 +466,9 @@ void    edbp_finish(edbphandle_t *handle) {
 	handle->lockedslotv = -1;
 }
 
-
+edb_pid edbp_gpid(edbphandle_t *handle) {
+	return handle->parent->slots[handle->lockedslotv].id;
+}
 
 edbp_t *edbp_graw(edbphandle_t *handle) {
 	if (handle->lockedslotv == -1) {
