@@ -280,8 +280,46 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 		return 0;
 	}
 
-	// TODO
+	// get the header of the object page
+	void *objpage = edbp_graw(&h->edbphandle);
+	edbp_object_t *objheader = objpage;
 
+#ifdef EDB_FUCKUPS
+	if(objheader->trashc == 0 || objheader->trashstart_off == (uint16_t)-1) {
+		log_critf("for some reason this page's header doesnt reflect the assumption of deletion");
+		return EDB_ECRIT;
+	}
+#endif
+
+	// See locking.org for all of this.
+	edba_u_locktrashstartoff(h, edbp_gpid(&h->edbphandle));
+	// **defer: edba_u_locktransstartoff_release(h);
+
+	// later: it may be adventagous to have a doubly-linked list here so we don't
+	//        have to force our way through this page to remove a given object from
+	//        the linked list
+
+	// next paragraph is just removing us from the trash linked list.
+	uint16_t ll_ref_after = *(uint16_t *)(h->objectdata+sizeof(edb_object_flags));
+	uint16_t *ll_ref = &objheader->trashstart_off;
+	for(int i = 0; i < objheader->trashc; i++) {
+		//ll_ref_next = (uint16_t *)(objpage+ll_ref+sizeof(edb_object_flags));
+		if(*ll_ref == h->objectoff) {
+			// ll_ref is now pointing to the object that is before us in the linked
+			// list. So we we need to update this object's list to skip past us.
+			*ll_ref = ll_ref_after;
+			break;
+		}
+		ll_ref = (uint16_t *)(objpage+(*ll_ref)+sizeof(edb_object_flags));
+	}
+	objheader->trashc--;
+
+	// mark as live
+	edb_object_flags *objflags = (edb_object_flags *)h->objectdata;
+	*objflags = *objflags & ~EDB_FDELETED;
+
+	edba_u_locktransstartoff_release(h);
+	return 0;
 }
 
 edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,

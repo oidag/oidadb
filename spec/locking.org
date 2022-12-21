@@ -153,9 +153,8 @@ and quit.
 
 ** Object-Creating
 *** Static ID Creation (aka Object-Undelete)
- 1. Follow the exact same process as [[Object-Updating]] but once the
-    object is loaded into memory (and XL locked).
- 2. TODO
+ 1. Follow the exact same process as [[Object-Deleting]] except instead of
+    adding the object from the trash linked list: remove it.
 *** Auto ID Creation
   1. Place an SH clutch lock on the entry (thus same as [[Object-Reading]]
      step 1)
