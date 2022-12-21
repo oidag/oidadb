@@ -466,11 +466,11 @@ void    edbp_finish(edbphandle_t *handle) {
 	handle->lockedslotv = -1;
 }
 
-edb_pid edbp_gpid(edbphandle_t *handle) {
+edb_pid edbp_gpid(const edbphandle_t *handle) {
 	return handle->parent->slots[handle->lockedslotv].id;
 }
 
-edbp_t *edbp_graw(edbphandle_t *handle) {
+edbp_t *edbp_graw(const edbphandle_t *handle) {
 	if (handle->lockedslotv == -1) {
 		log_errorf("call attempted to edbp_graw without having one locked");
 		return 0;
