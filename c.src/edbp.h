@@ -316,10 +316,10 @@ edb_err edbp_createobj(edbphandle_t *handle, uint16_t pagec, edb_pid *o_startpid
 //
 // If you attempt to call this without having a page locked, null
 // is returned (which you should never do).
-edbp_t *edbp_graw(edbphandle_t *handle);
+edbp_t *edbp_graw(const edbphandle_t *handle);
 
 // get the pid of the currently loaded page.
-edb_pid edbp_gpid(edbphandle_t *handle);
+edb_pid edbp_gpid(const edbphandle_t *handle);
 
 // edbp_mod applies special modifiecations to the page. This function will effect the page
 // that was referenced in the most recent edbp_start and must be called before the
