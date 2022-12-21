@@ -215,6 +215,17 @@ void    edba_objectclose(edba_handle_t *h) {
 }
 
 
+const edb_struct_t *edba_objectstruct(edba_handle_t *h) {
+	edb_struct_t *ret;
+	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &ret);
+	return ret;
+}
+
+void   *edba_objectfixed(edba_handle_t *h) {
+	return h->objectdata;
+}
+
+
 // delete group
 unsigned int edba_objectdeleted(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
