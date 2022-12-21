@@ -109,10 +109,27 @@ void    edba_objectclose(edba_handle_t *h);
 void   *edba_objectfixed(edba_handle_t *h);
 edb_usrlk *edba_objectlocks(edba_handle_t *h);
 
-// edba_objectdelete, edba_objectundelete, edba_objectdeleted
-//   Place/remove/test this object in the trash. This will only work if
+// edba_objectdeleted
+//   Returns non-0 if this object is deleted. (note if it is deleted then
+//   the return number will be effectively random, just not 0).
+//
+// edba_objectdelete, edba_objectundelete
+//   Place/remove this object in the trash. place/remove will only work if
 //   EDBA_FWRITE is enabled.
-int     edba_objectdeleted(edba_handle_t *h);
+//
+//   If you try to delete an object twice, no error is given sense the redundant
+//   operation was technically successful.
+//
+//   Also despite the simple structure between these two functions you must
+//   remember that when objectdelete is called, the data that was in that object
+//   IS actually clobbered. So "undelete" doesn't undo the delete, it just
+//   makes the object open to being written too again.
+//
+// IGNORES ALL USER LOCKS.
+//
+// RETURNS:
+//  - EDB_EINVAL (EDB_FUCKUPS) if object wasn't open for writing
+unsigned int edba_objectdeleted(edba_handle_t *h);
 edb_err edba_objectdelete(edba_handle_t *h);
 edb_err edba_objectundelete(edba_handle_t *h);
 

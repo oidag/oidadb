@@ -1112,6 +1112,12 @@ applicable. But another pmaint job that can be ran involves
 
 Excretion maybe more cost than what its worth.
 
+** Some notes
+ - If a object deletion crashes, it's first job is to mark the object
+   as deleted. So pmaint should be able to go page-to-page and make
+   sure the object trash linked list makes sense to all the deleted
+   records in the page. (or just completely rebuild the linked list on
+   the page if a corruption is detected)
 * TODO Locks
 Theres two classes
 

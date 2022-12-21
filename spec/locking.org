@@ -152,9 +152,11 @@ and quit.
   3. Remove SH lock from entry.
 
 ** Object-Creating
+*** Static ID Creation (aka Object-Undelete)
+ 1. Follow the exact same process as [[Object-Updating]] but once the
+    object is loaded into memory (and XL locked).
+ 2. TODO
 *** Auto ID Creation
-	EDIT THIS TO MATCH NEW LOOKUP CREATION
-
   1. Place an SH clutch lock on the entry (thus same as [[Object-Reading]]
      step 1)
 
@@ -169,6 +171,9 @@ and quit.
   4. With the trashlast page id, before you load that page, you must
      place a XL lock on the 'trashstart_off' field in the page's
      header.
+	 - This will prevent 1 worker from trying tup read trashstart_off
+       while another tries to update it at the same time. See
+       [[Object-Deletion]].
 
   5. With the trashlast page loaded, handle all trash faults by:
      - Updating trashlast with the page loaded's trashvor.
@@ -237,6 +242,31 @@ pages. Let's continue on:
  5. You can then update and unlock =ref0c=.
  6. Update =trashlast= and go back to the parent instrunctions
   
+** Object-Deleting
+"Object-Deleting" will be defined as marking the row as deleted,
+meaning putting it into trash circulaiton.
+
+ 1. Follow the exact same process as [[Object-Updating]] but once the
+    object is loaded into memory (and XL locked).
+ 2. /While the page is loaded/ lock the page's =trashstart_off= field.
+    - This will prevent Object-Creation workers as well as other
+      Object-Deleting workers from corrupting the cycle.
+    - I emphasize "/while the page is loaded/" because its contrary to
+      Object-Creation: which must lock =trashstart_off= before the
+      page loads. This contradiction (as of now) is strictly for the
+      persuit of better engineering. It's always better to install
+      locks before loading the page for swifter performace across
+      threads. But in this case we already have the page loaded
+      because we firstly needed to verify that the record exists at
+      all (versus Object-Creation where we know it already exists).
+ 3. Put the object in the page's trash management linked list (See
+    Deleting in the Object trash managmement spec).
+ 4. Unlock =trashstart_off=.
+ 5. Optionally, if the page's =trashc= has reached a critical value
+    and =trashvor= is null (see discussion in Deleting in object
+    trash managmenet) then you can continue on to step 6. otherwise,
+    you're good to stop here.
+ 6. TODO
 * Defraging
 
 Notes: PAGE-BASED CLUTCH LOCKS DONT WORK, a dead lock can happen
