@@ -48,7 +48,7 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 		return err;
 	}
 
-	// load the page
+	// load the page and put the row data in the handle
 	err = edba_u_pageload_row(h, foundpid,
 			page_byteoff, structdat->fixedc, flags);
 	if(err) {
@@ -111,10 +111,11 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// at this point, we know trashlast is pointing to a leaf page.
 	// So lock the trashoffset on that page so we can load it.
-	edba_u_locktrashstartoff(h, h->clutchedentry->trashlast);
+	edb_pid pageid = h->clutchedentry->trashlast;
+	edba_u_locktrashstartoff(h, pageid);
 
 	// check for trashfault
-	edbp_start(&h->edbphandle, h->clutchedentry->trashlast);
+	edbp_start(&h->edbphandle, pageid);
 	edbp_object_t *o = edbp_gobject(&h->edbphandle);
 	if(o->trashstart_off == (uint16_t)-1) {
 
@@ -144,7 +145,6 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// sense we have no reason to update it anymore. (as per spec)
 	// (note to self: we still have the XL lock on trashstart_off at this time)
 	// (note to self: we know that opage is not -1 because trash faults have been handled)
-	edb_pid pageid = h->clutchedentry->trashlast;
 	edba_u_entrytrashunlk(h);
 
 	// at this point, we have a lock on the trashstart_off and need
