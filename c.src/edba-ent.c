@@ -6,7 +6,12 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 
 #ifdef EDB_FUCKUPS
 	if(h->clutchedentry) {
-		log_critf("call to edba_entryopenc when entry already clutched!");
+		log_critf("call to edba_entryopenc when an entry already clutched!");
+		return EDB_ECRIT;
+	}
+	if(!(flags & EDBA_FCREATE)) {
+		log_critf("flags must include FCREATE for edba_entryopenc");
+		return EDB_ECRIT;
 	}
 #endif
 
@@ -168,6 +173,7 @@ const edb_entry_t *edba_entrydatr(edba_handle_t *h) {
 
 void    edba_entryclose(edba_handle_t *h) {
 	edba_u_clutchentry_release(h);
+	h->opened = 0;
 }
 
 edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl) {
