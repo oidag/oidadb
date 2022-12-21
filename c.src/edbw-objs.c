@@ -42,7 +42,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 	// some easy variables we'll be needing
 	const edb_struct_t *strt;
-	edb_usrlk *usrlocks;
+	edb_usrlk usrlocks;
 	void *data;
 
 	// if err is non-0 after this then it will close
@@ -94,8 +94,8 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			}
 
 			// lock check
-			usrlocks = edba_objectlocks(handle);
-			if(*usrlocks & EDB_FUSRLCREAT) {
+			usrlocks = edba_objectlocks_get(handle);
+			if(usrlocks & EDB_FUSRLCREAT) {
 				err = EDB_EULOCK;
 				edbs_jobwrite(&self->curjob, &err, sizeof(err));
 				break;
@@ -128,8 +128,8 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			}
 
 			// lock check
-			usrlocks = edba_objectlocks(handle);
-			if(*usrlocks & EDB_FUSRLRD) {
+			usrlocks = edba_objectlocks_get(handle);
+			if(usrlocks & EDB_FUSRLRD) {
 				err = EDB_EULOCK;
 				edbs_jobwrite(&self->curjob, &err, sizeof(err));
 				break;
@@ -156,8 +156,8 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			}
 
 			// lock check
-			usrlocks = edba_objectlocks(handle);
-			if(*usrlocks & EDB_FUSRLWR) {
+			usrlocks = edba_objectlocks_get(handle);
+			if(usrlocks & EDB_FUSRLWR) {
 				err = EDB_EULOCK;
 				edbs_jobwrite(&self->curjob, &err, sizeof(err));
 				break;
@@ -178,8 +178,8 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			edbw_logverbose(self, "delete object 0x%016lX", oid);
 
 			// lock check
-			usrlocks = edba_objectlocks(handle);
-			if(*usrlocks & EDB_FUSRLWR) {
+			usrlocks = edba_objectlocks_get(handle);
+			if(usrlocks & EDB_FUSRLWR) {
 				err = EDB_EULOCK;
 				edbs_jobwrite(&self->curjob, &err, sizeof(err));
 				break;
@@ -193,27 +193,27 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			break;
 
 		case EDB_OBJ | EDB_CUSRLKR:
-			edbw_logverbose(self, "cuserlock write object 0x%016lX", oid);
-
-			// err 0
-			err = 0;
-			edbs_jobwrite(&self->curjob, &err, sizeof(err));
-
-			// read-out locks
-			usrlocks = edba_objectlocks(handle);
-			edbs_jobwrite(&self->curjob, usrlocks, sizeof(edb_usrlk));
-			break;
-
-		case EDB_OBJ | EDB_CUSRLKW:
 			edbw_logverbose(self, "cuserlock read object 0x%016lX", oid);
 
 			// err 0
 			err = 0;
 			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 
+			// read-out locks
+			usrlocks = edba_objectlocks_get(handle);
+			edbs_jobwrite(&self->curjob, &usrlocks, sizeof(edb_usrlk));
+			break;
+
+		case EDB_OBJ | EDB_CUSRLKW:
+			edbw_logverbose(self, "cuserlock write object 0x%016lX", oid);
+
+			// err 0
+			err = 0;
+			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+
 			// update locks
-			usrlocks = edba_objectlocks(handle);
-			edbs_jobread(&self->curjob, usrlocks, sizeof(edb_usrlk));
+			edbs_jobread(&self->curjob, &usrlocks, sizeof(edb_usrlk));
+			edba_objectlocks_set(handle, usrlocks & _EDB_FUSRLALL);
 			break;
 		default:break;
 	}

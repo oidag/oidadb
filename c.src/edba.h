@@ -102,12 +102,22 @@ void    edba_objectclose(edba_handle_t *h);
 //   You can change the contents of the object so long you opened this
 //   object with EDBD_FWRITE.
 //
-// edba_objectflags
-//   Will return a pointer to object the object header to modify
-//   its flags. You can modify so long that EDBD_FWRITE is true.
-//   (note to self: do not use EDB_FDELETED here)
+//
+// later: I need to have 'read-only variants' of these functions that return
+//        const pointers so that way I can check for open flags on a low level.
 void   *edba_objectfixed(edba_handle_t *h);
-edb_usrlk *edba_objectlocks(edba_handle_t *h);
+
+// edba_objectflags_get, edba_objectlocks_set
+//   Getter and setter to the user locks on this object. setter will do nothing
+//   if not open with right flags (and bitch in console)
+//
+// RETURNS (edba_objectlocks_set)
+//  - EDB_EINVAL (EDB_FUCKUPS) object not open for writing
+//  - EDB_EINVAL - lk is not a valid mask. You can prevent this error entirely by
+//                 bitwise-and-ing lk with _EDB_FUSRLALL.
+edb_usrlk edba_objectlocks_get(edba_handle_t *h);
+edb_err edba_objectlocks_set(edba_handle_t *h, edb_usrlk lk);
+
 
 // edba_objectdeleted
 //   Returns non-0 if this object is deleted. (note if it is deleted then
