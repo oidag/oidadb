@@ -149,7 +149,7 @@ edb_err edba_objectundelete(edba_handle_t *h);
 //   This will point to whatever is given by edbd.
 //
 // edbf_objectentry
-//   Will return the (readonly) structure data.
+//   Will return the (readonly) entry data.
 //   This will point to whatever is given by edbd.
 const edb_struct_t *edba_objectstruct(edba_handle_t *h);
 const edb_entry_t  *edba_objectentry(edba_handle_t *h);
