@@ -22,8 +22,14 @@ typedef struct {
 	//edb_struct_t structv;
 } edbp_struct_t;
 
+typedef enum {
+	EDB_FDELETED = 0x1000
+} edb_sysflags;
+
+// edb_object_flags is a xor'd combiniation between
+// edb_usrlk and edb_sysflags
 typedef uint32_t edb_object_flags;
-typedef void     edb_object_content;
+
 typedef struct {
 	_edbp_stdhead head;
 	uint16_t structureid;
