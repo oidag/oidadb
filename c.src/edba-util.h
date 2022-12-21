@@ -16,7 +16,7 @@
 edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl);
 void edba_u_clutchentry_release(edba_handle_t *host);
 
-// places an XL lock on the trash field.
+// places an XL lock on the =trashlast= field.
 // This effects the entry you put the clutchlock on.
 // must be called AFTER edba_u_clutchentry
 void edba_u_entrytrashlk(edba_handle_t *handle);
@@ -46,7 +46,7 @@ void edba_u_entrytrashunlk(edba_handle_t *handle);
 //   - Everything else - either criticals or fuckups
 edb_err edba_u_lookupdeepright(edba_handle_t *handle);
 
-// places a XL lock on the trashstart_off as per
+// places a XL lock on the =trashstart_off= as per
 // locking spec for autoid creation.
 void edba_u_locktrashstartoff(edba_handle_t *handle, edb_pid pageid);
 void edba_u_locktransstartoff_release(edba_handle_t *handle);
@@ -56,7 +56,7 @@ void edba_u_locktransstartoff_release(edba_handle_t *handle);
 // between edbp_start and edbp_finish with the pagecache handle
 // in handle.
 //
-// updates: handle->lock, handle->objectdata, handle->objectc
+// updates: handle->lock, handle->objectdata, handle->objectc, handle->objectoff
 //
 // flags only check for EDBA_FWRITE, if true than makes the
 // row lock exclusvive

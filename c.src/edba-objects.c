@@ -213,6 +213,77 @@ void    edba_objectclose(edba_handle_t *h) {
 
 }
 
+
+// delete group
+unsigned int edba_objectdeleted(edba_handle_t *h) {
+#ifdef EDB_FUCKUPS
+	if(h->opened != EDB_TOBJ) {
+		log_critf("opened parameter was not EDB_TOBJ");
+		return 0;
+	}
+#endif
+	return (*((edb_object_flags *)h->objectdata) & EDB_FDELETED);
+}
+edb_err edba_objectdelete(edba_handle_t *h) {
+#ifdef EDB_FUCKUPS
+	if(h->opened != EDB_TOBJ || !(h->openflags & EDBA_FWRITE)) {
+		log_critf("opened parameter was not EDB_TOBJ or without write permissions");
+		return EDB_EINVAL;
+	}
+#endif
+
+	// redundancy check (required)
+	if(edba_objectdeleted(h)) {
+		log_infof("attempted to delete already deleted object: oid#%ld",
+				  edbp_gpid(&h->edbphandle));
+		return 0;
+	}
+
+	// as per spec we must lock the trash field. We can do this with the page loaded
+	// because we have the record itself XL locked.
+	edba_u_locktrashstartoff(h, edbp_gpid(&h->edbphandle));
+	// **defer: edba_u_locktransstartoff_release(h);
+
+	// mark as deleted
+	// We do this first just incase we crash by the time we get to the trash linked list
+	// we'd rather have it marked as deleted so future query processes won't try to use it.
+	// It'll be up to pmaint to finally put it in the trash linked list in that case.
+	edb_object_flags *objflags = (edb_object_flags *)h->objectdata;
+	*objflags = *objflags & EDB_FDELETED;
+
+	// get the header of the object page
+	edbp_object_t *objheader = edbp_graw(&h->edbphandle);
+	// add to the trash linked list
+	*(uint16_t *)(h->objectdata+sizeof(edb_object_flags)) = objheader->trashstart_off;
+	objheader->trashstart_off = h->objectoff;
+	objheader->trashc++;
+
+	edba_u_locktransstartoff_release(h);
+
+	// todo: add this page to entry-level trash management if criticality is hit.
+
+	return 0;
+
+}
+edb_err edba_objectundelete(edba_handle_t *h) {
+#ifdef EDB_FUCKUPS
+	if(h->opened != EDB_TOBJ || !(h->openflags & EDBA_FWRITE)) {
+		log_critf("opened parameter was not EDB_TOBJ or without write permissions");
+		return EDB_EINVAL;
+	}
+#endif
+
+	// redundancy check (required)
+	if(!edba_objectdeleted(h)) {
+		log_infof("attempted to un-delete already existing object: oid#%ld",
+		          edbp_gpid(&h->edbphandle));
+		return 0;
+	}
+
+	// TODO
+
+}
+
 edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
                          uint16_t page_byteoff, uint16_t fixedc,
                          edbf_flags flags) {
