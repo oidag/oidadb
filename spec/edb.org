@@ -125,7 +125,7 @@ further defines it retoactively.
 | Int size        | Used to determain intfffeger size (=sizeof(int)=)                                                                          | uint8_t (3)                     |
 | Entry size      | Used to determain size of an entry (=sizeof(ag_entry)=)                                                                    | uint8_t (4)                     |
 | Page size       | The system size of page.                                                                                                   | uint16_t (6)                    |
-| Page Multiplier |                                                                                                                            | uint16_t (8)                    |
+| Page Multiplier | See [[Page Multiplier]].                                                                                         | uint16_t (8)                    |
 | Reserved        | reserved for future use, this space will be all 0 bytes (=0x0=)                                                            | char[24] (64)                   |
 | AGF Id          | A randomly generated ID for each file. No defined functional use other than to make sure all files are uniquely identified | char[32] (40)                   |
 
@@ -534,8 +534,8 @@ of the objects would be.
 | Name             | type   | Des                                                           |
 |------------------+--------+---------------------------------------------------------------|
 | Structure ID     | uint16 | Redundant to the chapter, but the structure ID of the objects |
-| =trashstart_off= | uint16 | Intra-page row offset. See [[Trash Management]].                  |
-| =trashvor=       | uint64 | Page id or -1, See [[Trash Management]].                          |
+| =trashstart_off= | uint16 | Intra-page row offset or -1. See [[Trash Management]].            |
+| =trashvor=       | uint64 | Page id or 0, See [[Trash Management]].                           |
 | =trashc=         | uint16 | the amount of trash recrods in the trash linked list.         |
 | EntryID          | uint16 | the entry id this page belongs too. use only for pmaint |
 
