@@ -21,6 +21,10 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	edb_err err;
 
 	// handle-status poltiics.
+	if(h->opened != 0) {
+		log_critf("cannot open object, something already opened");
+		return EDB_ECRIT;
+	}
 	h->opened = EDB_TOBJ;
 	h->openflags = flags;
 
@@ -67,6 +71,11 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	edb_err err;
 	edb_pid trashlast;
 
+	// politics
+	if(h->opened != 0) {
+		log_critf("cannot open object, something already opened");
+		return EDB_ECRIT;
+	}
 	h->opened = EDB_TOBJ;
 	h->openflags = flags;
 
@@ -209,9 +218,14 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 }
 
 void    edba_objectclose(edba_handle_t *h) {
+#ifdef EDB_FUCKUPS
+	if(h->opened!= EDB_TOBJ) {
+		log_debugf("trying to close object when non opened.");
+	}
+#endif
 	edba_u_pagedeload(h);
 	edba_u_clutchentry_release(h);
-
+	h->opened = 0;
 }
 
 

@@ -12,6 +12,7 @@
 #include "include/ellemdb.h"
 #include "edba.h"
 #include "edbw.h"
+#include "edbw-util.h"
 #include "edbs-jobs.h"
 #include "edbd.h"
 #include "edbp-types.h"
