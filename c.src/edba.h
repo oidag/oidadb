@@ -168,12 +168,18 @@ const edb_entry_t  *edba_objectentry(edba_handle_t *h);
 // edba_entryclose
 //   close out of the entry once done editting it.
 //
+// edba_entrydelete
+//   unlike the edba_object... family, entries do not need to be checked out
+//   if you wish to delete them. You must do it witout anything checked out.
+//   This will delete the entry and move all of its pages to garbage
+//
 // ERRORS:
 //
 //   - EDB_ECRIT: programmer error (can be ignored) (will be logged)
 //   - EDB_ENOSPACE: (edba_entryopenc) no more entry slots availabe
 edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags);
 void    edba_entryclose(edba_handle_t *h);
+edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid);
 
 // Get a pointer to the entry for read-only purposes.
 const edb_entry_t *edba_entrydatr(edba_handle_t *h);

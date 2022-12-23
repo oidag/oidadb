@@ -82,7 +82,7 @@ typedef enum _edb_jobclass {
 	//   <- edb_entry_t entry. Only the "parameters" group of the structure is used.
 	//      This determains the type and other parameters.
 	//   -> edb_err error
-	//   -> uint16_t entryid of created ID
+	//   -> (if no error) uint16_t entryid of created ID
 	//
 	// EDB_ENT | EDB_CDEL
 	//   <- uint16_t entryid of ID that is to be deleted

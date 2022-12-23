@@ -185,6 +185,36 @@ void    edba_entryclose(edba_handle_t *h) {
 	h->opened = 0;
 }
 
+edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
+
+	// handle-status politics
+	if(h->opened != 0) {
+		log_critf("cannot open entry, something already opened");
+		return EDB_ECRIT;
+	}
+	h->opened = EDB_TENTS;
+
+	// easy pointers
+	edbd_t *descriptor = h->parent->descriptor;
+	edbl_handle_t *lockh = &h->lockh;
+	edb_err err;
+
+	edba_u_clutchentry(h, eid, 1);
+	//**defer: edba_u_clutchentry_release
+
+	// set it to EDB_TPEND so we can more easily sniff out corrupted
+	// operations if we crash mid-delete.
+	h->clutchedentry->type = EDB_TPEND;
+
+	// todo: delete everythign
+
+	edbl_entrycreaiton_lock(lockh);
+	h->clutchedentry->type  = EDB_TINIT;
+	edba_u_clutchentry_release(h);
+	edbl_entrycreaiton_release(lockh);
+	return 0;
+}
+
 edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl) {
 #ifdef EDB_FUCKUPS
 	if(handle->clutchedentry) {
