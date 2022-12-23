@@ -16,6 +16,10 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 #endif
 
 	// handle-status politics
+	if(h->opened != 0) {
+		log_critf("cannot open entry, something already opened");
+		return EDB_ECRIT;
+	}
 	h->opened = EDB_TENTS;
 	h->openflags = flags;
 
@@ -172,6 +176,11 @@ const edb_entry_t *edba_entrydatr(edba_handle_t *h) {
 }
 
 void    edba_entryclose(edba_handle_t *h) {
+#ifdef EDB_FUCKUPS
+	if(h->opened!= EDB_TENTS) {
+		log_debugf("trying to close entry when non opened.");
+	}
+#endif
 	edba_u_clutchentry_release(h);
 	h->opened = 0;
 }
