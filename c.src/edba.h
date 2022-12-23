@@ -171,7 +171,8 @@ const edb_entry_t  *edba_objectentry(edba_handle_t *h);
 // edba_entrydelete
 //   unlike the edba_object... family, entries do not need to be checked out
 //   if you wish to delete them. You must do it witout anything checked out.
-//   This will delete the entry and move all of its pages to garbage
+//   This will delete the entry and move all of its pages to garbage.
+//   (for clarification, you do not need to call edba_entryclose after this.)
 //
 // ERRORS:
 //
