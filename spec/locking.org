@@ -75,7 +75,7 @@ has been fully updated.
  5. release the lock from the second byte.
 ** Entry-Creating
   1. Lock the entry-creation mutex
-  2. Surf the index for an EDB_TNONE entry.
+  2. Surf the index for an EDB_TINIT entry.
   3. Place an XL clutch lock on that entry.
   4. Set the type to EDB_TPEND to deter other creation attemps.
   5. Unlock the entry-creation mutex
@@ -86,12 +86,14 @@ has been fully updated.
   8. Release the XL clutch lock.
 ** Entry-Deleting
   1. Place an XL clutch lock on that entry.
-  2. Whiest retaining the XL clutch lock, make whatever edits are
-     needed to the entry and chapter. DO NOT TOUCH ITS TYPE yet.
-  3. Lock the entry-creation mutex
-  4. Set the type to EDB_TNONE
-  5. Release the XL clutch lock.
-  6. Unlock the entry-creation mutex
+  2. Set the chapter type to EDB_TPEND just incase of crash we can
+     sniff out corruptions.
+  3. Whiest retaining the XL clutch lock, make whatever edits are
+     needed to the entry and chapter.
+  4. Lock the entry-creation mutex
+  5. Set the type to EDB_TINIT
+  7. Release the XL clutch lock.
+  8. Unlock the entry-creation mutex
 ** Entry-Writting
   1. Place an XL clutch lock on the entry you wish to create.
   2. Whiest retaining the XL clutch lock, make whatever edits are
