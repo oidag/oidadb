@@ -1,9 +1,8 @@
 #+SETUPFILE: ~/.emacs.d/themes/stylish_white.theme
-#+TITLE: AGF (database technology)
+#+TITLE: OidaDB: EDB File
 #+AUTHOR: Kevin Marschke
 
-
-* Intro
+* Engineering Goals
 ** Intelleganice By Ignorance
 
 *** pmaint jobs
@@ -78,6 +77,21 @@ implement ontop of the AGH.
 Fast response read and write times is only the byproduct of the
 afformentioned key componenets, as high speed applications are never
 made deliberately.
+* Intro
+** This specification
+This specification is written as to educate you on how a EDB file
+should be structured and handled at any given time by only looking at
+the file itself. This specification does NOT cover the exact
+mechanics, methods, function, execution, ect.
+
+This specification ONLY covers the structure and navigation of EDB.
+** Definitions
+ - *Me*/*I*: I am the inventor and author of this specification. 
+ - *You*: You are the developer of the software that will follow this
+   specification.
+ - *The Software*: When I talk about /the/ software I'm talking about
+   the software you're making that is to utilize this specification.
+
 * The AGF file
 The AGF file is split up into two sections, the *[[Head]]* and *[[Body]]*. The
 Head is used to describe the entirety of the Body, without the Head,
@@ -1120,7 +1134,13 @@ posses straits.
 | Straitc | uint16_t | The amount of pages in the strait.                 |
 | rsvd    | uint16_t | rsvd                                               |
 
-* pmaint
+* TODO pmaint
+
+TODO: this is a special section as it doesn't describe the file itself
+but tips to perform on the file. I soon must consolidate this and the
+locking.org into a massive spec and have the majority of this file
+under the "structure" section or something.
+
 pmaint (Preventative Maintence) is a group of operations that required
 specifically for the need to keep entopic tendencies under
 control. pmaint operations are expensive and thus should be ran only
@@ -1150,25 +1170,18 @@ applicable. But another pmaint job that can be ran involves
 
 Excretion maybe more cost than what its worth.
 
+** Crash Recovery
+Things to fix:
+
+ - unreferenced pages from crash
+ - are mid-edits possible?
+ - if I completely kill a software with mmap'd pages, do they sync?
 ** Some notes
  - If a object deletion crashes, it's first job is to mark the object
    as deleted. So pmaint should be able to go page-to-page and make
    sure the object trash linked list makes sense to all the deleted
    records in the page. (or just completely rebuild the linked list on
    the page if a corruption is detected)
-* TODO Locks
-Theres two classes
-
-These locks are mirrored after how InnoDB uses their locks (see
-appendex).
-
-|    | X        | IX         | S          | IS         |
-| X  | Conflict | Conflict   | Conflict   | Conflict   |
-| IX | Conflict | Compatible | Conflict   | Compatible |
-| S  | Conflict | Conflict   | Comptable  | Compatible |
-| IS | Conflict | Compatible | Compatible | Compatible |
-
-
 * Appendex
 ** TODOS
  - R-Trees
