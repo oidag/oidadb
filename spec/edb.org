@@ -1077,10 +1077,48 @@ the page is full /and/ there is no garbage, this is known as a
 | Subpages | char[]... |         |
 
 * edbp_deleted
+There is but one chapter dedicated to deleted pages and all deleted
+pages belong to this chapter. These pages - known as =edbp_deleted=
+pages - are full of references to other pages that have been marked
+for deletion.
 
-If a page is no longer needed by the chapter that had created it, it
-can be marked for deletion. Set the type to =edbp_deleted= and add it
-to the deleted chapter.
+These references, when followed, have contents to which can be
+completely ignored. In otherwords, when a page is marked for deleted,
+nothing is to be assumed about the "validity" of that page. The page
+can be random bytes for all you know.
+
+If a page is referenced in the deleted chapter, this is an /exclusive/
+reference. Meaning nothing else in the entire database has it
+referenced for any reason. Thus, page replacement algorythems should
+reset the usefulness of a page when it has been marked for deletion.
+
+The goal of how =edbp_deleted= is engineered is to make The Software
+hold a few pages of =edbp_deleted= in static memory and add and remove
+references as it needs too quickly.
+
+If a page must be marked as deleted, and such page happens to be the
+last page of the file, The Software may have the choice to simply
+truncate the page to avoid processing it into the =edbp_deleted=
+chapter. This optimization is up to you. Just at no point should any
+page be unreferenced in a database, save for an unexpected crash, in
+which case unreferenced pages should be handled via pmaint.
+
+** =edbp_deleted= rsvdL / rsvdR
+=rsvdL= and =rsvdR= will be the left/right pages of the chapter as
+you'd normally suspect.
+
+** =edbp_deleted= rsvd1
+No special header.
+
+** =edbp_deleted= body
+The page body is populated by an array of references. Referances can
+posses straits.
+
+| Name    | Type     | Desc                                               |
+|---------+----------+----------------------------------------------------|
+| Ref     | [[Page ID]]  | The deleted page strait start. If 0, null refrance |
+| Straitc | uint16_t | The amount of pages in the strait.                 |
+| rsvd    | uint16_t | rsvd                                               |
 
 * pmaint
 pmaint (Preventative Maintence) is a group of operations that required
