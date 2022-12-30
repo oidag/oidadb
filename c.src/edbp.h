@@ -74,29 +74,6 @@ typedef enum {
 #define EDBP_HMAXLIF 0x7 // 0000 1001
 #define EDBP_SLOTBOOSTPER 0.10f // 10% of page capacity
 
-// Always use this instead of sizeof(edbp_head) because
-// edbp_head doesn't include the page-specific heading
-#define EDBP_HEADSIZE 48
-typedef struct {
-
-	// Do not touch these fields outside of pages-*.c files:
-	// these can only be modified by edbp_mod
-	uint32_t _checksum;
-	uint32_t _hiid;
-	uint32_t _rsvd2; // used to set data regarding who has the exclusive lock.
-	uint8_t  _pflags;
-
-	// all of thee other fields can be modified so long the caller
-	// has an exclusive lock on the page.
-	edb_type ptype;
-	uint16_t rsvd;
-	uint64_t pleft;
-	uint64_t pright;
-
-	// 16 bytes left for type-specific.
-	//uint8_t  psecf[16]; // page spcific. see types.h
-} _edbp_stdhead;
-
 // the raw content of the page. This is byte-by-byte what is
 // in the database.
 //

@@ -36,6 +36,39 @@ typedef struct {
 	char rsvd[72];
 } edb_fhead;
 
+// todo: sort these structures:
+typedef struct {
+
+	// Do not touch these fields outside of pages-*.c files:
+	// these can only be modified by edbp_mod
+	uint32_t _checksum;
+	uint32_t _hiid;
+	uint32_t _rsvd2; // used to set data regarding who has the exclusive lock.
+	uint8_t  _pflags;
+
+	// all of thee other fields can be modified so long the caller
+	// has an exclusive lock on the page.
+	edb_type ptype;
+	uint16_t rsvd;
+	uint64_t pleft;
+	uint64_t pright;
+
+	// 16 bytes left for type-specific.
+	//uint8_t  psecf[16]; // page spcific. see types.h
+} _edbd_stdhead;
+typedef struct edb_deletedref_st {
+	edb_pid ref;
+	uint16_t straitc;
+	uint16_t _rsvd2;
+} edb_deletedref_t;
+typedef struct edb_deleted_refhead_st {
+	_edbd_stdhead head;
+	uint16_t _rsvd;
+	uint16_t refc; // non-null references.
+	uint32_t pagesc;
+	uint64_t _rsvd2;
+} edb_deleted_refhead_t;
+
 typedef struct edb_file_st {
 	int descriptor;
 
@@ -61,11 +94,9 @@ typedef struct edb_file_st {
 
 } edbd_t;
 
-typedef struct edb_deletedref_st {
-	edb_pid ref;
-	uint16_t straitc;
-	uint16_t _rsvd;
-} edb_deletedref_t;
+// Always use this instead of sizeof(edbp_head) because
+// edbp_head doesn't include the page-specific heading
+#define EDBD_HEADSIZE 48
 
 // simply returns the size of the pages found in this cache.
 // note: this can be replaced with a hardcoded macro in builds

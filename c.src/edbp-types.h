@@ -6,7 +6,7 @@
 #include "stdint.h"
 
 typedef struct {
-	_edbp_stdhead head;
+	_edbd_stdhead head;
 	uint8_t _tphead[16];
 
 	// in memory after this structure is entries.
@@ -15,7 +15,7 @@ typedef struct {
 
 
 typedef struct {
-	_edbp_stdhead head;
+	_edbd_stdhead head;
 	uint8_t _tphead[16];
 
 	// in memeory after this is structures.
@@ -31,7 +31,7 @@ typedef enum {
 typedef uint32_t edb_object_flags;
 
 typedef struct {
-	_edbp_stdhead head;
+	_edbd_stdhead head;
 	uint16_t structureid;
 	uint16_t trashstart_off;
 	uint64_t trashvor; // careful accessing this outside of a =trashlast= lock.
@@ -43,7 +43,7 @@ typedef struct {
 } edbp_object_t;
 
 typedef struct {
-	_edbp_stdhead head;
+	_edbd_stdhead head;
 	uint16_t entryid;
 	uint16_t refc;
 	uint64_t parentlookup;
@@ -71,7 +71,7 @@ typedef struct {
 } edbp_dsm_t;
 
 typedef struct {
-	_edbp_stdhead head;
+	_edbd_stdhead head;
 	uint32_t _rsvd;
 	uint32_t garbagestart;
 	uint8_t _tphead[8];
@@ -100,16 +100,16 @@ edb_lref_t *edbp_lookup_refs(edbp_lookup_t *l);
 // returns the amount of bytes into the object page until the start of the given row.
 inline unsigned int edbp_object_intraoffset(uint64_t rowid, uint64_t pageoffset, uint16_t objectsperpage, uint16_t fixedlen)
 {
-	unsigned int ret = EDBP_HEADSIZE + (unsigned int)(rowid - pageoffset * (uint64_t)objectsperpage) * (unsigned int)fixedlen;
+	unsigned int ret = EDBD_HEADSIZE + (unsigned int)(rowid - pageoffset * (uint64_t)objectsperpage) * (unsigned int)fixedlen;
 #ifdef EDB_FUCKUPS
-	if(ret > (EDBP_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen)) {
+	if(ret > (EDBD_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen)) {
 		log_critf("intraoffset calculation corruption: calculated byte offset (%d) exceeds that of theoretical maximum (%d)",
-				  ret, EDBP_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen);
+		          ret, EDBD_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen);
 	}
 #endif
 	return ret;
 
 }
-//inline void *edbp_body(edbp_t *page) {return page + EDBP_HEADSIZE;}
+//inline void *edbp_body(edbp_t *page) {return page + EDBD_HEADSIZE;}
 
 #endif

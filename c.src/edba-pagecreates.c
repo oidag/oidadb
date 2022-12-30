@@ -30,7 +30,7 @@ static edb_err xlloadlookup(edba_handle_t *handle,
 	// get the void pointer of the existing lookup page
 	void *lookup = edbp_graw(edbp);
 	*lookuphead = lookup;
-	*lookuprefs = lookup + EDBP_HEADSIZE;
+	*lookuprefs = lookup + EDBD_HEADSIZE;
 
 	// we can set this hint now to save us from doing it on the
 	// several exits.
@@ -433,7 +433,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	// **defer: edbp_finish(edbp);
 	void *page = edbp_graw(edbp);
 	edbp_lookup_t *pageheader = (edbp_lookup_t *)page;
-	edb_lref_t *pagerefs = page + EDBP_HEADSIZE;
+	edb_lref_t *pagerefs = page + EDBD_HEADSIZE;
 
 	// write the header
 	pageheader->entryid = header.entryid;
@@ -481,7 +481,7 @@ void static initobjectspage(void *page, edbp_object_t header, const edb_struct_t
 	};
 
 	// set up the body
-	void *body = page + EDBP_HEADSIZE;
+	void *body = page + EDBD_HEADSIZE;
 	for(int i = 0; i < objectsperpage; i++) {
 		void *obj = body + strct->fixedc * i;
 		edb_object_flags *flags = obj;
@@ -506,7 +506,7 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 	edbphandle_t *edbp = &handle->edbphandle;
 	edb_err err;
 	edbd_t *descriptor = handle->parent->descriptor;
-	unsigned int objectsperpage = (edbd_size(handle->edbphandle.parent->fd) - EDBP_HEADSIZE) / strct->fixedc;
+	unsigned int objectsperpage = (edbd_size(handle->edbphandle.parent->fd) - EDBD_HEADSIZE) / strct->fixedc;
 
 	// later: need to reuse deleted pages rather than creating them by utilizing the
 	//        deleted page / trash line
