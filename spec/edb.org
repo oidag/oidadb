@@ -374,6 +374,7 @@ Some Entries are reserved in fixed positions.
 
  - Entry 0: the edbp_index itself.
  - Entry 1: all deleted pages (edbp_deleted)
+   - For this entry, ref1 will point to the end of the chapter.
  - Enrty 2: edbp_struct
  - Entry 3: reserved
  - Entry 4: and over: edbp_ojbect chapters
@@ -1122,7 +1123,12 @@ which case unreferenced pages should be handled via pmaint.
 you'd normally suspect.
 
 ** =edbp_deleted= rsvd1
-No special header.
+| Name   | Clang    | Def                                                                |
+|--------+----------+--------------------------------------------------------------------|
+| rsvd   | uint16_t | rsvd                                                               |
+| Refc   | uint16_t | The amount of (non-null) references in this page.                  |
+| Pagesc | uint32_t | The total amount of pages that are ferences (the sum of straitc's) |
+(the rest be 0s)
 
 ** =edbp_deleted= body
 The page body is populated by an array of references. Referances can
