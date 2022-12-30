@@ -139,7 +139,7 @@ unsigned int edbd_size(const edbd_t *c) {
 void edbd_close(edbd_t *file) {
 
 	// destroy mutex
-	pthread_mutex_destroy(&file->eofmutext);
+	pthread_mutex_destroy(&file->adddelmutex);
 
 	// dealloc memeory
 	int err = munmap(file->head, sysconf(_SC_PAGE_SIZE));
@@ -266,7 +266,7 @@ edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flag
 	}
 
 	// initialize the mutex.
-	err = pthread_mutex_init(&file->eofmutext, 0);
+	err = pthread_mutex_init(&file->adddelmutex, 0);
 	if(err) {
 		log_critf("failed to initialize eof mutex: %d", err);
 		edbd_close(file);
@@ -280,16 +280,11 @@ edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flag
 	return 0;
 }
 
-// locks/unlocks the endoffile for new entries
-void static lockeof(edbd_t *caache) {
-	pthread_mutex_lock(&caache->eofmutext);
-}
-void static unlockeof(edbd_t *caache) {
-	pthread_mutex_unlock(&caache->eofmutext);
-}
+// extract the reference array from the page. Returns refs per page (will include null refs).
+// this function will probably be replaced by a macro.
+static int getrefs(edbd_t *file, void *page, edb_deletedref_t **o_refs);
 
-
-edb_err edbd_add(edbd_t *desc, uint8_t straitc, edb_pid *o_id) {
+edb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 #ifdef EDB_FUCKUPS
 	// invals
 	if(o_id == 0) {
@@ -303,53 +298,55 @@ edb_err edbd_add(edbd_t *desc, uint8_t straitc, edb_pid *o_id) {
 #endif
 
 	// easy vars
-	int fd = desc->descriptor;
+	int fd = file->descriptor;
 	edb_pid setid;
+	edb_err err = 0;
 
 	// new page must be created.
 	// lock the eof mutex.
-	// **defer: unlockeof(desc);
-	lockeof(desc);
+	// **defer: unlockeof(file);
+	pthread_mutex_lock(&file->adddelmutex);
 	//seek to the end and grab the next page id while we're there.
 	off64_t fsize = lseek64(fd, 0, SEEK_END);
-	setid = edbd_off2pid(desc, fsize + 1); // +1 to put us at the start of the next page id.
+	setid = edbd_off2pid(file, fsize + 1); // +1 to put us at the start of the next page id.
 	// we HAVE to make sure that fsize/id is set properly. Otherwise
 	// we end up truncating the entire file, and thus deleting the
 	// entire database lol.
 	if(setid == 0 || fsize == -1) {
 		log_critf("failed to seek to end of file");
-		unlockeof(desc);
-		return EDB_ECRIT;
+		err = EDB_ECRIT;
+		goto return_unlock;
 	}
 
 #ifdef EDB_FUCKUPS
 	// double check to make sure that the file is block-aligned.
 	// I don't see how it wouldn't be, but just incase.
-	if(fsize % edbd_size(desc) != 0) {
+	if(fsize % edbd_size(file) != 0) {
 		log_critf("for an unkown reason, the file isn't page aligned "
-		          "(modded over %ld bytes). Crash mid-write?", fsize % edbd_size(desc));
-		unlockeof(desc);
-		return EDB_ECRIT;
+		          "(modded over %ld bytes). Crash mid-write?", fsize % edbd_size(file));
+		err = EDB_ECRIT
+		goto return_unlock;
 	}
 #endif
 
 	// using ftruncate we expand the size of the file by the amount of
 	// pages they want. As per ftruncate(2), this will initialize the
 	// pages with 0s.
-	int werr = ftruncate64(fd, fsize + edbd_size(desc) * straitc);
-	unlockeof(desc);
+	int werr = ftruncate64(fd, fsize + edbd_size(file) * straitc);
 	if(werr == -1) {
-		int err = errno;
+		int errnom = errno;
 		log_critf("failed to truncate-extend for new pages");
-		if(err == EINVAL) {
-			return EDB_ENOSPACE;
+		if(errnom == EINVAL) {
+			err = EDB_ENOSPACE;
+		} else {
+			err = EDB_ECRIT;
 		}
-		return EDB_ECRIT;
+		goto return_unlock;
 	}
 
 	// As noted just a second ago, the pages we have created are nothing
 	// but 0s. And by design, this means that the heads of these pages
-	// are actually defined as per specification. Sense the _edbp_stdhead.ptype
+	// are actually defined as per specification. Sense the _edbd_stdhead.ptype
 	// will be 0, that means it takes the definiton of EDB_TINIT.
 
 	// later: however, I need to think about what happens if the thing
@@ -357,5 +354,140 @@ edb_err edbd_add(edbd_t *desc, uint8_t straitc, edb_pid *o_id) {
 	//        creats.
 
 	*o_id = setid;
-	return 0;
+
+	return_unlock:
+	pthread_mutex_unlock(&file->adddelmutex);
+	return err;
+}
+
+edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
+#ifdef EDB_FUCKUPS
+	if(straitc == 0 || id == 0) {
+		log_critf("invalid arguments");
+		return EDB_EINVAL;
+	}
+	// see the "goto retry_newpage"
+	int recusiveoopsisescheck = 0;
+#endif
+
+	// some working vars.
+	edb_err err = 0;
+	edb_deletedref_t *ref;
+	edb_deleted_refhead_t *head;
+	const unsigned int refsperpage = (edbd_size(file) - EDBD_HEADSIZE) / sizeof(edb_deletedref_t);
+	pthread_mutex_lock(&file->adddelmutex);
+
+	// first look at our deleted window. Do we have any free slots?
+	retry_newpage:
+	for(unsigned int i = 0; i < file->delpagesc; i++) { // we go forwards to "push" deleted pages.
+		head = file->delpages[i];
+		if(head->refc == refsperpage) {
+			// we shouldn't try to search this page because it's already completely full of non-null
+			// referneces. Although it is still possible to fit these newly deleted
+			// pages in here via the [[expand-existing-optimization]] (see below). We'll
+			// be lazy as that optimization is unlikely to happen with already full pages.
+			continue;
+		}
+		// with this page selected see if we have any null refs.
+		for(unsigned int j = 0; j < refsperpage; j++) { // again, go forwards to push
+			ref = file->delpages[i] + EDBD_HEADSIZE + sizeof(edb_deletedref_t) * j;
+			if(ref->ref == 0) {
+				// found a null reference
+				ref->ref = id;
+				ref->straitc = straitc;
+				head->refc++;
+				head->pagesc += straitc;
+				goto return_unlock;
+			}
+
+			// [[expand-existing-optimization]]
+			// this ref is non-null, can't use it... unless the pages we are needing to
+			// delete just happen to be in strait to this. In which case we can just
+			// edit this referance to include the strait. We'll also make sure consolidating
+			// these straits doesn't overflow a uint16. The next paragraph of code is but a
+			// neat little optimization.
+			if(((int)ref->straitc+(int)straitc) < UINT16_MAX) {
+				continue;
+			}
+			if(ref->ref + ref->straitc == id) {
+				ref->straitc += straitc;
+				head->pagesc += straitc;
+			} else if(id + straitc == ref->ref) {
+				ref->straitc += straitc;
+				head->pagesc += straitc;
+				ref->ref      = id;
+			} else {
+				// can't tag along with this ref.
+				continue;
+			}
+			// atp: we didn't find a null ref because we found a ref that we can just "tag along" with.
+			//      Meaning we expanded an existing refernce to include our deleted pages.
+			goto return_unlock;
+		}
+	}
+#ifdef EDB_FUCKUPS
+	if(recusiveoopsisescheck) {
+		log_critf("just executed delete-find logic twice. Something went wrong with the page create.");
+		err = EDB_ECRIT;
+		goto return_unlock;
+	}
+	recusiveoopsisescheck++;
+#endif
+	{ // scoped for readability
+		// atp: This should be rare. But we didn't find any null references in our current deleted pages window.
+		//      Thus, we must find/create a new window so we have some null references.
+
+		// We will opt-in for creating a new edbp_delete page because it's unlikely that a previous
+		// page in the deleted chapter isn't full... yeah it can still happen... but unlikely.
+		// So just create a new page.
+		edb_entry_t *ent;
+		edbd_index(file, EDBD_EIDDELTED, &ent);
+		edb_pid newdeletedpage;
+		err = edbd_add(file, 1, &newdeletedpage);
+		if (err) {
+			goto return_unlock;
+		}
+
+		// reference the new page to the chapater.
+		// todo: make sure to initialize delpages.
+		head = file->delpages[0]; // we know index 0 will always be the current last page.
+		head->head.pright = newdeletedpage;
+
+		// move all of pages in the window 1 further down the array. The last index
+		// of this window will be unloaded to make room for the newly created page.
+		munmap(file->delpages[file->delpagesc-1], edbd_size(file));
+		for(int i = file->delpagesc-1; i > 0; i--) {
+			file->delpages[i] = file->delpages[i-1];
+		}
+
+		// load in our newly created page
+		file->delpages[0] = mmap64(0, edbd_size(file), PROT_READ | PROT_WRITE,
+		                           MAP_SHARED,
+		                           file->descriptor,
+		                           edbd_pid2off(file, newdeletedpage));
+		if (file->delpages[0] == (void *) -1) {
+			log_critf("failed to allocate memory for new deleted memory index");
+			// todo: unlocks
+			return EDB_ECRIT;
+		}
+		// initialize the new page
+		head = file->delpages[0];
+		head->head.pleft = ent->ref1;
+		//head->head.pright = 0; its 0 already sense intiialized to 0
+		head->head.ptype = EDB_TDEL;
+
+		// finally, mark the newdeleted page as in the chapter from the entry's perspective
+		ent->ref0c++;
+		ent->ref1 = newdeletedpage;
+
+		// now that we've just created a fresh page at index 0. We'll go back to our original
+		// logic that finds null references, which now that it has a fresh page, should 100%
+		// return before it trys to create yet another page. I'll put some EDB_FUCKUPS catches
+		// jsut incase.
+		goto retry_newpage;
+	}
+
+	return_unlock:
+	pthread_mutex_unlock(&file->adddelmutex);
+	return err;
 }

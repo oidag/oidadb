@@ -89,8 +89,14 @@ typedef struct edb_file_st {
 	// doesn't change after init.
 	uint16_t       page_size;
 
-	// eofmutext that controls the creation/deletion of pages.
-	pthread_mutex_t eofmutext;
+	// adddelmutex that controls the creation/deletion of pages.
+	pthread_mutex_t adddelmutex;
+
+	// static deleted page window.
+	// delpages is an array of pointers to deleted pages.
+	// Each page in delpages is full of edb_deletedref_t after their head.
+	void **delpages; // the first page in the window will always be the (current) last page in the chapter.
+	int    delpagesc; // constant number of pages in window
 
 } edbd_t;
 
@@ -152,8 +158,13 @@ edb_err edbd_struct(const edbd_t *file, uint16_t structureid, edb_struct_t **o_s
 //
 // THREADING:
 //   Thread safe per file.
-edb_err edbd_add(edbd_t *desc, uint8_t straitc, edb_pid *o_id);
-edb_err edbd_del(edbd_t *parent, uint8_t straitc, edb_pid id);
+edb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id);
+edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id);
+
+#define EDBD_EIDINDEX  0
+#define EDBD_EIDDELTED 1
+#define EDBD_EIDSTRUCT 2
+#define EDBD_EIDRSVD3  3
 
 // helper functions
 
