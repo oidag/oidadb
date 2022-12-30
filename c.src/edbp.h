@@ -141,7 +141,7 @@ typedef struct {
 // the cahce, installed in the host
 typedef struct _edbpcache_t {
 	int initialized; // 0 for not, 1 for yes.
-	int fd;
+	const edbd_t *fd;
 
 	// slots
 	edbp_slot     *slots;
@@ -158,10 +158,6 @@ typedef struct _edbpcache_t {
 	// same spot everytime.
 	edbp_slotid    slot_nextstart;
 
-	// calculated by native page size by page mutliplier.
-	// doesn't change after init.
-	uint16_t       page_size;
-
 	// slotboostCc is a number from 0 to 1 that is multipled by
 	// slot_count and the result is stored in slotboost. This is done
 	// once during cache startup.
@@ -175,7 +171,6 @@ typedef struct _edbpcache_t {
 	float slotboostCc; //(assigned to constant on startup)
 	unsigned int   slotboost;
 
-	pthread_mutex_t eofmutext;
 	pthread_mutex_t mutexpagelock;
 
 
@@ -196,11 +191,6 @@ typedef struct _edbphandle_t {
 
 	unsigned int id; // unique id for each handle assigned at newhandle time.
 } edbphandle_t;
-
-// simply returns the size of the pages found in this cache.
-// note: this can be replaced with a hardcoded macro in builds
-// that only support a single page multiplier
-unsigned int edbp_size(const edbpcache_t *c);
 
 #define EDBP_HANDLE_MAXSLOTS 1
 
@@ -244,14 +234,6 @@ typedef enum {
 	EDBP_CACHEHINT = 0x1002,
 } edbp_options;
 
-// edbp_create will create a page strait of length straitc and will return the
-// first page in that strait's id in o_pid. The page's binary will be 0-initialized
-//
-// RETURNS:
-//   EDB_EINVAL - (EDB_FUCKUPS) id was null or straitc was 0.
-//   EDB_ENOSPACE - file size would exceed maximum file size
-edb_err edbp_create(edbphandle_t *handle, uint8_t straitc, edb_pid *o_id);
-
 // edbp_start and edbp_finish allow workers to access pages in a file while managing
 // page caches, access, allocations, ect., also allows for the creation of new pages.
 //
@@ -288,12 +270,12 @@ edb_err edbp_create(edbphandle_t *handle, uint8_t straitc, edb_pid *o_id);
 edb_err edbp_start (edbphandle_t *handle, edb_pid id);
 void    edbp_finish(edbphandle_t *handle);
 
-// edbp_create will initialize blank object pages. Thread safe per handle.
+// edbd_add will initialize blank object pages. Thread safe per handle.
 //
 //  - pagec: the amount of pages you want in strait. Must be at least 1.
 //  - o_startpid: output pointer that will be the pid of the FIRST page in the striat.
 //
-// You cannot use any edbp_create function will a page is started.
+// You cannot use any edbd_add function will a page is started.
 //
 // Does not touch any lookup pages or any references, you'll have to deal with that.
 //
@@ -365,16 +347,5 @@ edb_pid edbp_gpid(const edbphandle_t *handle);
 // UNDEFINED:
 //   - calling with an unitialized handle/cache
 edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...);
-
-
-// helper functions
-
-// changes the pid into a file offset.
-off64_t inline edbp_pid2off(const edbpcache_t *c, edb_pid id) {
-	return (off64_t)id * edbp_size(c);
-}
-edb_pid inline edbp_off2pid(const edbpcache_t *c, off64_t off) {
-	return off / edbp_size(c);
-}
 
 #endif

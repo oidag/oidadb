@@ -166,7 +166,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	h->lock = (edbl_lockref) {
 		.l_type = EDBL_EXCLUSIVE,
 		.l_len = structdat->fixedc,
-		.l_start = edbp_pid2off(h->parent->pagecache, pageid) + intrapagebyteoff,
+		.l_start = edbd_pid2off(h->parent->pagecache->fd, pageid) + intrapagebyteoff,
 	};
 	edbl_set(&h->lockh, h->lock);
 
@@ -418,7 +418,7 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 	// or install an XL lock as per Object-Writing
 	h->lock = (edbl_lockref) {
 			.l_type  = EDBL_TYPSHARED,
-			.l_start = edbp_pid2off(h->parent->pagecache, pid) + page_byteoff,
+			.l_start = edbd_pid2off(h->parent->pagecache->fd, pid) + page_byteoff,
 			.l_len   = fixedc,
 	};
 	if(flags & EDBA_FWRITE) {

@@ -141,7 +141,7 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 			// roll back page creations
 			i--; // roll back to the last itoration where we did successfully create a page.
 			for( ; i >= 0; i--) {
-				if(edba_u_pagedelete(h, lookuppages[i], 1)) {
+				if(edbd_del(descriptor, 1, lookuppages[i])) {
 					log_critf("page leak: %ld", lookuppages[i]);
 				}
 			}
@@ -161,8 +161,8 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	// 0 out the reserved block just for future refeance.
 	e.rsvd = 0;
 	//e.type = EDB_TOBJ; (just to make corruptiong VERY obvious, we'll save this after)
-	e.lookupsperpage = (edbp_size(edbphandle->parent) - EDBP_HEADSIZE) / sizeof(edb_lref_t);
-	e.objectsperpage = (edbp_size(edbphandle->parent) - EDBP_HEADSIZE) / strck->fixedc;
+	e.lookupsperpage = (edbd_size(edbphandle->parent->fd) - EDBP_HEADSIZE) / sizeof(edb_lref_t);
+	e.objectsperpage = (edbd_size(edbphandle->parent->fd) - EDBP_HEADSIZE) / strck->fixedc;
 	e.trashlast = 0;
 
 	// we're all done, save to persistant memory.

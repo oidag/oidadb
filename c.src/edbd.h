@@ -52,8 +52,25 @@ typedef struct edb_file_st {
 	//
 	edb_fhead *head;
 
+	// calculated by native page size by page mutliplier.
+	// doesn't change after init.
+	uint16_t       page_size;
+
+	// eofmutext that controls the creation/deletion of pages.
+	pthread_mutex_t eofmutext;
+
 } edbd_t;
 
+typedef struct edb_deletedref_st {
+	edb_pid ref;
+	uint16_t straitc;
+	uint16_t _rsvd;
+} edb_deletedref_t;
+
+// simply returns the size of the pages found in this cache.
+// note: this can be replaced with a hardcoded macro in builds
+// that only support a single page multiplier
+unsigned int edbd_size(const edbd_t *c);
 
 // open, create, and close valid edb files. does not edit
 // Head-Meta after loading.
@@ -88,8 +105,34 @@ void    edbd_close(edbd_t *file);
 edb_err edbd_index(const edbd_t *file, edb_eid eid, edb_entry_t **o_entry);
 edb_err edbd_struct(const edbd_t *file, uint16_t structureid, edb_struct_t **o_struct);
 
-// returns a mmap'd pointer to
-int edbd_indexc(const edbd_t *file);
+// edbd_add
+//   is the most primative way to create. will create a page strait of length straitc and will return the
+//   first page in that strait's id in o_pid. The pages' binary will be 0-initialized.
+//
+// edbd_del
+//   This will delete the pages.
+//
+// ERRORS:
+//   - EDB_EINVAL: (edbd_add) pid was null
+//   - EDB_EINVAL: (edbd_del) pid was 0
+//   - EDB_EINVAL: straitc is 0.
+//   - EDB_ENOSPACE (edbd_add): file size would exceed maximum file size
+//   - EDB_ECRIT: other critical error (logged)
+//
+// THREADING:
+//   Thread safe per file.
+edb_err edbd_add(edbd_t *desc, uint8_t straitc, edb_pid *o_id);
+edb_err edbd_del(edbd_t *parent, uint8_t straitc, edb_pid id);
+
+// helper functions
+
+// changes the pid into a file offset.
+off64_t inline edbd_pid2off(const edbd_t *c, edb_pid id) {
+	return (off64_t)id * edbd_size(c);
+}
+edb_pid inline edbd_off2pid(const edbd_t *c, off64_t off) {
+	return off / edbd_size(c);
+}
 
 
 #endif
