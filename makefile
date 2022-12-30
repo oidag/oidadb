@@ -18,8 +18,7 @@ PUBLISHDATE=$(shell date '+%F')
 COMMITS=$(shell git rev-list --all --count)
 LASTCOMMIT=$(shell git log -1 --format=%cI)
 REVISION=$(shell git log -1 --format=%H)
-LINECOUNT=$(shell ( find ./c.src -type f -print0 | xargs -0 cat ) | wc -l)
-SPECLINECOUNT=$(shell ( find ./spec -type f -print0 | xargs -0 cat ) | wc -l)
+LINECOUNT=$(shell ( find ./spec ./c.src -type f -print0 | xargs -0 cat ) | wc -l)
 build/metrics.m4: .force
 	@mkdir -p build
 	echo 'dnl' > $@
@@ -28,7 +27,6 @@ build/metrics.m4: .force
 	echo 'define(LASTCOMMIT, $(LASTCOMMIT))dnl' >> $@
 	echo 'define(REVISION, $(REVISION))dnl' >> $@
 	echo 'define(LINECOUNT, $(LINECOUNT))dnl' >> $@
-	echo 'define(SPECLINECOUNT, $(SPECLINECOUNT))dnl' >> $@
 
 
 clean:
