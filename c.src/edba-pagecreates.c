@@ -15,7 +15,7 @@ static edb_err xlloadlookup(edba_handle_t *handle,
 	// as per locking spec, we must place an XL lock on the second
 	// byte on the page before we open it.
 	lock->l_type = EDBL_EXCLUSIVE;
-	lock->l_start = edbp_pid2off(edbp->parent, lookuppid) + 1;
+	lock->l_start = edbd_pid2off(edbp->parent->fd, lookuppid) + 1;
 	lock->l_len = 1;
 	edbl_set(&handle->lockh, *lock);
 	// **defer: edbl_set(&handle->lockh, lock);
@@ -135,7 +135,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 		edbl_entryref0c(&handle->lockh, entryid, EDBL_TYPUNLOCK);
 		return err;
 	}
-	// **defer on error: edba_u_pagedelete(handle, newobjectpid, straitc);
+	// **defer on error: edbd_del(handle, staitc, newobjectpid);
 
 	// atp: we have the new object pages created at newobjectpid to newobjectpid + straitc, but
 	// they're entirely unreferanced (so make sure to clean them up on failure).
@@ -387,14 +387,14 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 
 	// delete the lookup pages
 	for(int d = 0; d < createdlookupsc; d++) {
-		if (edba_u_pagedelete(handle, createdlookups[d], 1)) {
+		if (edbd_del(handle->parent->descriptor, 1, createdlookups[d])) {
 			log_critf("page leak: pid %ld", createdlookups[d]);
 		}
 	}
 
 	// delete the object pages
 	// roll back the object pages
-	if (edba_u_pagedelete(handle, newobjectpid, straitc)) {
+	if (edbd_del(handle->parent->descriptor, straitc, newobjectpid)) {
 		log_critf("page leak: pid %ld-%ld", newobjectpid, newobjectpid + straitc);
 	}
 
@@ -408,13 +408,14 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 
 	// easy ptrs
 	edbphandle_t *edbp = &handle->edbphandle;
+	edbd_t *descriptor = handle->parent->descriptor;
 	edb_err err;
 
 	// later: need to reuse deleted pages rather than creating them by utilizing the
 	//        deleted page / trash line
 
 	// create the page
-	err = edbp_create(edbp, 1, o_pid);
+	err = edbd_add(descriptor, 1, o_pid);
 	if(err) {
 		return err;
 	}
@@ -424,7 +425,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	if(err) {
 		log_debugf("failed to start page after it's creation, "
 				   "to prevent if from going unrefanced, will be attempting to delete it.");
-		if(edba_u_pagedelete(handle, *o_pid, 1)) {
+		if(edbd_del(descriptor, 1, *o_pid)) {
 			log_critf("page leak! pid %ld is unreferanced", *o_pid);
 		}
 		return err;
@@ -504,13 +505,14 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 	// easy ptrs
 	edbphandle_t *edbp = &handle->edbphandle;
 	edb_err err;
-	unsigned int objectsperpage = (edbp_size(handle->edbphandle.parent) - EDBP_HEADSIZE) / strct->fixedc;
+	edbd_t *descriptor = handle->parent->descriptor;
+	unsigned int objectsperpage = (edbd_size(handle->edbphandle.parent->fd) - EDBP_HEADSIZE) / strct->fixedc;
 
 	// later: need to reuse deleted pages rather than creating them by utilizing the
 	//        deleted page / trash line
 
 	// create the pages
-	err = edbp_create(edbp, straitc, o_pid);
+	err = edbd_add(descriptor, straitc, o_pid);
 	if(err) {
 		return err;
 	}
@@ -522,7 +524,7 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 		if (err) {
 			log_debugf("failed to start page after it's creation, "
 			           "to prevent if from going unrefanced, will be attempting to delete it.");
-			if (edba_u_pagedelete(handle, *o_pid, 1)) {
+			if (edbd_del(handle->parent->descriptor, 1, *o_pid)) {
 				log_critf("page leak! pid %ld is unreferanced", *o_pid);
 			}
 			return err;

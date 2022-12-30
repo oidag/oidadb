@@ -39,7 +39,11 @@ both edb, and locking.
 
 * edbd.h
 The fundemental file (d)escriptor of edb files. This mainly deals with
-all meta and static pages (pages that are not put into edbp caches).
+all meta and static pages (pages that are not put into edbp
+caches). This includes all entry IDs 4 and lower.
+
+The edbd namespace is also the only namespace that can create and
+delete raw pages.
 
 * edbx.h
 Everything needed to e(x)ecute hosting, this will simply allocate everything

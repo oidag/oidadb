@@ -12,7 +12,7 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 	edbl_lockref lock = (edbl_lockref){
 			.l_type = EDBL_TYPSHARED,
 			.l_len = 1,
-			.l_start = edbp_pid2off(handle->edbphandle, lookuproot),
+			.l_start = edbd_pid2off(handle->edbphandle.parent->fd, lookuproot),
 	};
 
 	// ** defer: edbl_set(&self->lockdir, lock);

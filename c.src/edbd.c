@@ -12,7 +12,9 @@
 #include <strings.h>
 #include <error.h>
 #include <errno.h>
+#include <pthread.h>
 
+#include "options.h"
 #include "include/ellemdb.h"
 #include "edbd.h"
 #include "errors.h"
@@ -130,9 +132,15 @@ static edb_err validateheadintro(edb_fhead_intro head, int pagemul) {
 	return 0;
 }
 
-
+unsigned int edbd_size(const edbd_t *c) {
+	return c->page_size;
+}
 
 void edbd_close(edbd_t *file) {
+
+	// destroy mutex
+	pthread_mutex_destroy(&file->eofmutext);
+
 	// dealloc memeory
 	int err = munmap(file->head, sysconf(_SC_PAGE_SIZE));
 	if(err == -1) {
@@ -257,6 +265,97 @@ edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flag
 		}
 	}
 
+	// initialize the mutex.
+	err = pthread_mutex_init(&file->eofmutext, 0);
+	if(err) {
+		log_critf("failed to initialize eof mutex: %d", err);
+		edbd_close(file);
+		return EDB_ECRIT;
+	}
+
+	// calculate the page size
+	file->page_size    = file->head->intro.pagemul * file->head->intro.pagesize;
+
 	// file has been opened/created, locked, and validated. we're done here.
+	return 0;
+}
+
+// locks/unlocks the endoffile for new entries
+void static lockeof(edbd_t *caache) {
+	pthread_mutex_lock(&caache->eofmutext);
+}
+void static unlockeof(edbd_t *caache) {
+	pthread_mutex_unlock(&caache->eofmutext);
+}
+
+
+edb_err edbd_add(edbd_t *desc, uint8_t straitc, edb_pid *o_id) {
+#ifdef EDB_FUCKUPS
+	// invals
+	if(o_id == 0) {
+		log_critf("invalid ops for edbp_startc");
+		return EDB_EINVAL;
+	}
+	if(straitc == 0) {
+		log_critf("call to edbd_add with straitc of 0.");
+		return EDB_EINVAL;
+	}
+#endif
+
+	// easy vars
+	int fd = desc->descriptor;
+	edb_pid setid;
+
+	// new page must be created.
+	// lock the eof mutex.
+	// **defer: unlockeof(desc);
+	lockeof(desc);
+	//seek to the end and grab the next page id while we're there.
+	off64_t fsize = lseek64(fd, 0, SEEK_END);
+	setid = edbd_off2pid(desc, fsize + 1); // +1 to put us at the start of the next page id.
+	// we HAVE to make sure that fsize/id is set properly. Otherwise
+	// we end up truncating the entire file, and thus deleting the
+	// entire database lol.
+	if(setid == 0 || fsize == -1) {
+		log_critf("failed to seek to end of file");
+		unlockeof(desc);
+		return EDB_ECRIT;
+	}
+
+#ifdef EDB_FUCKUPS
+	// double check to make sure that the file is block-aligned.
+	// I don't see how it wouldn't be, but just incase.
+	if(fsize % edbd_size(desc) != 0) {
+		log_critf("for an unkown reason, the file isn't page aligned "
+		          "(modded over %ld bytes). Crash mid-write?", fsize % edbd_size(desc));
+		unlockeof(desc);
+		return EDB_ECRIT;
+	}
+#endif
+
+	// using ftruncate we expand the size of the file by the amount of
+	// pages they want. As per ftruncate(2), this will initialize the
+	// pages with 0s.
+	int werr = ftruncate64(fd, fsize + edbd_size(desc) * straitc);
+	unlockeof(desc);
+	if(werr == -1) {
+		int err = errno;
+		log_critf("failed to truncate-extend for new pages");
+		if(err == EINVAL) {
+			return EDB_ENOSPACE;
+		}
+		return EDB_ECRIT;
+	}
+
+	// As noted just a second ago, the pages we have created are nothing
+	// but 0s. And by design, this means that the heads of these pages
+	// are actually defined as per specification. Sense the _edbp_stdhead.ptype
+	// will be 0, that means it takes the definiton of EDB_TINIT.
+
+	// later: however, I need to think about what happens if the thing
+	//        crashes mid-creating. I need to roll back all these page
+	//        creats.
+
+	*o_id = setid;
 	return 0;
 }

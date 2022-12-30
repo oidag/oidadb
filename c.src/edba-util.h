@@ -103,24 +103,10 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 								  const edb_struct_t *strct,
 								  uint8_t straitc, edb_pid *o_pid);
 
-// edba_u_pagedelete - mark a page range as deleted.
-//   Note this is all it does, just add it to the deleted page list.
-//   Make sure these pages are not referenced anywhere else before this.
-//   It doesn't matter what the pages were before, they could be random bytes
-//   for it cares, even in the header, it will have it deleted.
-//
-//   MAYBE ALSO THIS (todo): If the pages are found to be at the very end of
-//   the file, then it will truncate the pages out instead of retaining them.
-// only returns critical errors.
-edb_err edba_u_pagedelete(edba_handle_t *handle, edb_pid pid, uint16_t straitc);
-
 // converts a intra-chapter row offset to a intra-chapter page offset
 // as well as its intra-page byte offset.
 void edba_u_rid2chptrpageoff(edba_handle_t *handle, edb_entry_t *entry, edb_rid rid,
 							 edb_pid *o_chapter_pageoff, uint16_t *o_page_byteoff);
-inline uint64_t edba_u_calcfileoffset(edba_handle_t *handle, edb_pid pid, uint16_t page_byteoff) {
-	return edbp_pid2off(handle->parent->pagecache, pid) + page_byteoff;
-}
 
 // executes a b-tree lookup and converts the intra-chapter page
 // ofsset to a pid.

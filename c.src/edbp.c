@@ -16,10 +16,6 @@
 #include "edbd.h"
 #include "edbp.h"
 
-unsigned int edbp_size(const edbpcache_t *c) {
-	return c->page_size;
-}
-
 // gets thee pages from either the cache or the file and returns an array of
 // pointers to those pages. Will try to get up to len (at least 1 is guarenteed)
 // but actual count will be set in o_len.
@@ -34,8 +30,8 @@ static edb_err lockpages(edbpcache_t *cache,
                          edb_pid starting,
                          edbp_slotid *o_pageslots) {
 	// quick vars
-	int fd = cache->fd;
-	unsigned int pagesize = edbp_size(cache);
+	int fd = cache->fd->descriptor;
+	unsigned int pagesize = edbd_size(cache->fd);
 
 	// we need to get smart here...
 	// Theres a chance that some of our pages in our desired array are loaded and
@@ -162,7 +158,7 @@ static edb_err lockpages(edbpcache_t *cache,
 	// load in the new page
 	void *newpage = mmap64(0, pagesize,
 		 PROT_READ | PROT_WRITE,
-		                   MAP_SHARED, fd, edbp_pid2off(cache, starting));
+		                   MAP_SHARED, fd, edbd_pid2off(cache->fd, starting));
 
 	if(newpage == (void *)-1) {
 		// out of memory/some other critical error: bail out.
@@ -251,14 +247,6 @@ void static unlockpage(edbpcache_t *cache, edbp_slotid slotid) {
 	return;
 }
 
-// locks/unlocks the endoffile for new entries
-void static lockeof(edbpcache_t *caache) {
-	pthread_mutex_lock(&caache->eofmutext);
-}
-void static unlockeof(edbpcache_t *caache) {
-	pthread_mutex_unlock(&caache->eofmutext);
-}
-
 // see conf->pra_algo
 edb_err edbp_init(edbpcache_t *o_cache, const edbd_t *file, edbp_slotid slotcount) {
 
@@ -270,11 +258,10 @@ edb_err edbp_init(edbpcache_t *o_cache, const edbd_t *file, edbp_slotid slotcoun
 	int err = 0;
 
 	// parent file
-	o_cache->fd = file->descriptor;
+	o_cache->fd = file;
 
 	// page cache metrics
 	o_cache->slot_count    = slotcount;
-	o_cache->page_size    = file->head->intro.pagemul * file->head->intro.pagesize;
 
 	// buffers
 	// individual slots
@@ -286,15 +273,7 @@ edb_err edbp_init(edbpcache_t *o_cache, const edbd_t *file, edbp_slotid slotcoun
 	}
 	bzero(o_cache->slots, sizeof(edbp_slot) * o_cache->slot_count); // 0-out
 
-
-
 	// mutexes
-	err = pthread_mutex_init(&o_cache->eofmutext, 0);
-	if(err) {
-		log_critf("failed to initialize eof mutex: %d", err);
-		edbp_decom(o_cache);
-		return EDB_ECRIT;
-	}
 	err = pthread_mutex_init(&o_cache->mutexpagelock, 0);
 	if(err) {
 		log_critf("failed to initialize pagelock mutex: %d", err);
@@ -312,14 +291,13 @@ void    edbp_decom(edbpcache_t *cache) {
 	if(!cache || !cache->initialized) return;
 
 	// kill mutexes
-	pthread_mutex_destroy(&cache->eofmutext);
 	pthread_mutex_destroy(&cache->mutexpagelock);
 
 	// munmap all slots that have data in them.
 	for(int i = 0; i < cache->slot_count; i++) {
 		if(cache->slots[i].page.head != 0) {
-			msync(cache->slots[i].page.head, edbp_size(cache), MS_SYNC);
-			munmap(cache->slots[i].page.head, edbp_size(cache));
+			msync(cache->slots[i].page.head, edbd_size(cache->fd), MS_SYNC);
+			munmap(cache->slots[i].page.head, edbd_size(cache->fd));
 			cache->slots[i].page.head = 0;
 		}
 	}
@@ -366,13 +344,12 @@ edb_err edbp_start (edbphandle_t *handle, edb_pid id) {
 
 	// easy vars
 	edbpcache_t *parent = handle->parent;
-	int fd = handle->parent->fd;
 	int err = 0;
 
 	// make sure the id is within range
 #ifdef EDB_FUCKUPS
-	off64_t size = lseek64(fd, 0, SEEK_END);
-	if((off64_t)id * (off64_t)edbp_size(parent) > size) {
+	off64_t size = lseek64(parent->fd->descriptor, 0, SEEK_END);
+	if((off64_t)id * (off64_t) edbd_size(parent->fd) > size) {
 		log_critf("attempting to access page id that doesn't exist");
 		return EDB_EEOF;
 	}
@@ -384,78 +361,6 @@ edb_err edbp_start (edbphandle_t *handle, edb_pid id) {
 
 	// later: HIID stuff should go here.
 	return err;
-}
-
-edb_err edbp_create(edbphandle_t *handle, uint8_t straitc, edb_pid *o_id) {
-#ifdef EDB_FUCKUPS
-	// invals
-	if(o_id == 0) {
-		log_critf("invalid ops for edbp_startc");
-		return EDB_EINVAL;
-	}
-	if(straitc == 0) {
-		log_critf("call to edbp_create with straitc of 0.");
-		return EDB_EINVAL;
-	}
-#endif
-
-	// easy vars
-	edbpcache_t *parent = handle->parent;
-	int fd = handle->parent->fd;
-	edb_pid setid;
-
-	// new page must be created.
-	// lock the eof mutex.
-	// **defer: unlockeof(parent);
-	lockeof(parent);
-	//seek to the end and grab the next page id while we're there.
-	off64_t fsize = lseek64(fd, 0, SEEK_END);
-	setid = edbp_off2pid(parent, fsize + 1); // +1 to put us at the start of the next page id.
-	// we HAVE to make sure that fsize/id is set properly. Otherwise
-	// we end up truncating the entire file, and thus deleting the
-	// entire database lol.
-	if(setid == 0 || fsize == -1) {
-		log_critf("failed to seek to end of file");
-		unlockeof(parent);
-		return EDB_ECRIT;
-	}
-
-#ifdef EDB_FUCKUPS
-	// double check to make sure that the file is block-aligned.
-	// I don't see how it wouldn't be, but just incase.
-	if(fsize % edbp_size(parent) != 0) {
-		log_critf("for an unkown reason, the file isn't page aligned "
-				  "(modded over %ld bytes). Crash mid-write?", fsize % edbp_size(parent));
-		unlockeof(parent);
-		return EDB_ECRIT;
-	}
-#endif
-
-	// using ftruncate we expand the size of the file by the amount of
-	// pages they want. As per ftruncate(2), this will initialize the
-	// pages with 0s.
-	size_t werr = ftruncate64(fd, fsize + edbp_size(parent) * straitc);
-	unlockeof(parent);
-	if(werr == -1) {
-		int err = errno;
-		log_critf("failed to truncate-extend for new pages");
-		if(err == EINVAL) {
-			return EDB_ENOSPACE;
-		}
-		return EDB_ECRIT;
-	}
-
-	// As noted just a second ago, the pages we have created are nothing
-	// but 0s. And by design, this means that the heads of these pages
-	// are actually defined as per specification. Sense the _edbp_stdhead.ptype
-	// will be 0, that means it takes the definiton of EDB_TINIT.
-
-	// later: however, I need to think about what happens if the thing
-	//        crashes mid-creating. I need to roll back all these page
-	//        creats.
-
-	*o_id = setid;
-	return 0;
 }
 
 void    edbp_finish(edbphandle_t *handle) {
