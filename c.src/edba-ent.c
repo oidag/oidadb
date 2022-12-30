@@ -161,8 +161,8 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	// 0 out the reserved block just for future refeance.
 	e.rsvd = 0;
 	//e.type = EDB_TOBJ; (just to make corruptiong VERY obvious, we'll save this after)
-	e.lookupsperpage = (edbd_size(edbphandle->parent->fd) - EDBP_HEADSIZE) / sizeof(edb_lref_t);
-	e.objectsperpage = (edbd_size(edbphandle->parent->fd) - EDBP_HEADSIZE) / strck->fixedc;
+	e.lookupsperpage = (edbd_size(edbphandle->parent->fd) - EDBD_HEADSIZE) / sizeof(edb_lref_t);
+	e.objectsperpage = (edbd_size(edbphandle->parent->fd) - EDBD_HEADSIZE) / strck->fixedc;
 	e.trashlast = 0;
 
 	// we're all done, save to persistant memory.

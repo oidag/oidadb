@@ -162,7 +162,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// Store this in the h->lock so we can unlock when edba_objectclose is called
 	edb_struct_t *structdat;
 	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &structdat);
-	uint16_t intrapagebyteoff = EDBP_HEADSIZE + structdat->fixedc * o->trashstart_off;
+	uint16_t intrapagebyteoff = EDBD_HEADSIZE + structdat->fixedc * o->trashstart_off;
 	h->lock = (edbl_lockref) {
 		.l_type = EDBL_EXCLUSIVE,
 		.l_len = structdat->fixedc,
