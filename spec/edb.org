@@ -1123,12 +1123,12 @@ which case unreferenced pages should be handled via pmaint.
 you'd normally suspect.
 
 ** =edbp_deleted= rsvd1
-| Name   | Clang    | Def                                                                |
-|--------+----------+--------------------------------------------------------------------|
-| rsvd   | uint16_t | rsvd                                                               |
-| Refc   | uint16_t | The amount of (non-null) references in this page.                  |
-| Pagesc | uint32_t | The total amount of pages that are ferences (the sum of straitc's) |
-(the rest be 0s)
+| Name        | Clang    | Def                                                                |
+|-------------+----------+--------------------------------------------------------------------|
+| largestrait | uint16_t | Largest straitc on the page                                        |
+| Refc        | uint16_t | The amount of (non-null) references in this page.                  |
+| Pagesc      | uint32_t | The total amount of pages that are ferences (the sum of straitc's) |
+| rsvd        | uint64_t | rsvd                                                               |
 
 ** =edbp_deleted= body
 The page body is populated by an array of references. Referances can
@@ -1175,6 +1175,11 @@ applicable. But another pmaint job that can be ran involves
 'deleted' for the sake of saving compressing for space.
 
 Excretion maybe more cost than what its worth.
+
+This will also trim out edbp_deleted pages that are empty. which have
+the possbility of building up overtime if theress large amount of page
+deletes without a balanced amount of page creates. TODO: I don't like
+how this isn't handled automatically.
 
 ** Crash Recovery
 Things to fix:
