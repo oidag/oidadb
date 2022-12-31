@@ -63,9 +63,9 @@ typedef struct edb_deletedref_st {
 } edb_deletedref_t;
 typedef struct edb_deleted_refhead_st {
 	_edbd_stdhead head;
-	uint16_t _rsvd;
+	uint16_t largeststrait; // largest strait on the page
 	uint16_t refc; // non-null references.
-	uint32_t pagesc;
+	uint32_t pagesc; // total count of pages
 	uint64_t _rsvd2;
 } edb_deleted_refhead_t;
 
