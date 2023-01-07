@@ -57,6 +57,9 @@ static edb_err execjob(edb_worker_t *self) {
 		case EDB_ENT:
 			err = edbw_u_entjob(self);
 			break;
+		case EDB_STRUCT:
+			err = edbw_u_structjob(self);
+			break;
 		default:
 			err = EDB_EJOBDESC;
 			break;

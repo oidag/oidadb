@@ -16,5 +16,6 @@
 //   - EDB_EJOBDESC: a special log_errorf notice is made
 edb_err edbw_u_objjob(edb_worker_t *self);
 edb_err edbw_u_entjob(edb_worker_t *self);
+edb_err edbw_u_structjob(edb_worker_t *self);
 
 #endif //EDB_EDBW_UTIL_H
