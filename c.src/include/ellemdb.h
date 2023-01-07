@@ -437,19 +437,18 @@ typedef struct edb_entry_st {
 
 } edb_entry_t;
 
-
 typedef struct edb_struct_st {
 
-	uint16_t     id;   // structure id
+	//uint16_t     id;   // cant put ids in structures
 
-	uint16_t    fixedc;    // fixed length size
-	uint8_t     data_ptrc; // data pointer size
+	uint16_t    fixedc;    // total size (see spec)
+	uint16_t    confc;     // configuration size
 	uint8_t     flags;     // flags
+	uint8_t     data_ptrc; // data pointer count
 
-	// arbitrary configuration:
-	unsigned int binc;
-	unsigned int binoff;
-	const void  *binv;
+	// implicit fields:
+	// const uint8_t *subpagesizes; // = (edb_struct_t*) + sizeof(edb_struct_t)
+	// const void    *confv;        // = (edb_struct_t*) + sizeof(edb_struct_t) + sizeof(uint8_t) * data_ptrc
 } edb_struct_t;
 
 

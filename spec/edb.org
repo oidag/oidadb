@@ -453,10 +453,10 @@ access. Both of bits of information are stored in the structure.
 
 | Name            | Clang        | Definition                                                    |
 |-----------------+--------------+---------------------------------------------------------------|
-| Structure flags | uint16_t     | See [[Structure Flags]]                                           |
 | Fixed len       | uint16_t     | The fixed length of data, includes header flags, and pointers |
-| data pointers   | uint8_t      | The amount of pointers per record                             |
 | Conf. Size      | uint16_t     | The size of the configuration                                 |
+| Structure flags | uint8_t      | See [[Structure Flags]]                                           |
+| data pointers   | uint8_t      | The amount of pointers per record                             |
 | subpage sizes   | uint8_t[]... | The [[subpage size]] of the the pointer's ag_data [[subpage]]         |
 | Conf            | char[]...    | See [[Arbitrary Configuration]]                                   |
 

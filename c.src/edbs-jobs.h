@@ -20,6 +20,14 @@ typedef enum _edb_jobclass {
 	EDB_JNONE = 0x0000,
 
 	// structure ops
+	//
+	//   (EDB_CWRITE: not supported)
+	//   EDB_CCREATE:
+	//     <- edb_struct_t (including implicit fields)
+	//     -> edb_err
+	//   EDB_CDEL:
+	//     <- uint16_t structureid
+	//     -> edb_err
 	EDB_STRUCT = 0x0001,
 
 	// dynamic data ops
