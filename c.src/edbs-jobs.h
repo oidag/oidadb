@@ -23,8 +23,10 @@ typedef enum _edb_jobclass {
 	//
 	//   (EDB_CWRITE: not supported)
 	//   EDB_CCREATE:
-	//     <- edb_struct_t (including implicit fields)
-	//     -> edb_err
+	//     <- edb_struct_t (no implicit fields)
+	//     -> edb_err (parsing error)
+	//     <- arbitrary configuration
+	//     -> uint16_t new structid
 	//   EDB_CDEL:
 	//     <- uint16_t structureid
 	//     -> edb_err

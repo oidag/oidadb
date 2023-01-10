@@ -205,4 +205,24 @@ const edb_entry_t *edba_entrydatr(edba_handle_t *h);
 //   - EDB_ENOSPACE - no more space left in file for blank pages.
 //   - EDB_ENOMEM - no memory for operaiton
 edb_err edba_entryset(edba_handle_t *h, edb_entry_t e);
+
+
+// open a new structure for editing.
+// Requires strct so it can know how much space to allocate.
+// Opens up edba_struct.. functions
+//
+// edba_structopenc, edba_structclose
+//   TODO: document
+//
+// edba_struct_conf
+//   get a pointer to the arbitrary configuration.
+//
+// edba_structdelete
+//   cannot have anything checked out to call this
+//
+edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct);
+void    edba_structclose(edba_handle_t *h);
+void   *edba_structconf(edba_handle_t *h);
+edb_err edba_structdelete(edba_handle_t *h, uint16_t sid);
+
 #endif
