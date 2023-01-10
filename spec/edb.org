@@ -450,6 +450,11 @@ handle is concerned and that is fixed length data and dynamic lenght
 data. Fixed length is always more consistant and faster to
 access. Both of bits of information are stored in the structure.
 
+** structure body
+
+edbp_struct pages have consist of the array of the following
+structure.
+
 
 | Name            | Clang        | Definition                                                    |
 |-----------------+--------------+---------------------------------------------------------------|
@@ -458,9 +463,15 @@ access. Both of bits of information are stored in the structure.
 | Structure flags | uint8_t      | See [[Structure Flags]]                                           |
 | data pointers   | uint8_t      | The amount of pointers per record                             |
 | subpage sizes   | uint8_t[]... | The [[subpage size]] of the the pointer's ag_data [[subpage]]         |
-| Conf            | char[]...    | See [[Arbitrary Configuration]]                                   |
+| conf            | char[]...    | See [[Arbitrary Configuration]]                                   |
 
 To fully understand data pointers and subpage sizes, see [[edbp_dynamic]].
+
+** TODO What if delete?
+
+If we delete a structure then what do we do with that space? when can
+we reuse it? Can we not utilize edbp_dynamic pages? Hmmmmmmm
+
 ** No Editing Structures
 There are no editing structures, only creating and deleting
 structures. If all the structure pages fill up, then an automatic
@@ -495,29 +506,22 @@ The maximum amount of fixed length data is the page size minus the
 bytes needed for the page header.
 
 ** Structure Flags
-*** System Locks
-*System locks* are installed by the workers of the host and are used for
-mutex purposes. It is up to the host to manage the relationship of who
-has what lock.
-
- - EDB_FSYSLX - A system write lock, no other worker other than the one that
-   installed this lock can access this structure
- - EDB_FSYSLS - A system read lock, this is marked as true so long that a worker
-   is using this for reading purpose and mustn't have it written too.
-
-During [[Host-Instance Fault][HIFs]], All Row Locks on all System Locks of the page are 0'd out.
+*** State Locks
+ - EDB_FSTRCT_INIT (0x80) - initialized. When the very top byte is marked as 1, that
+   means this structure is live. Otherwise, this structure is assumed
+   to be deleted/unitialized.
 
 *** User Locks
 *User Locks* allow the user to install locks on rows at their
 descriession. These can used for the user to make their own
 constraints, behaviours, restrictions, ect.
 
- - EDB_FUSRLDEL - Delete lock. So long this flag is set, the structure
+ - EDB_FUSRLDEL (0x01) - Delete lock. So long this flag is set, the structure
    cannot be deleted.
- - EDB_FUSRLWR - Write lock. So long this flag is set, the structure
-   cannot be altered.
- - EDB_FUSRLCREAT - Prevents new object chapters from being created
+ - EDB_FUSRLCREAT (0x08) - Prevents new object chapters from being created
    using this structure.
+
+TODO - programm these into edba-ent
 
 /Note that these are not permissions, workers can add and remove/
 /userlocks as they please. These are only for the user of the/

@@ -443,13 +443,15 @@ typedef struct edb_struct_st {
 
 	uint16_t    fixedc;    // total size (see spec)
 	uint16_t    confc;     // configuration size
-	uint8_t     flags;     // flags
+	uint8_t     flags;     // flags see spec.
 	uint8_t     data_ptrc; // data pointer count
 
 	// implicit fields:
 	// const uint8_t *subpagesizes; // = (edb_struct_t*) + sizeof(edb_struct_t)
 	// const void    *confv;        // = (edb_struct_t*) + sizeof(edb_struct_t) + sizeof(uint8_t) * data_ptrc
 } edb_struct_t;
+
+#define EDB_FSTRCT_INIT 0x80;
 
 
 // shared-memory access functions
