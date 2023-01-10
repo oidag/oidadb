@@ -105,7 +105,12 @@ has been fully updated.
      information, you can do it here.
 
 * Structure
+** Structure-Creation
+Lock the structure creation mutex.
+
 ** Structure-Deleting
+Lock the structure creation mutex.
+
 You must lock the entry creation mutex so nothing can be created
 with the structure you're trying to delete.
 
