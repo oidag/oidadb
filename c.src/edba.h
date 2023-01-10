@@ -30,12 +30,20 @@ typedef struct edba_handle_st {
 
 	// internal stuff, don't touch outside of edba namespace:
 
-	edb_entry_t *clutchedentry; // (note to self: points to persistant mem)
+	// Will be the entry that has a clutch locked established.
+	// (note to self: points to persistant mem)
+	edb_entry_t *clutchedentry;
 	edb_eid clutchedentryeid;
 
 	uint16_t objectoff; // byte offset from the page until objectdata.
 	void *objectdata; // pointer starts at object flags
 	unsigned int objectc; // same as the object's struct->fixedc
+
+	// Variables when opened == EDB_TSTRCT
+	//
+	// strct - points to persistent mem.
+	edb_struct_t *strct;
+	uint16_t      strctid;
 
 	edbl_lockref lock;
 	edb_type opened; // what type of operation was opened
@@ -220,6 +228,11 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e);
 // edba_structdelete
 //   cannot have anything checked out to call this
 //
+// ERRORS:
+//   - EDB_ENOSPACE - (edba_structopenc) cannot create another structure, out of space
+//     in structure buffer.
+//   - EDB_EINVAL - (edba_structopenc) strct.fixedc was less than 4 (note the spec defines the min. as 2, but I'm doing
+//     4 here just incase).
 edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct);
 void    edba_structclose(edba_handle_t *h);
 void   *edba_structconf(edba_handle_t *h);

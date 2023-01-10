@@ -138,7 +138,9 @@ void    edbd_close(edbd_t *file);
 // Note: does nothing with locks. Be sure to use edbl properly.
 //
 // ERRORS:
-//   - EDB_EEOF: returned by both when the submitted id is out of bounds.
+//   - EDB_EEOF: returned by both when the submitted id is out of bounds. Note that if you submit
+//     an id that hasn't have itself initialized, then it will return errorless but the out pointer
+//     will point to a 0val.
 edb_err edbd_index(const edbd_t *file, edb_eid eid, edb_entry_t **o_entry);
 edb_err edbd_struct(const edbd_t *file, uint16_t structureid, edb_struct_t **o_struct);
 
