@@ -473,14 +473,16 @@ Sense =struct_id= is always 0. The follow definition of structure is
 assumed to be the object content.
 
 
-| Name            | Clang        | Definition                                                                                            |
-|-----------------+--------------+-------------------------------------------------------------------------------------------------------|
-| (Dynamic data)  | uint64_t     | This is the 1 pointer to dyanmic data. Takes the place of =dy_pointers=. See [[Structures: dyanmic data]] |
-| Fixed len       | uint16_t     | The fixed length of data, includes header flags, and pointers                                         |
-| Conf. Size      | uint16_t     | The size of the configuration                                                                         |
-| Structure flags | uint8_t      | See [[Structure Flags]]                                                                                   |
-| data pointers   | uint8_t      | The amount of pointers per record                                                                     |
+| Name            | Clang    | Definition                                                                                            |
+|-----------------+----------+-------------------------------------------------------------------------------------------------------|
+| (obj_flags)     | uint32_t | Normal object flags. See [[Record Flags]]. Then [[Structure-Record Flags]]                                    |
+| (Dynamic data)  | uint64_t | This is the 1 pointer to dyanmic data. Takes the place of =dy_pointers=. See [[Structures: dyanmic data]] |
+| Fixed len       | uint16_t | The fixed length of data, includes header flags, and pointers                                         |
+| Conf. Size      | uint16_t | The size of the configuration                                                                         |
+| Structure flags | uint8_t  | See [[Structure Flags]]                                                                                   |
+| data pointers   | uint8_t  | The amount of pointers per record                                                                     |
 
+To fully understand data pointers and subpage sizes, see [[edbp_dynamic]].
 
 *** Structures: dyanmic data
 
@@ -494,18 +496,18 @@ describe the size of the dynamic data.
 | conf          | char[]...    | See [[Arbitrary Configuration]]                           |
 
 
-** structure body
+** Structure-Record Flags
+As all structures are preceded by a uint32_t of object flags, the
+definition of the flags take on a new definition. In a way you can say
+this definition "overloads" the "parent definition".
+*** Structure-Record User Locks
+ - EDB_FUSRLDEL (0x01) - Delete lock. So long this flag is set, the structure
+   cannot be deleted.
+ - EDB_FUSRLCREAT (0x08) - Prevents new object chapters from being created
+   using this structure.
 
-edbp_struct pages have consist of the array of the following
-structure.
+TODO - programm these into edba-ent.
 
-
-To fully understand data pointers and subpage sizes, see [[edbp_dynamic]].
-
-** TODO What if delete?
-
-If we delete a structure then what do we do with that space? when can
-we reuse it? Can we not utilize edbp_dynamic pages? Hmmmmmmm
 
 ** No Editing Structures
 There are no editing structures, only creating and deleting
@@ -541,26 +543,7 @@ The maximum amount of fixed length data is the page size minus the
 bytes needed for the page header.
 
 ** Structure Flags
-*** State Locks
- - EDB_FSTRCT_INIT (0x80) - initialized. When the very top byte is marked as 1, that
-   means this structure is live. Otherwise, this structure is assumed
-   to be deleted/unitialized.
-
-*** User Locks
-*User Locks* allow the user to install locks on rows at their
-descriession. These can used for the user to make their own
-constraints, behaviours, restrictions, ect.
-
- - EDB_FUSRLDEL (0x01) - Delete lock. So long this flag is set, the structure
-   cannot be deleted.
- - EDB_FUSRLCREAT (0x08) - Prevents new object chapters from being created
-   using this structure.
-
-TODO - programm these into edba-ent
-
-/Note that these are not permissions, workers can add and remove/
-/userlocks as they please. These are only for the user of the/
-/programming above the host./
+None defined at this moment.
 
 * edbp_object
 edbp_object pages are the core of the database. The store user records
@@ -722,7 +705,7 @@ subpage size are differnet operations.
 Allocate new those pages and just go through and rewrite the data. Once
 finished, just delete the entirety of the old chapter.
 
-** Record
+** Object Record
 
 Within any page of edbp_object, there exist an array of data with each
 element known as a *Record*. All Records are fixed length inside of a
@@ -735,8 +718,8 @@ given elements.
 
 | Name        | clang         | def                                                      |
 |-------------+---------------+----------------------------------------------------------|
-| flags       | uint32_t      | see [[Record Flags]]                                         |
-| dy_pointers     | uint64_t[]... | pointers to dynamic data                                 |
+| obj_flags   | uint32_t      | see [[Record Flags]]                                         |
+| dy_pointers | uint64_t[]... | pointers to dynamic data                                 |
 | content     | char[]...     | the raw content of the row (count is found in structure) |
 
 ** Record Flags

@@ -106,7 +106,7 @@ has been fully updated.
 
 * Structure
 ** Structure-Creation
-Lock the structure creation mutex.
+Put a XL clutch lock on the structure chapter entry
 
 ** Structure-Deleting
 Lock the structure creation mutex.
