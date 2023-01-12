@@ -75,7 +75,7 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	edb_entry_t *entry = h->clutchedentry;
 	edbd_t *descriptor = h->parent->descriptor;
 	edbphandle_t *edbphandle = &h->edbphandle;
-	edb_struct_t *strck;
+	const edb_struct_t *strck;
 	edb_err err;
 
 	// value assumptions

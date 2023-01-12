@@ -130,7 +130,8 @@ void    edbd_close(edbd_t *file);
 // these do the exact same thing but only specifically needs the shm and will return
 // the pointer to the mmap'd region rather than copy the data.
 //
-// This memory is mapped to the file. Changes are persistant.
+// This memory is mapped to the file. Changes are persistant (except for edbd_struct,
+// I put the const constraint on it. You must edit structure data via edba).
 //
 // These functions are dumb; does not check validitity of eid/structiid, thus no errors
 // can be returned.
@@ -142,7 +143,7 @@ void    edbd_close(edbd_t *file);
 //     an id that hasn't have itself initialized, then it will return errorless but the out pointer
 //     will point to a 0val.
 edb_err edbd_index(const edbd_t *file, edb_eid eid, edb_entry_t **o_entry);
-edb_err edbd_struct(const edbd_t *file, uint16_t structureid, edb_struct_t **o_struct);
+edb_err edbd_struct(const edbd_t *file, uint16_t structureid, const edb_struct_t **o_struct);
 
 // edbd_add
 //   is the most primative way to create. will create a page strait of length straitc and will return the

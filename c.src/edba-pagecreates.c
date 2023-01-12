@@ -118,7 +118,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 
 	// create the new object pages
 	// grab the structure
-	edb_struct_t *structdat;
+	const edb_struct_t *structdat;
 	edbd_struct(handle->parent->descriptor, entry->structureid, &structdat);
 	// initialize the header per edba_u_pagecreate_objects spec
 	edbp_object_t header;
