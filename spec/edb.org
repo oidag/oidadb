@@ -336,18 +336,18 @@ which all pages in that collection are.
 
 | Name            | Clang    | Definition                                                                                   |
 |-----------------+----------+----------------------------------------------------------------------------------------------|
-| Type            | uint8_t  | See [[Entry Type]]                                                                               |
+| type            | uint8_t  | See [[Entry Type]]                                                                               |
 | rsvd            | uint8_t  | rsvd (used for edbn?)                                                                        |
-| Memory Settings | uint16_t | [[Memory Settings]]                                                                              |
-| Struct ID       | uint16_t | if edbp_object: the structure ID                                                             |
+| memset          | uint16_t | [[Memory Settings]]                                                                              |
+| struct_id       | uint16_t | if edbp_object: the structure ID                                                             |
 | objectsperpage  | uint16_t | cached amount of objects per page.                                                           |
 | lookupsperpage  | uint16_t | cached amount of lookups per page                                                            |
-| Ref0            | [[Page ID]]  | The starting page of the chapter (0 if none)                                                 |
-| Ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup (will never be 0)                                            |
-| Ref2            | [[Page ID]]  | if edbp_object: the edbp_dynamic (0 if none)                                                 |
-| ref0 Count      | uint64_t | Number of pages in the chapter (used to determain offset of new pages)                       |
+| ref0            | [[Page ID]]  | The starting page of the chapter (0 if none)                                                 |
+| ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup (will never be 0)                                            |
+| ref2            | [[Page ID]]  | if edbp_object: the edbp_dynamic (0 if none)                                                 |
+| ref0c           | uint64_t | Number of pages in the chapter (used to determain offset of new pages)                       |
 | lastlookup      | [[Page ID]]  | Right-most and deepest lookup page, this will always point to a lookup page with leaf nodes. |
-| ref2 Count      | uint64_t | Number of pages in the chapter.                                                              |
+| ref2c           | uint64_t | Number of pages in the chapter.                                                              |
 | trashlast       | [[Page ID]]  | See [[Trash Management]]                                                                         |
 
 
@@ -443,27 +443,62 @@ See [[edbp_lookup B+-Tree]] for further details.
 
 All edbp_struct pages are found exclusively in the singleton chatper
 which has a reserved spot in the index. All edbp_strcut pages are
-expected to always be in memory.
+expected to always be in memory (persistant pages).
 
 As an overview, all objects in edb have 2 ingridants as far as the
 handle is concerned and that is fixed length data and dynamic lenght
 data. Fixed length is always more consistant and faster to
 access. Both of bits of information are stored in the structure.
 
+** The =edbp_struct= is an =edbp_object= functioning chapter
+The =edbp_struct= chapter is just another =edbp_object= chapter except:
+
+ - =type= is always EDB_TSTRCT
+ - The Software will operate the whole chapter as persistant pages.
+ - does not have a lookup (=ref1= is null)
+ - has a static amount of pages (=ref0c= and =ref2c= will never change
+   after the database is created)
+ - =ref0= and =ref2= are but 1 large strait. The length of this strait
+   is defined by subsequent =ref0c= and =ref2c=. (In otherwords, this
+   chapter will always be 0% fragmented)
+ - =lastlookup= is null. If =trashlast= is ever 0, then no more
+   structures can be created.
+ - =struct_id= is 0.
+ - =lookupsperpage= is 0.
+ - The subpage size of =ref2= will always be 16.
+
+*** structures: fixed data
+
+Sense =struct_id= is always 0. The follow definition of structure is
+assumed to be the object content.
+
+
+| Name            | Clang        | Definition                                                                                            |
+|-----------------+--------------+-------------------------------------------------------------------------------------------------------|
+| (Dynamic data)  | uint64_t     | This is the 1 pointer to dyanmic data. Takes the place of =dy_pointers=. See [[Structures: dyanmic data]] |
+| Fixed len       | uint16_t     | The fixed length of data, includes header flags, and pointers                                         |
+| Conf. Size      | uint16_t     | The size of the configuration                                                                         |
+| Structure flags | uint8_t      | See [[Structure Flags]]                                                                                   |
+| data pointers   | uint8_t      | The amount of pointers per record                                                                     |
+
+
+*** Structures: dyanmic data
+
+Each structure fixed data will have *1* pointer in =dy_pointers= that
+will point the following structure. The fixed data itself will
+describe the size of the dynamic data.
+
+| Name          | clang        | definition                                      |
+|---------------+--------------+-------------------------------------------------------|
+| subpage sizes | uint8_t[]... | The [[subpage size]] of the the pointer's ag_data [[subpage]] |
+| conf          | char[]...    | See [[Arbitrary Configuration]]                           |
+
+
 ** structure body
 
 edbp_struct pages have consist of the array of the following
 structure.
 
-
-| Name            | Clang        | Definition                                                    |
-|-----------------+--------------+---------------------------------------------------------------|
-| Fixed len       | uint16_t     | The fixed length of data, includes header flags, and pointers |
-| Conf. Size      | uint16_t     | The size of the configuration                                 |
-| Structure flags | uint8_t      | See [[Structure Flags]]                                           |
-| data pointers   | uint8_t      | The amount of pointers per record                             |
-| subpage sizes   | uint8_t[]... | The [[subpage size]] of the the pointer's ag_data [[subpage]]         |
-| conf            | char[]...    | See [[Arbitrary Configuration]]                                   |
 
 To fully understand data pointers and subpage sizes, see [[edbp_dynamic]].
 
@@ -698,10 +733,11 @@ The content of each element is arbitrary. However, each record has a
 small prefix that allows means to control locking and restrictions on
 given elements.
 
-| Name     | clang     | def                                                      |
-|----------+-----------+----------------------------------------------------------|
-| flags    | uint32_t  | see [[Record Flags]]                                         |
-| content  | char[]... | the raw content of the row (count is found in structure) |
+| Name        | clang         | def                                                      |
+|-------------+---------------+----------------------------------------------------------|
+| flags       | uint32_t      | see [[Record Flags]]                                         |
+| dy_pointers     | uint64_t[]... | pointers to dynamic data                                 |
+| content     | char[]...     | the raw content of the row (count is found in structure) |
 
 ** Record Flags
 *** TODO System Locks
