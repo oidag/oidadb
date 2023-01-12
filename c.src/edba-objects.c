@@ -36,7 +36,7 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	}
 
 	// get the struct data
-	edb_struct_t *structdat;
+	const edb_struct_t *structdat;
 	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &structdat);
 
 	// get the chapter offset
@@ -160,7 +160,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// at this point, we have a lock on the trashstart_off and need
 	// to place another lock on the actual trash record.
 	// Store this in the h->lock so we can unlock when edba_objectclose is called
-	edb_struct_t *structdat;
+	const edb_struct_t *structdat;
 	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &structdat);
 	uint16_t intrapagebyteoff = EDBD_HEADSIZE + structdat->fixedc * o->trashstart_off;
 	h->lock = (edbl_lockref) {
@@ -230,7 +230,7 @@ void    edba_objectclose(edba_handle_t *h) {
 
 
 const edb_struct_t *edba_objectstruct(edba_handle_t *h) {
-	edb_struct_t *ret;
+	const edb_struct_t *ret;
 	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &ret);
 	return ret;
 }
@@ -463,7 +463,7 @@ typedef enum obj_searchflags_em {
 void edba_u_rid2chptrpageoff(edba_handle_t *handle, edb_entry_t *entrydat, edb_rid rowid,
                              edb_pid *o_chapter_pageoff,
 							 uint16_t *o_page_byteoff) {
-	edb_struct_t *structdata;
+	const edb_struct_t *structdata;
 	edbd_struct(handle->parent->descriptor, entrydat->structureid, &structdata);
 	*o_chapter_pageoff = rowid / entrydat->objectsperpage;
 
