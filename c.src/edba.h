@@ -4,6 +4,7 @@
 #include "edbl.h"
 #include "edbp.h"
 #include "edbd.h"
+#include "edbp-types.h"
 
 typedef enum {
 	EDBA_FWRITE = 0x0001,
@@ -22,6 +23,13 @@ typedef struct edba_host_st {
 } edba_host_t;
 edb_err edba_host_init(edba_host_t *o_host, edbpcache_t *pagecache, edbd_t *descriptor);
 void    edba_host_decom(edba_host_t *host);
+
+// edb_struct_full_t is the structure that fills all edbp_struct pages.
+typedef struct{
+	edb_object_flags obj_flags;
+	uint64_t dy_pointer;
+	edb_struct_t content;
+} edb_struct_full_t;
 
 typedef struct edba_handle_st {
 	edba_host_t *parent;
@@ -42,8 +50,8 @@ typedef struct edba_handle_st {
 	// Variables when opened == EDB_TSTRCT
 	//
 	// strct - points to persistent mem.
-	edb_struct_t *strct;
-	uint16_t      strctid;
+	edb_struct_full_t *strct;
+	uint16_t           strctid;
 
 	edbl_lockref lock;
 	edb_type opened; // what type of operation was opened
