@@ -499,7 +499,7 @@ describe the size of the dynamic data.
 ** Structure-Record Flags
 As all structures are preceded by a uint32_t of object flags, the
 definition of the flags take on a new definition. In a way you can say
-this definition "overloads" the "parent definition".
+this definition "overloads" the [[Record Flags]["parent definition"]].
 *** Structure-Record User Locks
  - EDB_FUSRLDEL (0x01) - Delete lock. So long this flag is set, the structure
    cannot be deleted.
