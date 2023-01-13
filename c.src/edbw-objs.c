@@ -80,8 +80,6 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 		return err;
 	}
 
-	// todo: shit. i just realize that we're dumping the dynamic data pointers into the streams
-
 	// do the routing
 	switch (jobdesc) {
 		case EDB_OBJ | EDB_CCREATE:
