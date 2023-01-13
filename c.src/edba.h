@@ -27,7 +27,7 @@ void    edba_host_decom(edba_host_t *host);
 // edb_struct_full_t is the structure that fills all edbp_struct pages.
 typedef struct{
 	edb_object_flags obj_flags;
-	uint64_t dy_pointer;
+	edb_dyptr dy_pointer;
 	edb_struct_t content;
 } edb_struct_full_t;
 
@@ -55,7 +55,7 @@ typedef struct edba_handle_st {
 	//
 	// strct - points to persistent mem.
 	edb_struct_full_t *strct;
-	uint16_t           strctid;
+	edb_sid            strctid;
 
 	edbl_lockref lock;
 	edb_type opened; // what type of operation was opened
@@ -96,10 +96,11 @@ void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 //   will have you the ability to modify its contents.
 //
 // edba_objectopenc
-//   open an object that has been marked as deleted (outputs oid of what is found)
-//   using EDBA_FCREATE create room for a new one if no deleted ones
+//   open an object that has been marked as deleted (outputs oid of what is found).
+//   Use EDBA_FCREATE to create room for a new one if no deleted ones
 //   are found. o_oid must have a valid entry id. the row id is set as output.
 //   The returned object will automatically be UNDELETED status.
+//   todo: why not consolidate this into edba_objectopen using flags?
 //
 // edba_objectclose
 //   Close the object without any special action. If EDBA_FWRITE was true
