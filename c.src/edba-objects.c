@@ -15,6 +15,23 @@
 #include "edbs.h"
 #include "edbp-types.h"
 
+static void inline assignobject(edba_handle_t *h,
+								void *page,
+								uint16_t intrapagebyteoff,
+								const edb_struct_t *structdat) {
+	h->objectoff  = intrapagebyteoff;
+	h->objectc    = structdat->fixedc;
+	h->objectflags = page + intrapagebyteoff;
+	h->dy_pointersc = structdat->data_ptrc;
+	h->dy_pointers  = (void *)h->objectflags + sizeof(edb_object_flags);
+	h->contentc   = structdat->fixedc
+	                - sizeof(edb_object_flags)
+	                - (sizeof(edb_dyptr) * h->dy_pointersc);
+	h->content    = (void *)h->objectflags
+	                + sizeof(edb_object_flags)
+	                + (sizeof(edb_dyptr) * h->dy_pointersc);
+}
+
 edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	edb_eid eid;
 	edb_rid rid;
@@ -54,7 +71,7 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 
 	// load the page and put the row data in the handle
 	err = edba_u_pageload_row(h, foundpid,
-			page_byteoff, structdat->fixedc, flags);
+			page_byteoff, structdat, flags);
 	if(err) {
 		edba_u_clutchentry_release(h);
 		return err;
@@ -178,16 +195,15 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// now to get the next item on the trash list to set to trashstartoff
 	// before we can release it
 	edbp_t *page = edbp_graw(&h->edbphandle);
-	h->objectoff  = intrapagebyteoff;
-	h->objectdata = page + intrapagebyteoff;
-	h->objectc    = structdat->fixedc;
+	assignobject(h, page, intrapagebyteoff, structdat);
+
 
 	// store the current trashoffset in the stack for oid calculation later.
 	uint64_t intrapagerowoff = o->trashstart_off;
 
 	// for a deleted record, the first 2 bytes after the uint32_t header
 	// is a rowid of the next item.
-	o->trashstart_off = *(uint16_t *)(h->objectdata + sizeof(edb_object_flags));
+	o->trashstart_off = *(uint16_t *)(h->content);
 	// trashstart_off is updated. we can unlock it. note we still have our
 	// h->lock on the entry itself.
 	edba_u_locktransstartoff_release(h);
@@ -197,10 +213,10 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// as per this function's description, and the fact we just removed it
 	// from the trash management, we will make sure its not marked as deleted.
-	edb_object_flags *objflags = (edb_object_flags *)(h->objectdata);
+	edb_object_flags *objflags = h->objectflags;
 #ifdef EDB_FUCKUPS
-	// analyze the flags to make sure we're allowed to create this.
-	// If this record has fallen into the trash list and the flags
+	// analyze the objectflags to make sure we're allowed to create this.
+	// If this record has fallen into the trash list and the objectflags
 	// don't line up, thats a error on my part.
 	// double check that this record is indeed trash.
 	// Note these errors are only critical if we eneded up here via
@@ -236,11 +252,11 @@ const edb_struct_t *edba_objectstruct(edba_handle_t *h) {
 }
 
 void   *edba_objectfixed(edba_handle_t *h) {
-	return h->objectdata + sizeof(edb_object_flags);
+	return h->content;
 }
 
 edb_usrlk edba_objectlocks_get(edba_handle_t *h) {
-	return (*(edb_usrlk *)h->objectdata) & _EDB_FUSRLALL;
+	return (*(edb_usrlk *)h->objectflags) & _EDB_FUSRLALL;
 }
 
 edb_err edba_objectlocks_set(edba_handle_t *h, edb_usrlk lk) {
@@ -256,7 +272,7 @@ edb_err edba_objectlocks_set(edba_handle_t *h, edb_usrlk lk) {
 		log_errorf("invalid user lock according to normalization mask");
 		return EDB_EINVAL;
 	}
-	 *(edb_usrlk *)h->objectdata = *(edb_usrlk *)h->objectdata & lk;
+	 *(edb_usrlk *)h->objectflags = *(edb_usrlk *)h->objectflags & lk;
 	return 0;
 }
 
@@ -269,7 +285,7 @@ unsigned int edba_objectdeleted(edba_handle_t *h) {
 		return 0;
 	}
 #endif
-	return (*((edb_object_flags *)h->objectdata) & EDB_FDELETED);
+	return (*(h->objectflags) & EDB_FDELETED);
 }
 
 // this function must be the same across all databases, all tables.
@@ -309,13 +325,13 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	// We do this first just incase we crash by the time we get to the trash linked list
 	// we'd rather have it marked as deleted so future query processes won't try to use it.
 	// It'll be up to pmaint to finally put it in the trash linked list in that case.
-	edb_object_flags *objflags = (edb_object_flags *)h->objectdata;
+	edb_object_flags *objflags = h->objectflags;
 	*objflags = *objflags & EDB_FDELETED;
 
 	// get the header of the object page
 	edbp_object_t *objheader = edbp_graw(&h->edbphandle);
 	// add to the trash linked list
-	*(uint16_t *)(h->objectdata+sizeof(edb_object_flags)) = objheader->trashstart_off;
+	*(uint16_t *)(h->content) = objheader->trashstart_off;
 	objheader->trashstart_off = h->objectoff;
 	objheader->trashc++;
 
@@ -388,7 +404,7 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 	//        the linked list
 
 	// next paragraph is just removing us from the trash linked list.
-	uint16_t ll_ref_after = *(uint16_t *)(h->objectdata+sizeof(edb_object_flags));
+	uint16_t ll_ref_after = *(uint16_t *)(h->content);
 	uint16_t *ll_ref = &objheader->trashstart_off;
 	for(int i = 0; i < objheader->trashc; i++) {
 		//ll_ref_next = (uint16_t *)(objpage+ll_ref+sizeof(edb_object_flags));
@@ -403,7 +419,7 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 	objheader->trashc--;
 
 	// mark as live
-	edb_object_flags *objflags = (edb_object_flags *)h->objectdata;
+	edb_object_flags *objflags = h->objectflags;
 	*objflags = *objflags & ~EDB_FDELETED;
 
 	edba_u_locktransstartoff_release(h);
@@ -411,7 +427,7 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 }
 
 edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
-                         uint16_t page_byteoff, uint16_t fixedc,
+                         uint16_t page_byteoff, const edb_struct_t *structdat,
                          edbf_flags flags) {
 	// as per locking spec, need to place the lock on the data before we load the page.
 	// install the SH lock as per Object-Reading
@@ -436,10 +452,8 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 	}
 
 	// set the pointer
-	h->objectoff  = page_byteoff;
-	h->objectdata = edbp_graw(&h->edbphandle) + page_byteoff;
-	h->objectc    = fixedc;
-
+	void *page = edbp_graw(&h->edbphandle);
+	assignobject(h, page, page_byteoff, structdat);
 	return 0;
 }
 

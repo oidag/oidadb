@@ -55,12 +55,12 @@ void edba_u_locktransstartoff_release(edba_handle_t *handle);
 // between edbp_start and edbp_finish with the pagecache handle
 // in handle.
 //
-// updates: handle->lock, handle->objectdata, handle->objectc, handle->objectoff
+// updates: handle->lock, handle->object...
 //
 // flags only check for EDBA_FWRITE, if true than makes the
 // row lock exclusvive
 edb_err edba_u_pageload_row(edba_handle_t *handle, edb_pid pid,
-					 uint16_t page_byteoff, uint16_t fixedc,
+					 uint16_t page_byteoff, const edb_struct_t *structdat,
 					     edbf_flags flags);
 void edba_u_pagedeload(edba_handle_t *handle);
 
