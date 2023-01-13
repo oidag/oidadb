@@ -207,6 +207,7 @@ edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
 	h->clutchedentry->type = EDB_TPEND;
 
 	// todo: delete everythign
+	implementme();
 
 	edbl_entrycreaiton_lock(lockh);
 	h->clutchedentry->type  = EDB_TINIT;

@@ -43,9 +43,13 @@ typedef struct edba_handle_st {
 	edb_entry_t *clutchedentry;
 	edb_eid clutchedentryeid;
 
-	uint16_t objectoff; // byte offset from the page until objectdata.
-	void *objectdata; // pointer starts at object flags
-	unsigned int objectc; // same as the object's struct->fixedc
+	uint16_t          objectoff; // byte offset from the page until objectflags.
+	unsigned int      objectc; // same as the object's struct->fixedc
+	edb_object_flags *objectflags; // pointer to the very start of the object
+	unsigned int      dy_pointersc;
+	edb_dyptr        *dy_pointers; // dynamic pointers
+	unsigned int      contentc;
+	void             *content; // pointer starts at object objectflags
 
 	// Variables when opened == EDB_TSTRCT
 	//
@@ -120,12 +124,12 @@ void    edba_objectclose(edba_handle_t *h);
 //
 //
 // later: I need to have 'read-only variants' of these functions that return
-//        const pointers so that way I can check for open flags on a low level.
+//        const pointers so that way I can check for open objectflags on a low level.
 void   *edba_objectfixed(edba_handle_t *h);
 
 // edba_objectflags_get, edba_objectlocks_set
 //   Getter and setter to the user locks on this object. setter will do nothing
-//   if not open with right flags (and bitch in console)
+//   if not open with right objectflags (and bitch in console)
 //
 // RETURNS (edba_objectlocks_set)
 //  - EDB_EINVAL (EDB_FUCKUPS) object not open for writing
