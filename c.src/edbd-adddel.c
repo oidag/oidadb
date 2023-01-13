@@ -85,6 +85,8 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 
 			// we found pages we can recycle.
 
+			// it is in this if loop as to why we cannot guarentee 0-initialized pages.
+
 			// but before we can close out of our busienss here with this edbp_deleted is
 			// to make sure its largeststrait is still true.
 			head->largeststrait = newlargeststrait;
