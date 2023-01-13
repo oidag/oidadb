@@ -1,3 +1,4 @@
+#include <strings.h>
 #include "edba-util.h"
 #include "edba.h"
 #include "edbp-types.h"
@@ -420,7 +421,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 		return err;
 	}
 
-	// start the page
+	// start the page and 0-initialize it
 	err = edbp_start(edbp, *o_pid);
 	if(err) {
 		log_debugf("failed to start page after it's creation, "
@@ -432,6 +433,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	}
 	// **defer: edbp_finish(edbp);
 	void *page = edbp_graw(edbp);
+	bzero(page, edbd_size(descriptor));
 	edbp_lookup_t *pageheader = (edbp_lookup_t *)page;
 	edb_lref_t *pagerefs = page + EDBD_HEADSIZE;
 
@@ -463,6 +465,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	return 0;
 }
 
+// assumes the page is 0-initialized.
 void static initobjectspage(void *page, edbp_object_t header, const edb_struct_t *strct, unsigned int objectsperpage) {
 
 	// set up the header
@@ -535,6 +538,7 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 
 		// initiate the page
 		void *page = edbp_graw(edbp);
+		bzero(page, edbd_size(descriptor));
 		initobjectspage(page, header, strct, objectsperpage);
 
 		// we do the referance  logic after so the first iteration of

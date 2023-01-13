@@ -147,7 +147,8 @@ edb_err edbd_struct(const edbd_t *file, uint16_t structureid, const edb_struct_t
 
 // edbd_add
 //   is the most primative way to create. will create a page strait of length straitc and will return the
-//   first page in that strait's id in o_pid. The pages' binary will be 0-initialized.
+//   first page in that strait's id in o_pid. The pages' binary will is NOT gaurenteed to be initialized,
+//   meaning the whole page could be junk, its best to 0-initialize the whole page.
 //
 // edbd_del
 //   This will delete the pages.
