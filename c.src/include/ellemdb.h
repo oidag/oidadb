@@ -8,6 +8,7 @@
 // easy typedefs.
 typedef uint64_t edb_dyptr; // dynamic pointer
 typedef uint64_t edb_oid; // object id
+typedef uint16_t edb_sid; // struct id
 typedef uint16_t edb_eid;
 typedef uint64_t edb_rid; // rowid
 
