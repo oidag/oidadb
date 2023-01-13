@@ -154,7 +154,9 @@ edb_err edba_objectlocks_set(edba_handle_t *h, edb_usrlk lk);
 //   remember that when objectdelete is called, the data that was in that object
 //   IS actually clobbered. So "undelete" doesn't undo the delete, it just
 //   makes the object open to being written too again. (in other words, once calling
-//   edba_objectdelete there's no going back in terms of what data was there)
+//   edba_objectdelete there's no going back in terms of what data was there).
+//
+//   dyanmic data is also deleted.
 //
 // IGNORES ALL USER LOCKS.
 //

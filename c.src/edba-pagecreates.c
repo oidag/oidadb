@@ -495,6 +495,8 @@ void static initobjectspage(void *page, edbp_object_t header, const edb_struct_t
 		} else {
 			*nextdeleted_rowid = ((uint16_t)i)+1;
 		}
+		// note we don't need to touch the dynamic pointers because they should all be
+		// 0 (null). And we know any byte we don't touch will be 0.
 	}
 }
 

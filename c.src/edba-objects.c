@@ -198,7 +198,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	assignobject(h, page, intrapagebyteoff, structdat);
 
 
-	// store the current trashoffset in the stack for oid calculation later.
+	// store the current trashoffset in the stack for oid calculation.
 	uint64_t intrapagerowoff = o->trashstart_off;
 
 	// for a deleted record, the first 2 bytes after the uint32_t header
@@ -327,6 +327,16 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	// It'll be up to pmaint to finally put it in the trash linked list in that case.
 	edb_object_flags *objflags = h->objectflags;
 	*objflags = *objflags & EDB_FDELETED;
+
+	// delete all dynamic data. We'll 0-out the pointers as their deleted just incase
+	// of a crash (see above logic with setting EDB_FDELETED first).
+	{
+		for(int i = 0; i < h->dy_pointersc; i++) {
+			if(h->dy_pointers[i] == 0) continue;
+			edba_u_dynamicdelete(h, h->dy_pointers[i]);
+			h->dy_pointers[i] = 0;
+		}
+	}
 
 	// get the header of the object page
 	edbp_object_t *objheader = edbp_graw(&h->edbphandle);
