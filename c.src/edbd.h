@@ -134,7 +134,7 @@ void    edbd_close(edbd_t *file);
 // I put the const constraint on it. You must edit structure data via edba).
 //
 // These functions are dumb; does not check validitity of eid/structiid, thus no errors
-// can be returned.
+// can be returned. Doesn't check if said index is even initialized.
 //
 // Note: does nothing with locks. Be sure to use edbl properly.
 //
@@ -169,6 +169,7 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id);
 #define EDBD_EIDDELTED 1
 #define EDBD_EIDSTRUCT 2
 #define EDBD_EIDRSVD3  3
+#define EDBD_EIDSTART  4 // start of the objects
 
 // helper functions
 

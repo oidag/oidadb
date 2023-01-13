@@ -11,7 +11,7 @@ edb_err edbw_u_structjob(edb_worker_t *self) {
 
 	// working variables
 	edb_struct_t s;
-	uint16_t structid;
+	edb_sid  structid;
 
 	// per-description
 	switch(jobdesc & 0xFF00) {
@@ -29,7 +29,12 @@ edb_err edbw_u_structjob(edb_worker_t *self) {
 			return 0;
 		case EDB_CDEL:
 			edbs_jobread(job, &structid, sizeof(structid));
-			err = edba_structdelete(handle, structid);
+			err = edba_structopen(handle, structid);
+			if(err) {
+				edbs_jobwrite(job, &err, sizeof(err));
+				return err;
+			}
+			err = edba_structdelete(handle);
 			edbs_jobwrite(job, &err, sizeof(err));
 			return err;
 		default:

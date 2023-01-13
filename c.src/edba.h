@@ -234,23 +234,36 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e);
 // Requires strct so it can know how much space to allocate.
 // Opens up edba_struct.. functions
 //
-// edba_structopenc, edba_structclose
-//   TODO: document
+// edba_structopen, edba_structopenc
+//   One of these are required to call any subseqent edba_struct... functions.
+//    - edba_structopen - open for just writting.
+//    - edba_structopenc - create a new structure and open it for writting.
 //
-// edba_struct_conf
-//   get a pointer to the arbitrary configuration.
+// edba_structclose
+//    Closes the structure, completing the workflow.
 //
 // edba_structdelete
-//   cannot have anything checked out to call this
+//   must be called after edba_structopenc and before edba_structclose. This
+//   function will implicitly call edba_structclose. Meaning this is a final
+//   operation you can execute for this structure (even if returns non-EINVAL error).
+//
+// edba_struct_conf
+//   get a read-only pointer to the arbitrary configuration.
 //
 // ERRORS:
 //   - EDB_ENOSPACE - (edba_structopenc) cannot create another structure, out of space
 //     in structure buffer.
 //   - EDB_EINVAL - (edba_structopenc) strct.fixedc was less than 4 (note the spec defines the min. as 2, but I'm doing
 //     4 here just incase).
+//   - EDB_EEXIST - (edba_structdelete) cannot delete because an entry is using
+//     this structure.
+//   - EDB_ENOENT - (edba_structopen) structure at sid is not initialized/invalid
+edb_err edba_structopen(edba_handle_t *h, edb_sid sid);
 edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct);
 void    edba_structclose(edba_handle_t *h);
-void   *edba_structconf(edba_handle_t *h);
-edb_err edba_structdelete(edba_handle_t *h, uint16_t sid);
+edb_err edba_structdelete(edba_handle_t *h);
+
+const void *edba_structconf(edba_handle_t *h);
+//edb_err edba_structconfset(edba_handle_t *h, void *conf); todo: when dynamics are complete.
 
 #endif

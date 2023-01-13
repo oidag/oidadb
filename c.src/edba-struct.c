@@ -3,6 +3,47 @@
 #include "edbl.h"
 #include "edba-util.h"
 
+edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
+
+	// easy ptrs
+	edbl_handle_t *lockh = &h->lockh;
+	const edb_eid eid = EDBD_EIDSTRUCT;
+	edbd_t *file = h->parent->descriptor;
+	edb_err err;
+
+	// politics
+	if(h->opened != 0) {
+		log_critf("cannot open structure, something already opened");
+		return EDB_EINVAL;
+	}
+	h->opened = EDB_TSTRCT;
+	h->openflags = EDBA_FWRITE;
+
+	// as per spec we lock the creation structure index.
+	edba_u_clutchentry(h, eid, 1);
+	uint16_t i;
+
+	unsigned int pageoffset = sid / h->clutchedentry->objectsperpage;
+	if(pageoffset >= h->clutchedentry->ref0c) {
+		edba_u_clutchentry_release(h);
+		return EDB_ENOENT;
+	}
+	void *structpages; // todo: where are we storing the structurepages?
+	// as per spec we can parse this page as a edbp_object.
+	edbp_object_t  *o = structpages + pageoffset * edbd_size(file);
+
+	// assign the handle fields.
+	h->strctid = sid;
+	h->strct = (edb_struct_full_t *)(o + EDBD_HEADSIZE + sizeof(edb_struct_full_t) * o->trashstart_off);
+
+	// make sure the structure isn't deleted.
+	if(h->strct->obj_flags & EDB_FDELETED) {
+		edba_u_clutchentry_release(h);
+		return EDB_ENOENT;
+	}
+
+	return 0;
+}
 
 // todo: make sure to initialize structure pages using edba_u_pagecreate_objects
 edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct) {
@@ -13,25 +54,23 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct) 
 	edbd_t *file = h->parent->descriptor;
 	edb_err err;
 
+	// politics
+	if(h->opened != 0) {
+		log_critf("cannot create-open structure, something already opened");
+		return EDB_EINVAL;
+	}
+	h->opened = EDB_TSTRCT;
+	h->openflags = EDBA_FCREATE | EDBA_FWRITE;
+
 	// value assumptions
 	strct.flags = 0;
-	strct.
 
 	// validation
 	if(strct.fixedc < 4) {
 		return EDB_EINVAL;
 	}
 
-	// politics
-	if(h->opened != 0) {
-		log_critf("cannot open structure, something already opened");
-		return EDB_EINVAL;
-	}
-	h->opened = EDB_TSTRCT;
-	h->openflags = EDBA_FCREATE | EDBA_FWRITE;
-
 	// as per spec we lock the creation structure index.
-	// todo: make sure this in unclutched
 	edba_u_clutchentry(h, eid, 1);
 	uint16_t i;
 
@@ -95,13 +134,11 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct) 
 
 	// set deleted flag as 0.
 	h->strct->obj_flags = h->strct->obj_flags & ~EDB_FDELETED;
-
-
 	return 0;
 }
 void    edba_structclose(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
-	if(h->opened != EDB_EINVAL) {
+	if(h->opened != EDB_TSTRCT) {
 		log_critf("edba_structclose: already closed");
 		return;
 	}
@@ -110,10 +147,64 @@ void    edba_structclose(edba_handle_t *h) {
 	h->opened = 0;
 	h->openflags = 0;
 }
-void   *edba_structconf(edba_handle_t *h) {
+const void *edba_structconf(edba_handle_t *h) {
 	// Need to first implement edbp_dynamic pages before I can deal with this
 	implementme();
 
 	//h->strct->dy_pointer...
 }
-edb_err edba_structdelete(edba_handle_t *h, uint16_t sid);
+edb_err edba_structdelete(edba_handle_t *h) {
+	// easy ptrs
+	edbl_handle_t *lockh = &h->lockh;
+	edbd_t *file = h->parent->descriptor;
+	edb_err err;
+
+	// politics
+	if(h->opened != EDB_TSTRCT || !(h->openflags & EDBA_FWRITE)) {
+		log_critf("cannot delete structure, structure not opened for writing");
+		return EDB_EINVAL;
+	}
+
+	// atp: we have the structure-creation mutex locked
+
+	// as per spec we lock the entry creation mutex.
+	edbl_entrycreaiton_release(lockh);
+	// **defer edbl_entrycreation_release
+
+	// search the entire index and make sure nothing has our structure.
+	edb_eid searcheid = EDBD_EIDSTART;
+	for(; ; searcheid++) {
+		edb_entry_t *entry;
+		// roll-on locks
+		err = edbd_index(file, searcheid, &entry);
+		if(err) {
+			// We assume its an EOF: meaning we've reached the end of
+			// the list.
+			err = 0;
+			break;
+		}
+		if(entry->structureid == h->strctid) {
+			err = EDB_EEXIST;
+			break;
+		}
+	}
+	if(!err) {
+
+		// make this object as deleted.
+		h->strct->obj_flags &= EDB_FDELETED;
+
+		// delete its dynamic data.
+		if(h->strct->dy_pointer) {
+			edba_u_dynamicdelete(h, h->strct->dy_pointer);
+		}
+	} else {
+		// some error happened that will prevent us from deleting anything.
+	}
+
+	// as per spec we release the entry creation lock
+	edba_u_clutchentry_release(h);
+
+	// perform a normal structure close.
+	edba_structclose(h);
+	return err;
+}

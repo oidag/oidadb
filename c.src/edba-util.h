@@ -124,6 +124,9 @@ void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid *o_rid) {
 
 // mark the data at the pointer as deleted.
 // todo: locks?
+// ERRORS:
+//   - EDB_EINVAL: dynamicptr is 0
+//   - Everything else: EDB_ECRIT (ie: invalid pointer)
 edb_err edba_u_dynamicdelete(edba_handle_t *handle, uint64_t dynamicptr);
 
 #endif

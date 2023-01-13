@@ -94,11 +94,9 @@ has been fully updated.
   5. Set the type to EDB_TINIT
   7. Release the XL clutch lock.
   8. Unlock the entry-creation mutex
-** Entry-Writting
-  1. Place an XL clutch lock on the entry you wish to create.
-  2. Whiest retaining the XL clutch lock, make whatever edits are
-     needed to the entry and chapter.
-  3. Release the XL clutch lock.
+** Entry-Updating
+Note: for structures, you must lock the structure creation mutex first
+to prevent the sturcture (your updating to) from being deleted.
 ** Entry-Reading
   1. Make sure the entry doesn't have a clutch lock
   2. At this point, if you'd like to confidently pull in structure
@@ -114,10 +112,10 @@ Lock the structure creation mutex.
 You must lock the entry creation mutex so nothing can be created
 with the structure you're trying to delete.
 
-You must go through all indexes, placing sh clutch locks on each one,
-then make sure it doesn't posses that structure. If it does, then
-that's an error, you cannot delete the structure, roll back the locks
-and quit.
+You must go through all indexes from top to bottom, placing sh clutch
+locks on all of them, then make sure it doesn't posses that
+structure. If it does, then that's an error, you cannot delete the
+structure, roll back the locks and quit.
 
 * Object
 ** Object-Reading
