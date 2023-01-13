@@ -353,17 +353,17 @@ which all pages in that collection are.
 
 TODO: Need to consolidate the idea that all entries are object pages :)
 ** Entry Type
- - =EDB_TINIT 0= - initialized page (all 0s). Pages of this type
-   should only exist temporarly.  If you happen to start hosting and
-   you see EDB_TINIT pages, you can assume they are corrupted and can
-   be marked as deleted.
+ - =EDB_TINIT 0= - initialized pages (all 0s) as well as initialized
+   (but unused) entries.
  - =EDB_TDEL   1= - =edbp_deleted=
  - =EDB_TSTRCT 2= - =edbp_struct=
  - =EDB_TOBJ   3= - =edbp_object=
  - =EDB_TENTS  4= - The index itself
- - =EDB_TPEND  5= - Temporary status between EDB_TINIT and whatever it is
-   trying to become. Used only for traffic control. Like EDB_TINIT, any
-   entries found in this type on start-up are considered corrupt.
+ - =EDB_TPEND 5= - Temporary status between EDB_TINIT and whatever it
+   is trying to become. Used only for traffic control. Pages of this
+   type should only exist temporarly.  If you happen to start hosting
+   and you see EDB_TPEND pages/entries, you can assume they are
+   corrupted.
 ** Entry ID
 All Entrieshave an Entry ID, the Entry ID is a uint16, meaning that an
 AG database can have a maximum of 2^16-1 total entries. Entry 0 /is/
