@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 #include "error.h"
-#include "primatives.h"
+#include "glplotter/primatives.h"
 #include "draw-dwg.h"
 
 #define DWG_INIT(val, name) val.dwg.draw = (dwg_draw_func)dwg_draw_##name

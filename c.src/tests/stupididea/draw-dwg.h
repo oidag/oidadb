@@ -1,8 +1,9 @@
 #ifndef draw_comps_h_
 #define draw_comps_h_
 
-#include "draw.h"
-#include "primatives.h"
+#include "glplotter/glplotter.h"
+#include "glplotter/primatives.h"
+#include "text.h"
 
 // some macros that assist with type casting to avoid constant wanrings
 #define DWG_DEF(name) typedef struct dwg_##name##_st { \

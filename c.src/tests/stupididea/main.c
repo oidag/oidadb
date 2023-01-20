@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #include "file.h"
-#include "draw.h"
+#include "glplotter/glplotter.h"
 
 
 #include <GL/gl.h>
