@@ -1,9 +1,3 @@
-#include "draw.h"
-#include "text.h"
-#include "window.h"
-#include "error.h"
-#include "primatives.h"
-
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <malloc.h>
@@ -11,15 +5,13 @@
 #include <GL/glext.h>
 #include <GLES3/gl3.h>
 
-text_font monospace_font;
+#include "glplotter.h"
+#include "glp_u.h"
+#include "error.h"
+#include "primatives.h"
 
 
-// graphicbufv: array of pointers
-graphic_t  **graphicbufv;
-unsigned int graphicbufc; // count (length)
-unsigned int graphicbufq; // quality in buffer
-// graphic block sizes
-#define GRAPHICBUF_BLOCKC 16
+
 
 static void cachepixels_draw(graphic_t *g) {
 
@@ -80,67 +72,9 @@ static int cachepixels(graphic_t *g) {
 	             0);
 }
 
-int a=0,b=0;
-int w = 5,h = 5;
-static int draw() {
-
-	/* TEST
-
-	glLoadIdentity();
-
-	glClearColor(0,1,0,1);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	glBegin(GL_POLYGON);
-
-	glColor4f(0.6,0,0,1);
-	glVertex2i(0,0);
-
-	//glColor4f(0,0,0.7,1);
-	glVertex2i(-1,0);
-
-	//glColor4f(0,0.5,0,1);
-	glVertex2i(-1,1);
-
-	glEnd();
-
-	//glColor4f(0,0,1,1);
-	//glRecti(0,0,1,1);
-
-	glLoadIdentity();
-	h++;
-	w++;
-	size_t size = sizeof(float) * 3 * w * h;
-	float *buff = malloc(size);
-	glReadPixels(0,
-				 0,
-				 w,
-				 h,
-				 GL_RGB,
-				 GL_FLOAT,
-				 buff);
-	GLenum err = glGetError();
-
-	glClearColor(0,0,1,1);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	glRasterPos2f(-0.5, -0.5);
-	GLenum err4 = glGetError();
-	int buff2[4];
-	glGetIntegerv(GL_CURRENT_RASTER_POSITION, buff2);
-
-	glDrawPixels(w,
-	             h,
-	             GL_RGB,
-	             GL_FLOAT,
-	             buff);
-	GLenum err2 = glGetError();
-	free(buff);
-
-	return 1;*/
+int draw(const *framedata_t) {
 
 	int ret = 0;
-
 	int kills = 0;
 
 	framedata_t framedata ; // todo
@@ -170,6 +104,7 @@ static int draw() {
 		// This switch statement will either end in break or continue:
 		//   - continue: don't call dwg_draw_func.
 		//   - break: call dwg_draw_func.
+		// later: pre-draw we should only be handling DA_SLEEP.
 		switch (lastact & _DA_BITMASK) {
 			case DA_FRAME:
 				ret = 1;
@@ -273,57 +208,4 @@ static int draw() {
 
 	// return rather or not we should redraw.
 	return ret;
-}
-
-
-
-int draw_init() {
-	int err;
-
-	err = window_init("the tool", 1200, 800);
-	if(err) {
-		return err;
-	}
-
-	// set fonts
-	err = text_addfont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 12, &monospace_font);
-	if(err) {
-		error("failed to open debugfont: %d", err);
-		return 1;
-	}
-
-	// set the draw callback
-	window_ondraw(draw);
-
-	// buffers
-	graphicbufc = 0;
-	graphicbufq = GRAPHICBUF_BLOCKC;
-	graphicbufv = malloc(sizeof(void *) * GRAPHICBUF_BLOCKC);
-
-	return 0;
-}
-
-int draw_serve() {
-	return window_render();
-}
-
-void draw_close() {
-	free(graphicbufv);
-	window_close();
-}
-
-void draw_addgraphic(void *vg) {
-
-	// normalizgin
-	graphic_t *g = (graphic_t *)vg;
-	bzero(&g->cache, sizeof(g->cache));
-
-	if(graphicbufc == graphicbufq) {
-		// resizing needed
-		graphicbufq += GRAPHICBUF_BLOCKC;
-		graphicbufv = realloc(graphicbufv, graphicbufq * sizeof(void*));
-	}
-	g->cache.lastact = DA_INVALIDATED;
-	graphicbufv[graphicbufc] = g;
-	graphicbufc++;
 }

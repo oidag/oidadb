@@ -3,14 +3,7 @@
 // Do NOT include any glfw
 // Do NOT include file.h
 
-#include "window.h"
-#include "text.h"
 #include "primatives.h"
-
-
-// default fonts
-extern text_font monospace_font;
-
 
 int draw_init();
 void draw_close();
@@ -28,6 +21,7 @@ void draw_close();
 //
 // See DA_* constants below.
 typedef unsigned int drawaction;
+typedef unsigned int drawevents; // see DAF_* events
 
 // _da_none is invalid. Do not use it.
 #define _DA_BITMASK 0xF
@@ -64,11 +58,13 @@ typedef unsigned int drawaction;
 #define _DAF_BITMASK      0x1FFF0000
 #define DAF_ONMOUSE_DOWN  0x10010000
 #define DAF_ONMOUSE_UP    0x10020000
-#define DAF_ONMOUSE_ENTER 0x10040000
-#define DAF_ONMOUSE_LEAVE 0x10080000
+#define DAF_ONMOUSE_MOVE  0x10040000
 // keys
 #define DAF_ONKEYDOWN     0x11010000
 #define DAF_ONKEYUP       0x11020000
+// window
+#define DAF_ONWINDOWSIZE  0x12010000
+
 
 typedef struct {
 
@@ -95,9 +91,27 @@ typedef struct cache_st {
 
 } cache_t;
 
-
+typedef unsigned int mousebuttons;
+#define GLP_MOUSE_1 1 // left click
+#define GLP_MOUSE_2 2 // right click
+#define GLP_MOUSE_3 3 // middle click
+#define GLP_MOUSE_4 4
+#define GLP_MOUSE_5 5
+#define GLP_MOUSE_6 6
+#define GLP_MOUSE_7 7
+#define GLP_MOUSE_8 8 // "last" click
 typedef struct {
-	// todo: what was pressed and mouse pos and shit.
+
+	drawevents events;
+
+	int wwidth, wheight;
+
+	// cusor position
+	int cx, cy;
+
+	// mouse buttons
+	mousebuttons mousebuttons;
+
 } framedata_t;
 
 typedef  drawaction (*dwg_draw_func)(void *self, const framedata_t *) ;
@@ -126,20 +140,11 @@ typedef struct graphic_st {
 	dwg_draw_func draw;
 } graphic_t;
 
-typedef struct label_st {
-	graphic_t parent;
-	const char *label;
-} label_t;
-
-
-// an array of pointers to structures that have graphic_t
-// as their first index.
-// put this in .c
-//graphic_t **graphics;
-
 int draw_serve();
 
 void draw_addgraphic(void *g);
+void draw_invalidate(void *g);
+void draw_invokedraw();
 
 
 // todo: componenets
