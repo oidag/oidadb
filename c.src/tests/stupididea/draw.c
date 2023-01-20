@@ -1,0 +1,431 @@
+#include "draw.h"
+#include "text.h"
+#include "window.h"
+#include "error.h"
+#include "primatives.h"
+
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
+#include <malloc.h>
+#include <strings.h>
+#include <GL/glext.h>
+#include <GLES3/gl3.h>
+
+text_font monospace_font;
+
+
+// graphicbufv: array of pointers
+graphic_t  **graphicbufv;
+unsigned int graphicbufc; // count (length)
+unsigned int graphicbufq; // quality in buffer
+// graphic block sizes
+#define GRAPHICBUF_BLOCKC 16
+
+static void cachepixels_draw(graphic_t *g) {
+
+	unsigned int err = glGetError();
+	recti_t viewport = g->viewport;
+
+	glWindowPos2i(viewport.x,
+	              window_height - (viewport.y+viewport.heigth));
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g->cache.glbuffer);
+	glDrawPixels(viewport.width,
+	             viewport.heigth,
+	             GL_RGB,
+	             GL_UNSIGNED_BYTE,
+	             0);
+}
+static void decachepixels(graphic_t *g) {
+	if(!g->cache.glbuffer) {
+		error("double-decache");
+		return;
+	}
+	glDeleteBuffers(1, &g->cache.glbuffer);
+	g->cache.glbuffer = 0;
+}
+
+// takes everything inside of g->viewport and caches it
+// for quick redraw using cachepixels_draw.
+static int cachepixels(graphic_t *g) {
+
+	recti_t viewport = g->viewport;
+
+	// make sure our buffer for this graphic is large enough to store
+	// the entire viewport.
+	unsigned int memneeded = viewport.width * viewport.heigth * 3;
+	/*if(g->cache._lastimageq < memneeded) {
+		g->cache._lastimagev = realloc(g->cache._lastimagev, memneeded * sizeof(float) * 3);
+		g->cache._lastimageq = memneeded;
+	}*/
+
+	if(!g->cache.glbuffer) {
+		glGenBuffers(1,&g->cache.glbuffer);
+	}
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, g->cache.glbuffer);
+
+	if(g->cache.glbufferc < memneeded) {
+		glBufferData(GL_PIXEL_PACK_BUFFER,
+		             memneeded,
+					 0,
+					 GL_DYNAMIC_DRAW);
+		g->cache.glbufferc = memneeded;
+	}
+
+	glReadPixels(viewport.x,
+	             window_height - (viewport.y + viewport.heigth), // glReadPixels is weird with the y.
+	             viewport.width,
+	             viewport.heigth,
+	             GL_RGB,
+	             GL_UNSIGNED_BYTE,
+	             0);
+}
+
+int a=0,b=0;
+int w = 5,h = 5;
+static int draw() {
+
+	/* TEST
+
+	glLoadIdentity();
+
+	glClearColor(0,1,0,1);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glBegin(GL_POLYGON);
+
+	glColor4f(0.6,0,0,1);
+	glVertex2i(0,0);
+
+	//glColor4f(0,0,0.7,1);
+	glVertex2i(-1,0);
+
+	//glColor4f(0,0.5,0,1);
+	glVertex2i(-1,1);
+
+	glEnd();
+
+	//glColor4f(0,0,1,1);
+	//glRecti(0,0,1,1);
+
+	glLoadIdentity();
+	h++;
+	w++;
+	size_t size = sizeof(float) * 3 * w * h;
+	float *buff = malloc(size);
+	glReadPixels(0,
+				 0,
+				 w,
+				 h,
+				 GL_RGB,
+				 GL_FLOAT,
+				 buff);
+	GLenum err = glGetError();
+
+	glClearColor(0,0,1,1);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glRasterPos2f(-0.5, -0.5);
+	GLenum err4 = glGetError();
+	int buff2[4];
+	glGetIntegerv(GL_CURRENT_RASTER_POSITION, buff2);
+
+	glDrawPixels(w,
+	             h,
+	             GL_RGB,
+	             GL_FLOAT,
+	             buff);
+	GLenum err2 = glGetError();
+	free(buff);
+
+	return 1;*/
+
+	int ret = 0;
+
+	int kills = 0;
+
+	framedata_t framedata ; // todo
+
+	// for each graphic, we only need to redraw it if its bounding box is either
+	// invalidated, or is sitting on top of a bounding box that is invalided.
+	//
+	// We do not need to redraw a graphic if the contents below it had not changed.
+	//
+	// Now you may ask, "well, what If I move a box over a circle, sure the circle doesn't
+	// need to redraw then, but if I move the box somewhere else then the circle would
+	// remain stained with the box on top of it?". What we do is just draw back the image
+	// data the sleeper submitted back on the boundingbox of that box.
+	//
+	// If a graphic is redrawn, regardless if its marking itself as sleeping, the bounding
+	// box for the newly drawn graphic will be marked as invalidated for the
+	// items potential above it for this frame. This is because if a graphic is under another,
+	// and the sub graphic is redrawn, it would redraw itself ontop of the super
+	// ficial graphics.
+	for(unsigned int i = 0; i < graphicbufc; i++) {
+
+		// easy pointers
+		graphic_t *g = graphicbufv[i];
+		drawaction lastact = g->cache.lastact;
+		recti_t lastbbox = g->cache.lastviewport;
+
+		// This switch statement will either end in break or continue:
+		//   - continue: don't call dwg_draw_func.
+		//   - break: call dwg_draw_func.
+		switch (lastact & _DA_BITMASK) {
+			case DA_FRAME:
+				ret = 1;
+				// fallthrough
+			case DA_INVALIDATED:
+				break;
+			default:
+				error("graphic has unknown draw action, killing");
+				g->cache.lastact = DA_KILL;
+				// fallthrough
+			case DA_KILL:
+				// We'll remove this from the index after we exit the for loop.
+				kills++;
+				continue;
+			case DA_SLEEP:
+				cachepixels_draw(g);
+				continue;
+		}
+
+		// So they must be redrawn. Which means:
+		// - they are going to change from what they were last frame.
+		// - anything that was /under/ that graphic last frame is unaffected by this.
+		// - anything /above/ that graphic last frame MUST have their dwg_draw_func invoked
+		//   - because things above this graphic may have transperancy, or a large bounding box
+		//     and if they were not to be redrawn, you could still see the old graphic's (outdated)
+		//     pixels beneath it.
+		// - anything /above/ the graphics *NEW* location will also need to be redrawn.
+
+		// So lets perfrom the actual draw.
+		// prepare the draw region
+		unsigned int err = glGetError();
+		glViewport(g->viewport.x,
+		           window_height - (g->viewport.y + g->viewport.heigth),
+		           g->viewport.width,
+		           g->viewport.heigth);
+
+		if(err) {
+			printf("notice: glGetError non-null");
+		}
+		glPushMatrix();
+		glOrtho(0, g->viewport.width, g->viewport.heigth, 0, -1, 1);
+		glGetError();
+		drawaction newact = g->draw(g, &framedata);
+		{
+			err = glGetError();
+			if(err) {
+				printf("notice: glGetError non-null");
+			}
+		}
+		glPopMatrix();
+		glViewport(0,
+		           0,
+		           window_width,
+		           window_height);
+		recti_t newview = g->viewport;
+
+		// Now we have their last location in lastbbox.
+		// And we have their new location in newres->bbox
+
+		// So lets force-draw all sleepers above our previous and new location
+		// by changing their registered action to DA_INVALDATED
+		for(unsigned int j = i+1; j < graphicbufc; j++) {
+			drawaction *aboveaction = &graphicbufv[j]->cache.lastact;
+			if((*aboveaction & DA_SLEEP) == 0) {
+				// the draw action here is no DA_SLEEP, which means it will be
+				// drawn regardless. nothing to worry about.
+				continue;
+			}
+			recti_t sleeperbbox = graphicbufv[j]->cache.lastviewport;
+
+			// okay this is a sleeper, is it above our new or last location?...
+			if(rect_intersectsi(sleeperbbox, newview) ||
+					rect_intersectsi(sleeperbbox, lastbbox)) {
+				// ...it is. Remove its DA_SLEEP flag and add the
+				// DA_INVALIDATED flag. Note that this will destroy
+				// any DAF flags. But thats okay sense the draw method should
+				// be setting those every draw.
+				*aboveaction = DA_INVALIDATED;
+			}
+		}
+
+		// The only thing left to do is to check if this graphic is setting itself
+		// to a sleeping state. If it is we copy the pixels so we can redraw this
+		// graphic without invoking its draw method.
+		if(newact & DA_SLEEP) {
+			cachepixels(g);
+		}
+		// as a last little step, we can free up any memory of cached pixels if
+		// the graphic /was/ in sleep state but now wants to be something else.
+		else if(g->cache.lastact & DA_SLEEP) {
+			decachepixels(g);
+		}
+
+		// Finally, update the lastres to match the latest draw for this graphic.
+		g->cache.lastact = newact;
+		g->cache.lastviewport = newview;
+	}
+
+	// splice out graphics that were killed this frame.
+	for(unsigned int i = 0; kills > 0; i++) {
+		// i is on an index of a graphic that needs to be killed.
+		for(unsigned int j = i + 1; j < graphicbufc; j++) {
+			graphicbufv[j-1] = graphicbufv[j];
+		}
+		kills--;
+		graphicbufc--;
+	}
+
+	// return rather or not we should redraw.
+	return ret;
+}
+
+
+
+int draw_init() {
+	int err;
+
+	err = window_init("the tool", 1200, 800);
+	if(err) {
+		return err;
+	}
+
+	// set fonts
+	err = text_addfont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 12, &monospace_font);
+	if(err) {
+		error("failed to open debugfont: %d", err);
+		return 1;
+	}
+
+	// set the draw callback
+	window_ondraw(draw);
+
+	// buffers
+	graphicbufc = 0;
+	graphicbufq = GRAPHICBUF_BLOCKC;
+	graphicbufv = malloc(sizeof(void *) * GRAPHICBUF_BLOCKC);
+
+	return 0;
+}
+
+int draw_serve() {
+	return window_render();
+}
+
+void draw_close() {
+	free(graphicbufv);
+	window_close();
+}
+
+void draw_addgraphic(void *vg) {
+
+	// normalizgin
+	graphic_t *g = (graphic_t *)vg;
+	bzero(&g->cache, sizeof(g->cache));
+
+	if(graphicbufc == graphicbufq) {
+		// resizing needed
+		graphicbufq += GRAPHICBUF_BLOCKC;
+		graphicbufv = realloc(graphicbufv, graphicbufq * sizeof(void*));
+	}
+	g->cache.lastact = DA_INVALIDATED;
+	graphicbufv[graphicbufc] = g;
+	graphicbufc++;
+}
+
+
+// graveyard:
+/*
+// helper function to draw.
+//
+// redraws all graphics in a given area using their cached data from the last frame
+// below a certain index (not including that index).
+//
+// must be called after skipdraw returns false. Meaning i.invalidated will be non-null
+//
+// assumes not da_new
+static void redrawInvalidated(unsigned int belowindex) {
+
+	// easy vals
+	graphic_t *g = graphicbufv[belowindex];
+	recti_t superinval = g->cache._invalidaterec;
+
+	// first lets look at all the graphic below us.
+	for (unsigned int j = 0; j < belowindex; j++) {
+
+		// we only need to redraw the parts they left "uncovered".
+		// meaning we need to look at their data their previous bounding box.
+		recti_t subbox     = graphicbufv[j]->cache.lastregion;
+		recti_t overlap;
+		int doesoverlap = rect_overlapi(superinval, subbox, &overlap);
+		if (!doesoverlap) {
+			// graphic i is not overlapping graphic j
+			continue;
+		}
+
+		// this graphic's movement has invalidated a graphic below us, we must repair.
+
+		// todo: redraw only what was being overlapped.
+
+		// we only want to draw the overlap. Note we don't
+		// return here as mutliple graphics could have moved about our graphic.
+		// We get the offset because the overlap.x/y is in canvas cords, we need
+		// to get dirtyx/y in relatioon to the image data.
+		//vec2i offset = {
+		//		.x = overlap.x - subbox.x,
+//				.y = overlap.y - subbox.y,
+//		};
+//		glTexSubImage2D(,
+//		                0,
+
+glRasterPos2i(subbox.x, subbox.y+subbox.heigth);
+glDrawPixels(subbox.width,
+subbox.heigth,
+GL_RGBA,
+GL_FLOAT,
+graphicbufv[j]->cache._lastimagev);
+//overlap.grow(-3)
+//_debug_drawboundingbox(overlap, "green")
+}
+}
+
+// helper to draw.
+// will determain if any movement under a sleeper needs a redraw.
+//
+// or if the sleeper was never drawn in the first place.
+static int sleeperNeedsRedraw(unsigned int i) {
+
+	// easy vals
+	graphic_t *g = graphicbufv[i];
+
+
+	recti_t boundingbox = graphicbufv[i]->cache.lastregion;
+	if (!graphicbufv[i]->cache.initialized) {
+		return 1;
+	}
+
+	unsigned int j;
+	for (j = 0; j < i; j++) {
+
+		// does this sub graphic mark invalidated area or is its lastboundingbox
+		if (g->cache._invalidated &&
+		    (rect_intersectsi(g->cache._invalidaterec, boundingbox))) {
+			return 1;
+		}
+
+		// what can also happen is a graphic moved under us.
+		// This can only happen when the drawaction is not a sleep.
+		// in which case we also need to draw the sleeper.
+		if (g->drawaction != DA_SLEEP &&
+		    g->cache.initialized &&
+		    rect_intersectsi(g->cache.lastregion, boundingbox)) {
+			return 1;
+		}
+	}
+
+	// if we're in here that means that nothing was invalidated under the sleeper, nor
+	// is anything new there. Thus we have no need to draw.
+	return 0;
+}*/
