@@ -46,15 +46,15 @@ dwg_debug_t dwg_debug_new() {
 	dwg_debug_t ret;
 	DWG_INIT(ret, debug);
 	ret.color = (colorf) {
-			(float)(rand()&0xF) / (float)0xF,
-			(float)(rand()&0xF) / (float)0xF,
-			(float)(rand()&0xF) / (float)0xF,
+			(float)(rand()&0x1),
+			(float)(rand()&0x1),
+			(float)(rand()&0x1),
 	};
 	ret.dwg.viewport = (recti_t){
 			.x = 0,
 			.y = 0,
-			.width = 20,
-			.heigth = 20,
+			.width = 10,
+			.heigth = 10,
 	};
 
 	ret.vel.x = (float)(rand() % 10);
@@ -62,10 +62,7 @@ dwg_debug_t dwg_debug_new() {
 	return ret;
 }
 
-int test2 = 0;
 drawaction dwg_draw_background(dwg_background_t *g, framedata_t *f){
-	printf("bg draw\n");
-
 	glBegin(GL_POLYGON);
 	glColor3f(1.f,0,0);
 	glVertex2i(0,0);
@@ -76,7 +73,6 @@ drawaction dwg_draw_background(dwg_background_t *g, framedata_t *f){
 	glColor3f(0,1.f,0);
 	glVertex2i(g->dwg.viewport.width,0);
 	glEnd();
-
 	return DA_SLEEP;
 }
 

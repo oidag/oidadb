@@ -27,7 +27,7 @@ static void cachepixels_draw(graphic_t *g) {
 	recti_t viewport = g->viewport;
 
 	glWindowPos2i(viewport.x,
-	              window_height - (viewport.y+viewport.heigth));
+	              viewport.y);
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g->cache.glbuffer);
 	glDrawPixels(viewport.width,
 	             viewport.heigth,
@@ -200,24 +200,17 @@ static int draw() {
 
 		// So lets perfrom the actual draw.
 		// prepare the draw region
-		unsigned int err = glGetError();
 		glViewport(g->viewport.x,
-		           window_height - (g->viewport.y + g->viewport.heigth),
+		           g->viewport.y,
 		           g->viewport.width,
 		           g->viewport.heigth);
-
-		if(err) {
-			printf("notice: glGetError non-null");
-		}
 		glPushMatrix();
-		glOrtho(0, g->viewport.width, g->viewport.heigth, 0, -1, 1);
-		glGetError();
+		glOrtho(0, g->viewport.width, 0, g->viewport.heigth, -1, 1);
+		unsigned int err = glGetError(); // clear error bit
 		drawaction newact = g->draw(g, &framedata);
-		{
-			err = glGetError();
-			if(err) {
-				printf("notice: glGetError non-null");
-			}
+		err = glGetError();
+		if(err) {
+			error("notice: glGetError non-null");
 		}
 		glPopMatrix();
 		glViewport(0,
@@ -334,98 +327,3 @@ void draw_addgraphic(void *vg) {
 	graphicbufv[graphicbufc] = g;
 	graphicbufc++;
 }
-
-
-// graveyard:
-/*
-// helper function to draw.
-//
-// redraws all graphics in a given area using their cached data from the last frame
-// below a certain index (not including that index).
-//
-// must be called after skipdraw returns false. Meaning i.invalidated will be non-null
-//
-// assumes not da_new
-static void redrawInvalidated(unsigned int belowindex) {
-
-	// easy vals
-	graphic_t *g = graphicbufv[belowindex];
-	recti_t superinval = g->cache._invalidaterec;
-
-	// first lets look at all the graphic below us.
-	for (unsigned int j = 0; j < belowindex; j++) {
-
-		// we only need to redraw the parts they left "uncovered".
-		// meaning we need to look at their data their previous bounding box.
-		recti_t subbox     = graphicbufv[j]->cache.lastregion;
-		recti_t overlap;
-		int doesoverlap = rect_overlapi(superinval, subbox, &overlap);
-		if (!doesoverlap) {
-			// graphic i is not overlapping graphic j
-			continue;
-		}
-
-		// this graphic's movement has invalidated a graphic below us, we must repair.
-
-		// todo: redraw only what was being overlapped.
-
-		// we only want to draw the overlap. Note we don't
-		// return here as mutliple graphics could have moved about our graphic.
-		// We get the offset because the overlap.x/y is in canvas cords, we need
-		// to get dirtyx/y in relatioon to the image data.
-		//vec2i offset = {
-		//		.x = overlap.x - subbox.x,
-//				.y = overlap.y - subbox.y,
-//		};
-//		glTexSubImage2D(,
-//		                0,
-
-glRasterPos2i(subbox.x, subbox.y+subbox.heigth);
-glDrawPixels(subbox.width,
-subbox.heigth,
-GL_RGBA,
-GL_FLOAT,
-graphicbufv[j]->cache._lastimagev);
-//overlap.grow(-3)
-//_debug_drawboundingbox(overlap, "green")
-}
-}
-
-// helper to draw.
-// will determain if any movement under a sleeper needs a redraw.
-//
-// or if the sleeper was never drawn in the first place.
-static int sleeperNeedsRedraw(unsigned int i) {
-
-	// easy vals
-	graphic_t *g = graphicbufv[i];
-
-
-	recti_t boundingbox = graphicbufv[i]->cache.lastregion;
-	if (!graphicbufv[i]->cache.initialized) {
-		return 1;
-	}
-
-	unsigned int j;
-	for (j = 0; j < i; j++) {
-
-		// does this sub graphic mark invalidated area or is its lastboundingbox
-		if (g->cache._invalidated &&
-		    (rect_intersectsi(g->cache._invalidaterec, boundingbox))) {
-			return 1;
-		}
-
-		// what can also happen is a graphic moved under us.
-		// This can only happen when the drawaction is not a sleep.
-		// in which case we also need to draw the sleeper.
-		if (g->drawaction != DA_SLEEP &&
-		    g->cache.initialized &&
-		    rect_intersectsi(g->cache.lastregion, boundingbox)) {
-			return 1;
-		}
-	}
-
-	// if we're in here that means that nothing was invalidated under the sleeper, nor
-	// is anything new there. Thus we have no need to draw.
-	return 0;
-}*/

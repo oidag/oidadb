@@ -108,9 +108,9 @@ typedef struct graphic_st {
 	// also known as bbox.
 	//
 	// This viewport is in pixels relative to the rest of the window.
-	// And gl matrixes are applied so that 0,0 starts at TOP LEFT of
+	// And gl matrixes are applied so that 0,0 starts at BOTTOM LEFT of
 	// the viewport and the coordnate with viewport.width,viewport.height
-	// is the BOTTOM RIGHT of the viewport.
+	// is the TOP RIGHT of the viewport.
 	//
 	// Whatever the viewport is after a graphic's dwg_draw_func is where
 	// it used in the /next/ draw frame.
