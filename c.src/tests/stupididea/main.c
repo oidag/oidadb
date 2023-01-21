@@ -10,11 +10,12 @@
 
 #include "file.h"
 #include "glplotter/glplotter.h"
+#include "ents/background.h"
+#include "ents/debug.h"
 
 
 #include <GL/gl.h>
-
-#include "draw-dwg.h"
+#include <signal.h>
 
 int main(void)
 {
@@ -22,37 +23,30 @@ int main(void)
 
 	// file
 	if(file_init("../c.src/tests/stupididea/test")) {
-		window_close();
+		//window_close();
 		return 1;
 	}
 	// **defer: file_close
 
 	// drawer
-	if(draw_init()) {
+	if(glplotter_init()) {
 		return 1;
 	}
 	// **defer: draw_close
 
 	// add the background
-	dwg_background_t b = dwg_background_new();
-	draw_addgraphic(&b);
-
-	// add the debugger
-	srand(getpid());
-	dwg_debug_t d1 = dwg_debug_new();
-	dwg_debug_t d2 = dwg_debug_new();
-	dwg_debug_t d3 = dwg_debug_new();
-	draw_addgraphic(&d1);
-	draw_addgraphic(&d2);
-	draw_addgraphic(&d3);
+	ent_background_t bg;
+	ent_background_new(&bg);
+	ent_debug_t db;
+	ent_debug_new(&db);
 
 	// enter render cycle.
-	err = draw_serve();
+	err = glplotter_serve();
 
 	// render cycle died for whatever reason.
 
 	// close out everything.
-	draw_close();
+	glplotter_close();
 	file_close();
     return err;
 }

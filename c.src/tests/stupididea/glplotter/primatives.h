@@ -68,8 +68,16 @@ typedef struct {
 } vec3f;
 
 typedef struct {
-	int x,y;
-}vec2i;
+	union {
+		int width;
+		int x;
+	};
+	union {
+		int height;
+		int y;
+	};
+} vec2i;
+
 typedef struct {
 	float x,y;
 }vec2f;

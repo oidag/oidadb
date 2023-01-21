@@ -7,7 +7,6 @@
 
 #include "glplotter.h"
 #include "glp_u.h"
-#include "error.h"
 #include "primatives.h"
 
 
@@ -20,19 +19,25 @@ static void cachepixels_draw(graphic_t *g) {
 
 	glWindowPos2i(viewport.x,
 	              viewport.y);
+	err = glGetError();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g->cache.glbuffer);
+	err = glGetError();
+	int pos[4];
+	glGetIntegerv(GL_CURRENT_RASTER_POSITION, pos);
+	err = glGetError();
 	glDrawPixels(viewport.width,
 	             viewport.heigth,
 	             GL_RGB,
 	             GL_UNSIGNED_BYTE,
 	             0);
+	err = glGetError();
 }
 static void decachepixels(graphic_t *g) {
 	if(!g->cache.glbuffer) {
-		error("double-decache");
 		return;
 	}
 	glDeleteBuffers(1, &g->cache.glbuffer);
+	g->cache.glbufferc = 0;
 	g->cache.glbuffer = 0;
 }
 
@@ -44,7 +49,10 @@ static int cachepixels(graphic_t *g) {
 
 	// make sure our buffer for this graphic is large enough to store
 	// the entire viewport.
-	unsigned int memneeded = viewport.width * viewport.heigth * 3;
+	unsigned int memneeded = viewport.width
+			* viewport.heigth
+			* 3
+			* sizeof(unsigned char);
 	/*if(g->cache._lastimageq < memneeded) {
 		g->cache._lastimagev = realloc(g->cache._lastimagev, memneeded * sizeof(float) * 3);
 		g->cache._lastimageq = memneeded;
@@ -64,7 +72,7 @@ static int cachepixels(graphic_t *g) {
 	}
 
 	glReadPixels(viewport.x,
-	             window_height - (viewport.y + viewport.heigth), // glReadPixels is weird with the y.
+	             viewport.y, // glReadPixels is weird with the y.
 	             viewport.width,
 	             viewport.heigth,
 	             GL_RGB,
@@ -72,12 +80,30 @@ static int cachepixels(graphic_t *g) {
 	             0);
 }
 
-int draw(const *framedata_t) {
+void       glp_viewport(graphic_t *g, glp_viewport_t v) {
+	g->viewport = v;
+}
+void glp_invalidate(graphic_t *g) {
+	g->flags |= GLP_GFLAGS_FORCEDRAW;
+}
+
+void glp_draw(graphic_t *g, glp_drawaction da, glp_cb_draw d) {
+	if(d == 0) {
+		// decache any image data that it may have.
+		decachepixels(g);
+		// setting draw to null will prevent it from being drawn
+		// and eventually pushed out from the array on the next draw.
+		g->draw = 0;
+		return;
+	}
+	g->flags |= GLP_GFLAGS_FORCEDRAW;
+	g->drawact = da;
+	g->draw = d;
+}
+int draw() {
 
 	int ret = 0;
 	int kills = 0;
-
-	framedata_t framedata ; // todo
 
 	// for each graphic, we only need to redraw it if its bounding box is either
 	// invalidated, or is sitting on top of a bounding box that is invalided.
@@ -97,29 +123,39 @@ int draw(const *framedata_t) {
 	for(unsigned int i = 0; i < graphicbufc; i++) {
 
 		// easy pointers
-		graphic_t *g = graphicbufv[i];
-		drawaction lastact = g->cache.lastact;
+		graphic_t *g = &graphicbufv[i];
+		glp_drawaction drawact = g->drawact;
+
+		// the last viewport that was used last frame.
 		recti_t lastbbox = g->cache.lastviewport;
+
+		// kills have no passage.
+		if(g->draw == 0) {
+			kills++;
+			continue;
+		}
 
 		// This switch statement will either end in break or continue:
 		//   - continue: don't call dwg_draw_func.
 		//   - break: call dwg_draw_func.
 		// later: pre-draw we should only be handling DA_SLEEP.
-		switch (lastact & _DA_BITMASK) {
-			case DA_FRAME:
+		switch (drawact) {
+			case GLP_ANIMATE:
 				ret = 1;
 				// fallthrough
-			case DA_INVALIDATED:
+			case GLP_INVALIDATED:
 				break;
 			default:
 				error("graphic has unknown draw action, killing");
-				g->cache.lastact = DA_KILL;
-				// fallthrough
-			case DA_KILL:
-				// We'll remove this from the index after we exit the for loop.
-				kills++;
+				glp_draw(g,0,0);
 				continue;
-			case DA_SLEEP:
+			case GLP_SLEEPER:
+				if(g->flags & GLP_GFLAGS_FORCEDRAW) {
+					// invoke a force-redraw. We can clear this bit now sense
+					// we're breaking.
+					g->flags &= ~GLP_GFLAGS_FORCEDRAW;
+					break;
+				}
 				cachepixels_draw(g);
 				continue;
 		}
@@ -140,19 +176,24 @@ int draw(const *framedata_t) {
 		           g->viewport.width,
 		           g->viewport.heigth);
 		glPushMatrix();
-		glOrtho(0, g->viewport.width, 0, g->viewport.heigth, -1, 1);
+		glOrtho(0, g->viewport.width, 0, g->viewport.heigth, 1, -1);
+
 		unsigned int err = glGetError(); // clear error bit
-		drawaction newact = g->draw(g, &framedata);
+		g->draw(g);
 		err = glGetError();
 		if(err) {
 			error("notice: glGetError non-null");
 		}
 		glPopMatrix();
+		vec2i windowsize = glplotter_size();
 		glViewport(0,
 		           0,
-		           window_width,
-		           window_height);
+		           windowsize.width,
+		           windowsize.height);
+
+		// get the new viewport just incase it changed that frame.
 		recti_t newview = g->viewport;
+		glp_drawaction newact  = g->drawact;
 
 		// Now we have their last location in lastbbox.
 		// And we have their new location in newres->bbox
@@ -160,47 +201,48 @@ int draw(const *framedata_t) {
 		// So lets force-draw all sleepers above our previous and new location
 		// by changing their registered action to DA_INVALDATED
 		for(unsigned int j = i+1; j < graphicbufc; j++) {
-			drawaction *aboveaction = &graphicbufv[j]->cache.lastact;
-			if((*aboveaction & DA_SLEEP) == 0) {
+			if(graphicbufv[j].drawact != GLP_SLEEPER) {
 				// the draw action here is no DA_SLEEP, which means it will be
 				// drawn regardless. nothing to worry about.
 				continue;
 			}
-			recti_t sleeperbbox = graphicbufv[j]->cache.lastviewport;
 
 			// okay this is a sleeper, is it above our new or last location?...
+			recti_t sleeperbbox = graphicbufv[j].cache.lastviewport;
 			if(rect_intersectsi(sleeperbbox, newview) ||
 					rect_intersectsi(sleeperbbox, lastbbox)) {
 				// ...it is. Remove its DA_SLEEP flag and add the
 				// DA_INVALIDATED flag. Note that this will destroy
 				// any DAF flags. But thats okay sense the draw method should
 				// be setting those every draw.
-				*aboveaction = DA_INVALIDATED;
+				graphicbufv[j].flags |= GLP_GFLAGS_FORCEDRAW;
 			}
 		}
 
-		// The only thing left to do is to check if this graphic is setting itself
-		// to a sleeping state. If it is we copy the pixels so we can redraw this
+		// The only thing left to do is to check if this graphic is a sleeper that
+		// needed to redraw. If it is we copy the pixels so we can redraw this
 		// graphic without invoking its draw method.
-		if(newact & DA_SLEEP) {
+		if(newact == GLP_SLEEPER) {
 			cachepixels(g);
 		}
 		// as a last little step, we can free up any memory of cached pixels if
 		// the graphic /was/ in sleep state but now wants to be something else.
-		else if(g->cache.lastact & DA_SLEEP) {
+		else if(g->cache.glbuffer) {
 			decachepixels(g);
 		}
 
 		// Finally, update the lastres to match the latest draw for this graphic.
-		g->cache.lastact = newact;
 		g->cache.lastviewport = newview;
 	}
 
 	// splice out graphics that were killed this frame.
 	for(unsigned int i = 0; kills > 0; i++) {
+		if(graphicbufv[i].draw != 0) {
+			continue;
+		}
 		// i is on an index of a graphic that needs to be killed.
-		for(unsigned int j = i + 1; j < graphicbufc; j++) {
-			graphicbufv[j-1] = graphicbufv[j];
+		for (unsigned int j = i + 1; j < graphicbufc; j++) {
+			graphicbufv[j - 1] = graphicbufv[j];
 		}
 		kills--;
 		graphicbufc--;
