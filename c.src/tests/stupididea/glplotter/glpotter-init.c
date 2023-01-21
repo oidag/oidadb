@@ -2,79 +2,42 @@
 #include <GL/gl.h>
 #include <malloc.h>
 #include <strings.h>
+#include <string.h>
 
 #include "glp_u.h"
 #include "glplotter.h"
-#include "error.h"
 
-int window_width,window_height;
-float window_mousex = 0, window_mousey = 0;
+graphic_t   *graphicbufv;
+unsigned int graphicbufc; // count (length)
+unsigned int graphicbufq;
 
-static GLFWwindow *window;
+GLFWwindow *window;
 
-framedata_t framedata;
-static void cursor_position_callback(GLFWwindow* _, double xpos, double ypos) {
-	framedata.cx = (int)xpos;
-	framedata.cy = (int)ypos;
-	framedata.events |= DAF_ONMOUSE_MOVE;
-}
-
-void mouse_button_callback(GLFWwindow* _, int button, int action, int mods) {
-	switch (action) {
-		case GLFW_PRESS:
-			framedata.events |= DAF_ONMOUSE_DOWN;
-		case GLFW_RELEASE:
-			framedata.events |= DAF_ONMOUSE_UP;
-		default:
-			return;
-	}
-	framedata.mousebuttons = button+1; // note: our mousedata is same defs as theirs + 1
-}
-
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	//todo
-}
-
-
-static void window_size(GLFWwindow* _, int w, int h) {
-	window_width  = w;
-	window_height = h;
-	framedata.wwidth = w;
-	framedata.wheight = h;
-	framedata.events |= DAF_ONWINDOWSIZE;
-}
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-	//todo
-}
 
 int window_init(const char *name, float initwidth, float initheight) {
 	if (!glfwInit()) {
 		error("glfwInit");
 		return -1;
 	}
-	window_width = initwidth;
-	window_height = initheight;
-	window = glfwCreateWindow(window_width, window_height, name, 0, 0);
+	window = glfwCreateWindow(initwidth,
+							  initheight,
+							  name,
+							  0,
+							  0);
 	if (!window)
 	{
 		error("create window");
 		glfwTerminate();
 		return -1;
 	}
+	// todo: remove the window pos line ... I'm using this to test easier.
+	glfwSetWindowPos(window, 2560*2+100, 100);
 	glfwMakeContextCurrent(window);
-
-	// call backs (all static functions)
-	glfwSetCursorPosCallback(window, cursor_position_callback);
-	glfwSetWindowSizeCallback(window, window_size);
-	glfwSetKeyCallback(window, key_callback);
-	glfwSetMouseButtonCallback(window, mouse_button_callback);
-	glfwSetScrollCallback(window, scroll_callback);
 
 	return 0;
 }
 
-int draw_init() {
+int glplotter_init() {
 	int err;
 
 	err = window_init("the tool", 1200, 800);
@@ -82,36 +45,33 @@ int draw_init() {
 		return err;
 	}
 
-	// set fonts
-	err = text_addfont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 12, &monospace_font);
-	if(err) {
-		error("failed to open debugfont: %d", err);
-		return 1;
-	}
-
-	// set the draw callback
-	window_ondraw(draw);
+	init_events();
 
 	// buffers
 	graphicbufc = 0;
 	graphicbufq = GRAPHICBUF_BLOCKC;
-	graphicbufv = malloc(sizeof(void *) * GRAPHICBUF_BLOCKC);
+	graphicbufv = malloc(sizeof(graphic_t) * GRAPHICBUF_BLOCKC);
 
 	return 0;
 }
 
+void glplotter_stopserver() {
+	glfwSetWindowShouldClose(window, GLFW_TRUE);
+	glfwPostEmptyEvent();
+}
 
-
-int draw_serve() {
+int glplotter_serve() {
 	int err = 0;
+	int exit = 0;
 	while (!glfwWindowShouldClose(window))
 	{
-		int ret = draw(&framedata);
+		int ret = draw();
 		glfwSwapBuffers(window);
-		framedata.events = 0; // refersh events
 		switch(ret) {
 			case -1:
 				err = -1;
+				exit = -1;
+				// fallthrough
 			case -2:
 				glfwSetWindowShouldClose(window, GLFW_TRUE);
 				glfwPollEvents();
@@ -124,26 +84,52 @@ int draw_serve() {
 				break;
 		}
 	}
-	return err;
+	return exit;
 }
 
-void draw_close() {
+vec2i glplotter_size() {
+	vec2i ret;
+	glfwGetWindowSize(window,&ret.width, &ret.height);
+	return ret;
+}
+
+void glplotter_close() {
+	for(int i = 0; i < graphicbufc; i++) {
+		glp_destroy(&graphicbufv[i]);
+	}
+	close_events();
 	free(graphicbufv);
+	graphicbufv = 0;
+	glfwDestroyWindow(window);
 	glfwTerminate();
 }
 
-void draw_addgraphic(void *vg) {
-
+graphic_t *glp_new() {
 	// normalizgin
-	graphic_t *g = (graphic_t *)vg;
-	bzero(&g->cache, sizeof(g->cache));
 
 	if(graphicbufc == graphicbufq) {
 		// resizing needed
 		graphicbufq += GRAPHICBUF_BLOCKC;
-		graphicbufv = realloc(graphicbufv, graphicbufq * sizeof(void*));
+		graphicbufv = realloc(graphicbufv, graphicbufq * sizeof(graphic_t));
 	}
-	g->cache.lastact = DA_INVALIDATED;
-	graphicbufv[graphicbufc] = g;
+
+	graphic_t *ret = &graphicbufv[graphicbufc];
+	bzero(ret, sizeof(graphic_t));
 	graphicbufc++;
+	return ret;
+}
+
+void glp_user(graphic_t *g, void *user, void(*ondestroy)(graphic_t*)) {
+	g->user = user;
+	g->ondestroy = ondestroy;
+}
+void *glp_userget(graphic_t *g) {
+	return g->user;
+}
+
+void glp_destroy(graphic_t *g) {
+	// i is on an index of a graphic that needs to be killed.
+	if(g->ondestroy) g->ondestroy(g);
+	glp_draw(g, 0, 0);
+	glp_events(g, DAF_ALL, 0);
 }

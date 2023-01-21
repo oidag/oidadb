@@ -6,6 +6,8 @@ typedef struct {
 	int size;
 } text_font;
 
+extern const char *monospace;
+
 int text_addfont(const char *file, int size, text_font *o_font);
 
 void text_setfont(text_font font);

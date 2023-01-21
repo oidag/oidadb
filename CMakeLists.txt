@@ -15,6 +15,9 @@ add_executable(test_host c.src/tests/host_main.c ${sources})
 TARGET_LINK_LIBRARIES(test_host pthread rt)
 
 
+# drawtext: https://github.com/jtsiomb/libdrawtext
 file(GLOB thetool_src c.src/tests/stupididea/*.c)
-add_executable(stupididea ${thetool_src})
+file(GLOB thetool_src_plotter c.src/tests/stupididea/glplotter/*.c)
+file(GLOB thetool_src_ents c.src/tests/stupididea/ents/*.c)
+add_executable(stupididea ${thetool_src} ${thetool_src_plotter} ${thetool_src_ents})
 target_link_libraries(stupididea GL glfw drawtext freetype)
