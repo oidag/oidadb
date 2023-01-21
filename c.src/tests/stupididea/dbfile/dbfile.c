@@ -3,8 +3,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "file.h"
-#include "error.h"
+#include "dbfile.h"
+#include "../error.h"
 typedef struct {
 	int fd;
 } file;

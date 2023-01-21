@@ -8,7 +8,7 @@
 #include <error.h>
 #include <stdlib.h>
 
-#include "file.h"
+#include "dbfile/dbfile.h"
 #include "glplotter/glplotter.h"
 #include "ents/background.h"
 #include "ents/debug.h"
@@ -22,8 +22,8 @@ int main(void)
 	int err;
 
 	// file
-	if(file_init("../c.src/tests/stupididea/test")) {
-		//window_close();
+	mkdir("testfile", 0777);
+	if(file_init("testfile/dbtest.oidadb")) {
 		return 1;
 	}
 	// **defer: file_close
