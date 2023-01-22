@@ -13,13 +13,27 @@ typedef vec3ub color_t;
 };
 
 // cyans
+_COLOR(cyan, 50, ecfeff)
 _COLOR(cyan, 100, cffafe)
 _COLOR(cyan, 500, 06b6d4)
+_COLOR(cyan, 600, 0284c7)
+_COLOR(cyan, 700, 0369a1)
+_COLOR(cyan, 800, 155e75)
 _COLOR(cyan, 900, 164e63)
 
 // pinks
 
 // emeralds
+_COLOR(emerald, 50, ecfdf5)
+_COLOR(emerald, 100, d1fae5)
+_COLOR(emerald, 200, a7f3d0)
+_COLOR(emerald, 300, 6ee7b7)
+_COLOR(emerald, 400, 34d399)
+_COLOR(emerald, 500, 10b981)
+_COLOR(emerald, 600, 059669)
+_COLOR(emerald, 700, 047857)
+_COLOR(emerald, 800, 065f46)
+_COLOR(emerald, 900, 064e3b)
 
 // slates
 _COLOR(slate, 50,  f8fafc)
@@ -34,6 +48,8 @@ _COLOR(slate, 800, 1e293b)
 _COLOR(slate, 900, 0f172a)
 
 // stones
+_COLOR(stone, 700, 44403c)
+_COLOR(stone, 800, 292524)
 _COLOR(stone, 900, 1c1917)
 
 void static inline color_glset(color_t c) {
