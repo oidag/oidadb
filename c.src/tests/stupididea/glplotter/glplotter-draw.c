@@ -24,10 +24,6 @@ static void cachepixels_draw(graphic_t *g) {
 	             GL_RGB,
 	             GL_FLOAT,
 	             0);
-	unsigned int err = glGetError();
-	if(err) {
-		error("cachepixels_draw broke... again.");
-	}
 }
 static void decachepixels(graphic_t *g) {
 	if(!g->cache.glbuffer) {
@@ -67,10 +63,6 @@ static int cachepixels(graphic_t *g) {
 	             GL_RGB,
 	             GL_FLOAT,
 	             0);
-	unsigned int err = glGetError();
-	if(err) {
-		error("glReadPixels broke... again.");
-	}
 }
 
 void       glp_viewport(graphic_t *g, glp_viewport_t v) {
@@ -172,22 +164,16 @@ int draw() {
 		           g->viewport.width,
 		           g->viewport.heigth);
 		glPushMatrix();
-
-		err = glGetError(); // clear error bit
-		if(err) {
-			error("error: non-draw() glGetError error");
-		}
-
 		glOrtho(0, g->viewport.width, 0, g->viewport.heigth, 1, -1);
 
 		err = glGetError(); // clear error bit
 		if(err) {
-			error("error: non-draw() glGetError error");
+			error("error: pre draw() glGetError error");
 		}
 		g->draw(g);
 		err = glGetError();
 		if(err) {
-			error("notice: glGetError non-null");
+			error("notice: draw() glGetError non-null");
 		}
 		glPopMatrix();
 		vec2i windowsize = glplotter_size();
