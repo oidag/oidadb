@@ -22,6 +22,11 @@ typedef struct eventbind eventbind;
 typedef struct graphic_t {
 	cache_t cache;
 
+	// 0 if this graphic is unitialized
+	// 1 if its in use.
+	// marking this as 0 means this memory is good to re-use for another graphic.
+	int alive;
+
 	const char *name;
 
 	// see GLP_GFLAGS*

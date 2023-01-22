@@ -19,10 +19,9 @@ static int          eventbindingq[_DAF_END_];*/
 // this will make sure data.type is set to type.
 static void invokeevents(glp_eventtype_t type, eventdata_t data) {
 	data.type = type;
-	int kills = 0;
 	for(int i = 0; i < graphicbufc; i++) {
 		graphic_t *g = &graphicbufv[i];
-		if(g->events[type] == 0) {
+		if(!g->events[type] || !g->alive) {
 			continue;
 		}
 		g->events[type](g, data);

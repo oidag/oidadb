@@ -105,17 +105,28 @@ void glplotter_close() {
 }
 
 graphic_t *glp_new() {
-	// normalizgin
+
+	graphic_t *ret;
+
+	// try to reuse an empty slot.
+	for(int i = 0; i < graphicbufc; i++) {
+		if(!graphicbufv[i].alive) {
+			ret = &graphicbufv[i];
+			goto retfound;
+		}
+	}
 
 	if(graphicbufc == graphicbufq) {
 		// resizing needed
 		graphicbufq += GRAPHICBUF_BLOCKC;
 		graphicbufv = realloc(graphicbufv, graphicbufq * sizeof(graphic_t));
 	}
-
-	graphic_t *ret = &graphicbufv[graphicbufc];
-	bzero(ret, sizeof(graphic_t));
+	ret = &graphicbufv[graphicbufc];
 	graphicbufc++;
+
+	retfound:
+	bzero(ret, sizeof(graphic_t));
+	ret->alive = 1;
 	return ret;
 }
 
@@ -135,4 +146,5 @@ void glp_destroy(graphic_t *g) {
 	if(g->ondestroy) g->ondestroy(g);
 	glp_events(g, DAF_ALL, 0);
 	glp_draw(g, 0, 0);
+	g->alive = 0;
 }
