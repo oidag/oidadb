@@ -83,10 +83,7 @@ typedef struct {
 	// For an explination on this union, see drawevents
 	glp_eventtype_t type;
 	union {
-		struct {
-			int x;
-			int y;
-		} pos;
+		vec2i pos;
 		struct {
 			int width;
 			int height;
@@ -196,6 +193,7 @@ void      *glp_userget(graphic_t *g); // returns what was put into glp_user
 //
 // SEE ALSO: glp_drawaction, glp_viewport_t.
 void       glp_viewport(graphic_t *, glp_viewport_t);
+glp_viewport_t  glp_viewportget(graphic_t *);
 void       glp_draw(graphic_t *, glp_drawaction, glp_cb_draw);
 void       glp_invalidate(graphic_t *);
 

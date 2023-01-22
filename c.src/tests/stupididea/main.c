@@ -10,22 +10,25 @@
 
 #include "dbfile/dbfile.h"
 #include "glplotter/glplotter.h"
-#include "ents/background.h"
-#include "ents/debug.h"
+#include "ents/ents.h"
 
 
 #include <GL/gl.h>
 #include <signal.h>
+
+static void onfileload() {
+	ent_pager_new();
+}
 
 int main(void)
 {
 	int err;
 
 	// file
-	mkdir("testfile", 0777);
+	/*mkdir("testfile", 0777);
 	if(file_init("testfile/dbtest.oidadb")) {
 		return 1;
-	}
+	}*/
 	// **defer: file_close
 
 	// drawer
@@ -38,6 +41,7 @@ int main(void)
 	ent_background_t bg;
 	ent_background_new(&bg);
 	ent_debug_t db;
+	ent_opener_new(onfileload);
 	ent_debug_new(&db);
 
 	// enter render cycle.
@@ -47,6 +51,6 @@ int main(void)
 
 	// close out everything.
 	glplotter_close();
-	file_close();
+	//file_close();
     return err;
 }
