@@ -23,18 +23,11 @@ void glplotter_close();
 //
 // See DA_* constants below.
 typedef enum {
-	// The graphic is set to sleep. It will not call
-	// dwg_draw_func with the exception that something was moved under
-	// the graphic's bounding box or was XOR'd with DAF (see next paragraph).
+	// The graphic is set to sleep. It will avoid calling
+	// dwg_draw_func with a few exceptions.
 	// Otherwise, the graphic's pixels are saved and are reused in future
 	// frames, thus keeping the graphic always visible without needing to
 	// call its dwg_draw_func.
-	//
-	// You xor da_sleep with any DAF_ON* constant so that the graphic's
-	// dwg_draw_func will be called only when such event(s) have been
-	// invoked in that frame.
-	//
-	// See also: graphic_t.viewport (another case where a sleeper can be redrawn)
 	GLP_SLEEPER,
 
 	// The graphic's dwg_draw_func will be called next frame (but will not invoke
@@ -178,19 +171,21 @@ void      *glp_userget(graphic_t *g); // returns what was put into glp_user
 
 // glp_viewport sets the view port in pixels that the graphic will be set to
 // draw in. glp_viewport is required to before calling glp_draw. glp_viewport
-// is designed to set the viewport every frame if nessacary
+// is designed to set the viewport every frame if nessacary. GLP_SLEEPERS
+// calling glp_viewport will be re-drawn.
 //
 // glp_draw sets the draw callback for this graphic. During the inside execution
 // of glp_cb_draw, you can use OpenGL to draw your shit. To unbind, pass in null
 // for a callback (drawaction will be ignored). You can call this function as many
 // times as you like to change the callback and/or the drawaction.
 //
-// glp_invalidate sets the force_redraw flag so that if g is a sleeper it
-// will be redrawn.
+// glp_invalidate sets the redraw flag so that if g is a sleeper it
+// will be redrawn on the next frame (but will not invoke the frame).
 //
 // THREADING
 //    both must be called in the same thread as glp_new*, or,
 //                 inside any glb_cb_* callback.
+//    glp_invalidate is thread-safe.
 //
 // SEE ALSO: glp_drawaction, glp_viewport_t.
 void       glp_viewport(graphic_t *, glp_viewport_t);
