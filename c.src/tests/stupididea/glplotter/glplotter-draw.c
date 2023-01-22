@@ -80,7 +80,9 @@ void glp_invalidate(graphic_t *g) {
 }
 void glp_invalidatef(graphic_t *g, int invokedraw) {
 	g->flags |= GLP_GFLAGS_FORCEDRAW;
-	glfwPostEmptyEvent();
+	if(invokedraw) {
+		glfwPostEmptyEvent();
+	}
 }
 
 void glp_draw(graphic_t *g, glp_drawaction da, glp_cb_draw d) {
