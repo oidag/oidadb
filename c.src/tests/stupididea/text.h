@@ -14,6 +14,7 @@ int text_addfont(const char *file, int size, text_font *o_font);
 
 void text_setfont(text_font font);
 float text_width(const char *text);
+float text_height(const char *text);
 void text_draw(float x, float y, const char *text);
 
 #endif

@@ -45,8 +45,12 @@ int text_addfont(const char *file, int size, text_font *o_font) {
 float text_width(const char *text) {
 	return dtx_string_width(text);
 }
+float text_height(const char *text) {
+	return dtx_string_height(text);
+}
 void text_draw(float x, float y, const char *text) {
 	glPushMatrix();
+	// nvm. I'm not translating it. You do it.
 	//glTranslatef(x,y + (dtx_string_height(text) - dtx_line_height()),0);
 	glTranslatef(x,y,0);
 	dtx_string(text);
