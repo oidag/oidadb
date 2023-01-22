@@ -1,6 +1,7 @@
 #ifndef ENTS_H_
 #define ENTS_H_
 
+#include <bits/types/time_t.h>
 #include "colors.h"
 
 #include "../glplotter/glplotter.h"
@@ -11,6 +12,10 @@ typedef struct {
 	unsigned int frameid;
 	char buff[255];
 	glp_eventtype_t lastevent;
+
+	time_t       frame_last_rec;
+	unsigned int frame_last_recid;
+	unsigned int fps;
 } ent_debug_t;
 
 void ent_debug_new(ent_debug_t *o_ent);
