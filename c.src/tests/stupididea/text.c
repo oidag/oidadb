@@ -37,7 +37,7 @@ int text_addfont(const char *file, int size, text_font *o_font) {
 	o_font->size = size;
 	o_font->font = dtx_open_font(file, size);
 	if(!o_font->font) {
-		error("open font");
+		log_error("open font");
 		return 1;
 	}
 	return 0;

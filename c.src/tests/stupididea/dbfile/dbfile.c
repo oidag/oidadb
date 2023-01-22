@@ -16,9 +16,10 @@ int file_getpagesize() {
 int file_init(const char *file) {
 	f.fd = open(file, O_RDONLY);
 	if(f.fd == -1) {
-		error("open");
+		log_error("open");
 		return 1;
 	}
+	log_verbose("file %s opened", file);
 	return 0;
 }
 
@@ -26,7 +27,7 @@ int file_getpagec() {
 	struct stat s;
 	int err = fstat(f.fd, &s);
 	if(err == -1) {
-		error("stat");
+		log_error("stat");
 		return 0;
 	}
 	return (int)(s.st_size / file_getpagesize())+1;
