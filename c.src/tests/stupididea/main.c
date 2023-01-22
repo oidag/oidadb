@@ -41,6 +41,11 @@ int main(void)
 	// add the background
 	ent_background_t bg;
 	ent_background_new(&bg);
+
+	// terminal
+	ent_terminal_start();
+
+	// debugger
 	ent_debug_t db;
 	ent_opener_new(onfileload);
 	ent_debug_new(&db);

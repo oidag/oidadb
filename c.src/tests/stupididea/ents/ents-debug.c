@@ -25,7 +25,7 @@ static void setviewport(graphic_t *g) {
 
 	glp_viewport(g, (glp_viewport_t){
 			size.width - d->width - margin,
-			margin,
+			size.height - d->height - margin,
 			d->width,
 			d->height,
 	});
