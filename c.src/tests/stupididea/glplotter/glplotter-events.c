@@ -28,10 +28,12 @@ static void invokeevents(glp_eventtype_t type, eventdata_t data) {
 	}
 }
 
-static void cursor_position_callback(GLFWwindow* _, double xpos, double ypos) {
+static void cursor_position_callback(GLFWwindow* w, double xpos, double ypos) {
 	eventdata_t data;
 	data.pos.x = (int)xpos;
-	data.pos.y = (int)ypos;
+	// invert y
+	glfwGetWindowSize(w, 0, &data.pos.y);
+	data.pos.y = (data.pos.y - (int)ypos);
 	invokeevents(DAF_ONMOUSE_MOVE, data);
 }
 
