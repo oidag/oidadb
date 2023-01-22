@@ -1,6 +1,8 @@
 #ifndef ENTS_H_
 #define ENTS_H_
 
+#include "colors.h"
+
 #include "../glplotter/glplotter.h"
 #include "../text.h"
 typedef struct {

@@ -32,6 +32,7 @@ static void event(graphic_t *g, eventdata_t e) {
 		} else {
 			opener.onload();
 			opener.state = 1;
+			glp_destroy(g);
 		}
 		glp_invalidate(g);
 	}
@@ -69,6 +70,7 @@ void ent_opener_new(void (*onload)()) {
 	opener.onload = onload;
 	glp_user(g, &opener, 0);
 	setviewport(g, (eventdata_t){0});
+	glp_name(g, "opener");
 	glp_draw(g, GLP_SLEEPER, draw);
 	glp_events(g, DAF_ONKEYDOWN, event);
 	glp_events(g, DAF_ONWINDOWSIZE, setviewport);

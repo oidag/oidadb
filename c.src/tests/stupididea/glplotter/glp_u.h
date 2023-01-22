@@ -3,6 +3,7 @@
 
 #include <GLFW/glfw3.h>
 #include "glplotter.h"
+#include "options.h"
 
 extern GLFWwindow *window;
 
@@ -21,6 +22,8 @@ typedef struct eventbind eventbind;
 typedef struct graphic_t {
 	cache_t cache;
 
+	const char *name;
+
 	// see GLP_GFLAGS*
 	int flags;
 
@@ -30,7 +33,7 @@ typedef struct graphic_t {
 
 	// see -events.c
 	// Will back-reference point to somewhere in the event buffer.
-	eventbind *events[_DAF_END_];
+	glp_cb_events events[_DAF_END_];
 
 	// perfered action set either because of a previous draw or event.
 	glp_drawaction drawact;

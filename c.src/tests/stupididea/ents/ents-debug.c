@@ -1,5 +1,6 @@
 #include <GL/gl.h>
 #include <stdio.h>
+#include <strings.h>
 #include "ents.h"
 #include "../text.h"
 #include "../glplotter/glplotter.h"
@@ -44,7 +45,8 @@ static void draw(graphic_t *g){
 	d->frameid++;
 	glColor3f(0,1,0);
 	text_setfont(d->font);
-	sprintf(d->buff,"Frame: %x\nLast Event: %s",
+	snprintf(d->buff, sizeof(d->buff),
+			 "Frame: %x\nLast Event: %s",
 			d->frameid,
 			vals[d->lastevent]);
 	text_draw(8,24+8, d->buff);
@@ -55,12 +57,15 @@ static void draw(graphic_t *g){
 void ent_debug_new(ent_debug_t *o_ent) {
 	graphic_t *g = glp_new();
 
+	bzero(o_ent, sizeof(ent_debug_t));
 	o_ent->font = text_defaults_monospace();
 	o_ent->lastevent = 8;
 	o_ent->height = 100;
 	o_ent->width = 300;
+
 	glp_user(g, o_ent, 0);
 	setviewport(g);
+	glp_name(g, "debugger");
 	glp_draw(g, GLP_INVALIDATED, draw);
 	glp_events(g, DAF_ALL, onevent);
 }

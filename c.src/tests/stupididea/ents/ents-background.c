@@ -26,16 +26,18 @@ static void drawbg(graphic_t *g){
 
 	glBegin(GL_QUADS);
 
-	glColor3ub(32,25,0);
+
+	color_glset(color_stone900);
 	glVertex2f(x,y);
 
-	glColor3ub(40,34,11);
+
+	color_glset(color_slate900);
 	glVertex2f(x,h);
 
-	glColor3ub(26,37,17);
+	color_glset(color_stone900);
 	glVertex2f(w,h);
 
-	glColor3ub(43,34,0);
+	color_glset(color_slate900);
 	glVertex2f(w,y);
 
 	glEnd();
@@ -47,6 +49,7 @@ int ent_background_new(ent_background_t *o_bg) {
 	glp_user(g, o_bg, 0);
 
 	setviewport(g);
+	glp_name(g, "background");
 	glp_draw(g, GLP_SLEEPER, drawbg);
 	glp_events(g, DAF_ONWINDOWSIZE, onresize);
 	return 0;

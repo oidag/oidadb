@@ -12,20 +12,25 @@
      _a < _b ? _a : _b; })
 
 
-typedef struct {
-	union {
-		float x;
-		float red;
-	};
-	union {
-		float y;
-		float green;
-	};
-	union {
-		float z;
-		float blue;
-	};
-} vec3f;
+// note: can be cast too (GLfloat *)
+#define vec3(prefix, type) typedef struct vec3##prefix{\
+	union {                                   \
+		type x;                                 \
+		type red;                               \
+	};                                        \
+	union {                                   \
+		type y;                                 \
+		type green;                             \
+	};                                        \
+	union {                                   \
+		type z;                                 \
+		type blue;                              \
+	};                                        \
+} vec3##prefix;
+
+vec3(f,float)
+vec3(i,int);
+vec3(ub,unsigned char);
 
 typedef struct {
 	union {

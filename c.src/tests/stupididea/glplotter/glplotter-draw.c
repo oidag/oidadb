@@ -14,23 +14,20 @@
 
 static void cachepixels_draw(graphic_t *g) {
 
-	unsigned int err = glGetError();
 	recti_t viewport = g->viewport;
 
 	glWindowPos2i(viewport.x,
 	              viewport.y);
-	err = glGetError();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g->cache.glbuffer);
-	err = glGetError();
-	int pos[4];
-	glGetIntegerv(GL_CURRENT_RASTER_POSITION, pos);
-	err = glGetError();
 	glDrawPixels(viewport.width,
 	             viewport.heigth,
 	             GL_RGB,
-	             GL_UNSIGNED_BYTE,
+	             GL_FLOAT,
 	             0);
-	err = glGetError();
+	unsigned int err = glGetError();
+	if(err) {
+		error("cachepixels_draw broke... again.");
+	}
 }
 static void decachepixels(graphic_t *g) {
 	if(!g->cache.glbuffer) {
@@ -44,7 +41,6 @@ static void decachepixels(graphic_t *g) {
 // takes everything inside of g->viewport and caches it
 // for quick redraw using cachepixels_draw.
 static int cachepixels(graphic_t *g) {
-
 	recti_t viewport = g->viewport;
 
 	// make sure our buffer for this graphic is large enough to store
@@ -52,17 +48,11 @@ static int cachepixels(graphic_t *g) {
 	unsigned int memneeded = viewport.width
 			* viewport.heigth
 			* 3
-			* sizeof(unsigned char);
-	/*if(g->cache._lastimageq < memneeded) {
-		g->cache._lastimagev = realloc(g->cache._lastimagev, memneeded * sizeof(float) * 3);
-		g->cache._lastimageq = memneeded;
-	}*/
-
+			* sizeof(float);
 	if(!g->cache.glbuffer) {
 		glGenBuffers(1,&g->cache.glbuffer);
 	}
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, g->cache.glbuffer);
-
 	if(g->cache.glbufferc < memneeded) {
 		glBufferData(GL_PIXEL_PACK_BUFFER,
 		             memneeded,
@@ -70,14 +60,17 @@ static int cachepixels(graphic_t *g) {
 					 GL_DYNAMIC_DRAW);
 		g->cache.glbufferc = memneeded;
 	}
-
 	glReadPixels(viewport.x,
 	             viewport.y, // glReadPixels is weird with the y.
 	             viewport.width,
 	             viewport.heigth,
 	             GL_RGB,
-	             GL_UNSIGNED_BYTE,
+	             GL_FLOAT,
 	             0);
+	unsigned int err = glGetError();
+	if(err) {
+		error("glReadPixels broke... again.");
+	}
 }
 
 void       glp_viewport(graphic_t *g, glp_viewport_t v) {
@@ -104,7 +97,7 @@ void glp_draw(graphic_t *g, glp_drawaction da, glp_cb_draw d) {
 	g->draw = d;
 }
 int draw() {
-
+	unsigned int err;
 	int ret = 0;
 	int kills = 0;
 
@@ -179,9 +172,18 @@ int draw() {
 		           g->viewport.width,
 		           g->viewport.heigth);
 		glPushMatrix();
+
+		err = glGetError(); // clear error bit
+		if(err) {
+			error("error: non-draw() glGetError error");
+		}
+
 		glOrtho(0, g->viewport.width, 0, g->viewport.heigth, 1, -1);
 
-		unsigned int err = glGetError(); // clear error bit
+		err = glGetError(); // clear error bit
+		if(err) {
+			error("error: non-draw() glGetError error");
+		}
 		g->draw(g);
 		err = glGetError();
 		if(err) {
@@ -250,6 +252,29 @@ int draw() {
 		kills--;
 		graphicbufc--;
 	}
+
+#ifdef GLPLOTTER_DEBUGBOXES
+	for(int i = 0; i < graphicbufc; i++)
+	{
+		glViewport(graphicbufv[i].viewport.x,
+		           graphicbufv[i].viewport.y,
+		           graphicbufv[i].viewport.width,
+		           graphicbufv[i].viewport.heigth);
+		glLineWidth(2);
+		glBegin(GL_LINE_LOOP);
+		glColor3f(1, 0, 0);
+		glVertex2f(-1, -1);
+		glVertex2f(-1, 1);
+		glVertex2f(1, 1);
+		glVertex2f(1, -1);
+		glEnd();
+		vec2i windowsize = glplotter_size();
+		glViewport(0,
+		           0,
+		           windowsize.width,
+		           windowsize.height);
+	}
+#endif
 
 	// return rather or not we should redraw.
 	return ret;
