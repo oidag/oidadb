@@ -85,6 +85,10 @@ void glp_invalidatef(graphic_t *g, int invokedraw) {
 	}
 }
 
+unsigned int glplotter_frameid = 1;
+float glplotter_frameidf = 1;
+double glplotter_frameidd = 1;
+
 void glp_draw(graphic_t *g, glp_drawaction da, glp_cb_draw d) {
 	if(d == 0) {
 		// decache any image data that it may have.
@@ -99,9 +103,16 @@ void glp_draw(graphic_t *g, glp_drawaction da, glp_cb_draw d) {
 	g->draw = d;
 }
 int draw() {
+
+	glplotter_frameid++;
+	if(glplotter_frameid == 39916801) {
+		glplotter_frameid = 1;
+	}
+	glplotter_frameidf = (float)glplotter_frameid;
+	glplotter_frameidd = (double)glplotter_frameid;
+
 	unsigned int err;
 	int ret = 0;
-	int kills = 0;
 
 	// for each graphic, we only need to redraw it if its bounding box is either
 	// invalidated, or is sitting on top of a bounding box that is invalided.
@@ -177,7 +188,7 @@ int draw() {
 
 		err = glGetError(); // clear error bit
 		if(err) {
-			error("error: pre draw() glGetError error");
+			error("error: pre draw() glGetError log_error");
 		}
 		g->draw(g);
 		err = glGetError();

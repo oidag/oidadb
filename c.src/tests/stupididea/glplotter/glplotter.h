@@ -131,6 +131,13 @@ void glplotter_stopserver();
 // THREADING: MT-safe
 vec2i glplotter_size();
 
+// will count up to 39916800 (11!, which means its divisable
+// by all numbers below 11 and combinitaitons thereof) before resetting back to
+// 1.
+extern unsigned int glplotter_frameid;
+extern float glplotter_frameidf;
+extern double glplotter_frameidd;
+
 // Allocate space for a new graphic or destroy an existing one.
 //
 // glp_new* is the start of a graphics lifecycle and glp_destroy* is
