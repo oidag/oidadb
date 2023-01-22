@@ -83,6 +83,9 @@ static int cachepixels(graphic_t *g) {
 void       glp_viewport(graphic_t *g, glp_viewport_t v) {
 	g->viewport = v;
 }
+glp_viewport_t  glp_viewportget(graphic_t *g) {
+	return g->viewport;
+}
 void glp_invalidate(graphic_t *g) {
 	g->flags |= GLP_GFLAGS_FORCEDRAW;
 }

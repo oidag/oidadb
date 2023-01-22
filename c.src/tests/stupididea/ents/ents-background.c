@@ -1,5 +1,5 @@
 #include <GL/gl.h>
-#include "background.h"
+#include "ents.h"
 #include "../glplotter/glplotter.h"
 
 static void setviewport(graphic_t *g) {

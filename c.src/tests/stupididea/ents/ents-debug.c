@@ -1,6 +1,6 @@
 #include <GL/gl.h>
 #include <stdio.h>
-#include "debug.h"
+#include "ents.h"
 #include "../text.h"
 #include "../glplotter/glplotter.h"
 
@@ -55,7 +55,7 @@ static void draw(graphic_t *g){
 void ent_debug_new(ent_debug_t *o_ent) {
 	graphic_t *g = glp_new();
 
-	text_addfont(monospace, 12, &o_ent->font);
+	o_ent->font = text_defaults_monospace();
 	o_ent->lastevent = 8;
 	o_ent->height = 100;
 	o_ent->width = 300;

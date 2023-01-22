@@ -22,7 +22,7 @@ int file_init(const char *file) {
 	return 0;
 }
 
-int getpagec() {
+int file_getpagec() {
 	struct stat s;
 	int err = fstat(f.fd, &s);
 	if(err == -1) {

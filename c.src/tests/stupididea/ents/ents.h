@@ -1,5 +1,6 @@
-#ifndef EDB_DEBUG_H
-#define EDB_DEBUG_H
+#ifndef ENTS_H_
+#define ENTS_H_
+
 #include "../glplotter/glplotter.h"
 #include "../text.h"
 typedef struct {
@@ -12,4 +13,14 @@ typedef struct {
 
 void ent_debug_new(ent_debug_t *o_ent);
 
-#endif //EDB_DEBUG_H
+typedef struct ent_background_t {
+	int _;
+} ent_background_t;
+
+int ent_background_new(ent_background_t *o_bg);
+
+void ent_opener_new(void (*onload)());
+void ent_pager_new();
+
+
+#endif

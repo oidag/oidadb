@@ -11,11 +11,49 @@
        __typeof__ (b) _b = (b); \
      _a < _b ? _a : _b; })
 
+
+typedef struct {
+	union {
+		float x;
+		float red;
+	};
+	union {
+		float y;
+		float green;
+	};
+	union {
+		float z;
+		float blue;
+	};
+} vec3f;
+
+typedef struct {
+	union {
+		int width;
+		int x;
+	};
+	union {
+		int height;
+		int y;
+	};
+} vec2i;
+
+typedef struct {
+	float x,y;
+}vec2f;
+
+typedef struct {
+	float x,y,z,a;
+} vec4f;
+typedef struct {
+	float r,g,b,a;
+} colorf;
+
 typedef struct {
 	float x,y,width,heigth;
 } rect_t;
 
-typedef struct {
+typedef struct recti_t {
 	int x,y,width,heigth;
 } recti_t;
 
@@ -33,6 +71,15 @@ static int inline rect_intersectsi(recti_t a, recti_t b) {
 			a.x + a.width > b.x &&
 			a.y < b.y + b.heigth &&
 			a.y + a.heigth > b.y
+	);
+}
+
+static int inline rect_contains(recti_t a, vec2i point) {
+	return (
+			a.y < point.y &&
+			a.x < point.x &&
+			a.y + a.heigth > point.y &&
+			a.x + a.width  > point.x
 	);
 }
 
@@ -63,30 +110,6 @@ static int inline rect_overlapi(recti_t a, recti_t b, recti_t *o_overlap) {
 	return 1;
 }
 
-typedef struct {
-	float x,y,z;
-} vec3f;
 
-typedef struct {
-	union {
-		int width;
-		int x;
-	};
-	union {
-		int height;
-		int y;
-	};
-} vec2i;
-
-typedef struct {
-	float x,y;
-}vec2f;
-
-typedef struct {
-	float x,y,z,a;
-} vec4f;
-typedef struct {
-	float r,g,b,a;
-} colorf;
 
 #endif
