@@ -2,6 +2,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <errno.h>
 #include "ents_u.h"
 
 enum termline_source {
@@ -28,6 +29,7 @@ static struct {
 
 	int pthread_shutdown; // 1 for the pthread shoud shut down.
 	pthread_t pthread;
+	int fd_app_stdout_pipe[2];
 
 	// the first index is the newest line
 	termline linev[500];
@@ -41,7 +43,7 @@ static void setviewport(graphic_t *g, eventdata_t e) {
 			size.width/12*4,
 			0,
 			size.width/12*8,
-			size.height/12*2,
+			size.height/12*3,
 	};
 	rect_growi(&viewport, -margin);
 	glp_viewport(g, viewport);
@@ -61,10 +63,6 @@ static void draw(graphic_t *g) {
 			   v.width,
 			   v.heigth);
 
-	color_glset(color_emerald800);
-	glRecti(0,0,10000,10000);
-
-	color_glset(color_emerald200);
 	text_defaults_monospace();
 	glPushMatrix();
 	glLoadIdentity();
@@ -73,12 +71,30 @@ static void draw(graphic_t *g) {
 	glTranslatef(terminal.scrollx_off,
 				 terminal.scrolly_off, 0);
 	float linestarty = 0;
+	const char *prefix;
+	vec3ub prefix_color;
+	vec3ub text_color;
 	for(int i = 0; i < terminal.lineq; i++) {
+		switch (terminal.linev[i].source) {
+			case APP_STDOUT:
+				prefix = "STDOUT";
+				prefix_color = color_slate100;
+				text_color = color_slate100;
+				break;
+			default:
+				prefix = "UNKNOWN";
+				prefix_color = color_slate100;
+				text_color = color_slate100;
+				break;
+		}
 		const char *msg = terminal.linev[i].msg;
 		if(msg == 0) {
 			continue;
 		}
-		text_draw(0,linestarty,msg);
+		color_glset(prefix_color);
+		text_draw(0,linestarty,prefix);
+		color_glset(text_color);
+		text_draw(70,linestarty,msg);
 		linestarty += text_height(msg);
 	}
 	terminal.scolly_maxoff = -(linestarty - (float)v.heigth);
@@ -103,7 +119,7 @@ void addline(enum termline_source source, const char *message) {
 	terminal.linev[0].msg = malloc(strlen(message) + 1);
 	memcpy(terminal.linev[0].msg, message, strlen(message) + 1);
 
-	glp_invalidate(terminal.g);
+	glp_invalidatef(terminal.g, 1);
 }
 
 static void onscroll(graphic_t *g, eventdata_t e) {
@@ -128,31 +144,31 @@ static void onscroll(graphic_t *g, eventdata_t e) {
 			if(terminal.scrolly_off > 0) {
 				terminal.scrolly_off = 0;
 			}
-
 			glp_invalidate(g);
 			return;
 	}
 }
-static void events(graphic_t *g, eventdata_t e) {
-	char buff[20];
-	sprintf(buff, "key: %d", e.keyboard.key);
-	addline(APP_STDOUT, buff);
-	glp_invalidate(g);
-}
 
 void *listener(void *_) {
-	sleep(1);
-	// 0-out the terminal buff
-	addline(APP_STDERR, "butts");
-	addline(APP_STDOUT, "nuts");
-	addline(APP_STDOUT, "coconuts");
-	addline(APP_STDOUT, "d");
-	addline(APP_STDOUT, "ASD:FJKAS:LFJ :ALKEJF :LKAWEJ F:LAJEF :LKJAWE: JAWEF :LAWJEF AKWEJ WALEKFJ AWEL:FKJAWEF AWEF WAEF &UAWEF UIWAEFYUI");
+	char buff[255];
+	while(1) {
+		ssize_t n = read(terminal.fd_app_stdout_pipe[0], buff, 254); // -1 for null term
+		if(n == -1) {break;}
+		buff[n] = 0;
+		addline(APP_STDOUT, buff);
+	}
+}
+
+void closelistener() {
+	close(terminal.fd_app_stdout_pipe[0]);
+	close(terminal.fd_app_stdout_pipe[1]);
+	fclose(stdout);
+	pthread_join(terminal.pthread, 0);
 }
 
 
 void ent_terminal_ondestroy() {
-	pthread_join(terminal.pthread, 0);
+	closelistener();
 }
 
 // start
@@ -166,10 +182,15 @@ void ent_terminal_start() {
 	glp_user(g, &terminal, ent_terminal_ondestroy);
 	glp_events(g, DAF_ONWINDOWSIZE, setviewport);
 
-	glp_events(g, DAF_ONKEYDOWN, events);
 	glp_events(g, DAF_ONSCROLL, onscroll);
 	glp_events(g, DAF_ONMOUSE_MOVE, onscroll);
 	terminal.g = g;
+
+
+	pipe(terminal.fd_app_stdout_pipe);
+	dup2(terminal.fd_app_stdout_pipe[1], fileno(stdout));
+	setvbuf(stdout, NULL, _IONBF, 0);
+
 
 	// start the listener
 	pthread_create(&terminal.pthread, 0, listener, 0);
