@@ -181,6 +181,8 @@ void      *glp_userget(graphic_t *g); // returns what was put into glp_user
 //
 // glp_invalidate sets the redraw flag so that if g is a sleeper it
 // will be redrawn on the next frame (but will not invoke the frame).
+// You can also choose to invoke a frame in the case that the entire
+// app is sleeping.
 //
 // THREADING
 //    both must be called in the same thread as glp_new*, or,
@@ -192,6 +194,7 @@ void       glp_viewport(graphic_t *, glp_viewport_t);
 glp_viewport_t  glp_viewportget(graphic_t *);
 void       glp_draw(graphic_t *, glp_drawaction, glp_cb_draw);
 void       glp_invalidate(graphic_t *);
+void       glp_invalidatef(graphic_t *, int invokeframe);
 
 // Bind an event to a callback. The call back will then be executed
 // with the relevant event data as well as ther user data.

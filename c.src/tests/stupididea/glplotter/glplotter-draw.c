@@ -76,7 +76,11 @@ glp_viewport_t  glp_viewportget(graphic_t *g) {
 	return g->viewport;
 }
 void glp_invalidate(graphic_t *g) {
+	glp_invalidatef(g, 0);
+}
+void glp_invalidatef(graphic_t *g, int invokedraw) {
 	g->flags |= GLP_GFLAGS_FORCEDRAW;
+	glfwPostEmptyEvent();
 }
 
 void glp_draw(graphic_t *g, glp_drawaction da, glp_cb_draw d) {
