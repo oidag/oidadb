@@ -18,6 +18,14 @@ perror(prefix "had errno"); \
 va_end(args);\
 errno = terr;}
 
-void error(const char *fmt, ...) {
+void log_error(const char *fmt, ...) {
 	stdlogthing(stderr, "error");
+}
+
+void log_verbose(const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	vfprintf(stdout, fmt, args);
+	fprintf(stdout, "\n");
+	va_end(args);
 }
