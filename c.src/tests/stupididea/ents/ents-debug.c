@@ -1,6 +1,7 @@
 #include <GL/gl.h>
 #include <stdio.h>
 #include <strings.h>
+#include <sys/time.h>
 #include "ents.h"
 #include "../text.h"
 #include "../glplotter/glplotter.h"
@@ -43,13 +44,26 @@ static void draw(graphic_t *g){
 	int w = d->width;
 	int h = d->height;
 	d->frameid++;
+
+	struct timeval tv;
+	gettimeofday(&tv, 0);
+	if(tv.tv_sec > d->frame_last_rec) {
+		time_t secs = tv.tv_sec - d->frame_last_rec;
+		unsigned int totalframes = d->frameid - d->frame_last_recid;
+		d->fps = totalframes / (unsigned int)secs;
+
+		d->frame_last_rec = tv.tv_sec;
+		d->frame_last_recid = d->frameid;
+	}
+
 	glColor3f(0,1,0);
 	text_setfont(d->font);
 	snprintf(d->buff, sizeof(d->buff),
-			 "Frame: %x\nLast Event: %s",
+			 "Frame: %x\nLast Event: %s\nFPS: %d",
 			d->frameid,
-			vals[d->lastevent]);
-	text_draw(8,24+8, d->buff);
+			vals[d->lastevent],
+			d->fps);
+	text_draw(8,24+8+8, d->buff);
 }
 
 
