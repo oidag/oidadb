@@ -173,6 +173,7 @@ void       glp_destroy(graphic_t *g);
 // THREADING
 //   Must be called in same thread as graphic_t's creation via glp_new*.
 void       glp_user(graphic_t *g, void *user, void(*ondestroy)(graphic_t*));
+void       glp_name(graphic_t *g, const char *name);
 void      *glp_userget(graphic_t *g); // returns what was put into glp_user
 
 // glp_viewport sets the view port in pixels that the graphic will be set to

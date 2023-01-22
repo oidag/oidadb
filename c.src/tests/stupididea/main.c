@@ -15,6 +15,7 @@
 
 #include <GL/gl.h>
 #include <signal.h>
+#include <GLFW/glfw3.h>
 
 static void onfileload() {
 	ent_pager_new();

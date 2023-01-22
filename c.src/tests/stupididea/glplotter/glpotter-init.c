@@ -123,6 +123,9 @@ void glp_user(graphic_t *g, void *user, void(*ondestroy)(graphic_t*)) {
 	g->user = user;
 	g->ondestroy = ondestroy;
 }
+void glp_name(graphic_t *g, const char *name) {
+	g->name = name;
+}
 void *glp_userget(graphic_t *g) {
 	return g->user;
 }
@@ -130,6 +133,6 @@ void *glp_userget(graphic_t *g) {
 void glp_destroy(graphic_t *g) {
 	// i is on an index of a graphic that needs to be killed.
 	if(g->ondestroy) g->ondestroy(g);
-	glp_draw(g, 0, 0);
 	glp_events(g, DAF_ALL, 0);
+	glp_draw(g, 0, 0);
 }

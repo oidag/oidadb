@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <GL/gl.h>
 #include "ents.h"
+#include "colors.h"
 #include "../dbfile/dbfile.h"
 
 
@@ -12,13 +13,9 @@ typedef struct {
 typedef struct {
 	vec3f color;
 
-	// point to viewport.
-	int *width;
-	int *height;
-
 	int ishover;
 
-}pager;
+} pager;
 
 typedef struct {
 	recti_t viewport;
@@ -48,27 +45,36 @@ static void event(graphic_t *g, eventdata_t e) {
 static void setviewport(graphic_t *g, eventdata_t _) {
 	// move it to the middle of the screen
 	vec2i size = glplotter_size();
-	int width = size.width/5;
+	int width = (size.width/16);
 	int height = size.height;
 	glp_viewport(g, (recti_t) {
 			0,
 			0,
 			width,
-			height,
+			height
 	});
 }
 
 static void draw(graphic_t *g){
 	glColor3f(user->color.red,user->color.green,user->color.blue);
 
-	glLineWidth(2);
+
+	color_t lcolor = color_slate100;
+	color_t rcolor = color_slate500;
+
 	glPushMatrix();
+
 	glLoadIdentity();
+	color_glset(lcolor);
 	glOrtho(0,1,0,1,1,-1);
-	glBegin(GL_LINES);
-	glVertex2f(1,0);
+	glBegin(GL_QUADS);
+	glVertex2f(0,0);
+	glVertex2f(0,1);
+	color_glset(rcolor);
 	glVertex2f(1,1);
+	glVertex2f(1,0);
 	glEnd();
+
 	glPopMatrix();
 
 
@@ -91,6 +97,7 @@ void ent_pager_new() {
 	glp_user(g, &_user, 0);
 	setviewport(g, (eventdata_t){0});
 	glp_draw(g, GLP_SLEEPER, draw);
+	glp_name(g, "pager");
 	glp_events(g, DAF_ONMOUSE_MOVE, event);
 	glp_events(g, DAF_ONMOUSE_DOWN, event);
 	glp_events(g, DAF_ONWINDOWSIZE, setviewport);

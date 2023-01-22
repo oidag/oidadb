@@ -3,7 +3,7 @@
 #include "glp_u.h"
 
 typedef struct eventbind {
-	graphic_t *g;
+//	graphic_t *g;
 	glp_cb_events cb;
 } eventbind;
 // 2d array.
@@ -11,33 +11,21 @@ typedef struct eventbind {
 // y-axis: the list of graphics subscribed to that found on the x-axis.
 //
 // eventbindingc/eventbindingq are the counts and capacities of the rows.
-static eventbind  *eventbindingv[_DAF_END_];
+/*static eventbind  *eventbindingv[_DAF_END_];
 static int          eventbindingc[_DAF_END_];
-static int          eventbindingq[_DAF_END_];
+static int          eventbindingq[_DAF_END_];*/
 #define EVENTBINDING_INC 8
 
 // this will make sure data.type is set to type.
 static void invokeevents(glp_eventtype_t type, eventdata_t data) {
 	data.type = type;
 	int kills = 0;
-	for(int i = 0; i < eventbindingc[type]; i++) {
-		if(eventbindingv[type][i].cb == 0) {
-			kills++;
+	for(int i = 0; i < graphicbufc; i++) {
+		graphic_t *g = &graphicbufv[i];
+		if(g->events[type] == 0) {
 			continue;
 		}
-		eventbindingv[type][i].cb(eventbindingv[type][i].g,
-								  data);
-	}
-	for(unsigned int i = 0; kills > 0; i++) {
-		if(eventbindingv[type][i].cb != 0) {
-			continue;
-		}
-		// i is on an index of a graphic that needs to be killed.
-		for (unsigned int j = i + 1; j < eventbindingc[type]; j++) {
-			eventbindingv[type][j - 1] = eventbindingv[type][j];
-		}
-		kills--;
-		eventbindingc[type]--;
+		g->events[type](g, data);
 	}
 }
 
@@ -103,39 +91,9 @@ void init_events() {
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
 	glfwSetScrollCallback(window, scroll_callback);
 
-	// allocate the event stack buffers.
-	for(int i = 0; i < _DAF_END_; i++) {
-		eventbindingv[i] = 0;
-		eventbindingc[i] = 0;
-		eventbindingq[i] = 0;
-	}
 }
 
 void close_events() {
-	for(int i = 0; i < _DAF_END_; i++) {
-		if(eventbindingv[i]) {
-			free(eventbindingv[i]);
-			eventbindingv[i] = 0;
-		}
-	}
-}
-
-static eventbind *addsub(graphic_t *g, glp_cb_events cb, glp_eventtype_t type) {
-	if(eventbindingq[type] == eventbindingc[type]) {
-		// not enough space... add more.
-		eventbindingq[type] += EVENTBINDING_INC;
-		eventbindingv[type] = realloc(eventbindingv[type],
-									  eventbindingq[type] * sizeof(eventbind));
-	}
-	eventbind *ret = &eventbindingv[type][eventbindingc[type]];
-	ret->g = g;
-	ret->cb = cb;
-	eventbindingc[type]++;
-	return ret;
-}
-
-static void rmsub(graphic_t *g, glp_eventtype_t type) {
-	g->events[type]->cb = 0;
 }
 
 
@@ -146,21 +104,5 @@ void glp_events(graphic_t *g, glp_eventtype_t eventid, glp_cb_events cb) {
 		}
 		return;
 	}
-	if(g->events[eventid]) {
-		// this graphic is already subscribed to this event.
-		if(cb == 0) {
-			rmsub(g, eventid);
-			g->events[eventid] = 0;
-		} else {
-			g->events[eventid]->cb = cb;
-		}
-	} else {
-		if(cb == 0) {
-			// doesn't have this event and also isn't try to set it.
-			// so just return
-			return;
-		}
-		// new sub. add it to the pool
-		g->events[eventid] = addsub(g, cb, eventid);
-	}
+	g->events[eventid] = cb;
 }
