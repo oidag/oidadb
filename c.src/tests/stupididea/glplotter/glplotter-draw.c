@@ -110,18 +110,17 @@ int draw() {
 	// ficial graphics.
 	for(unsigned int i = 0; i < graphicbufc; i++) {
 
+		// skip empty graphics.
+		if(graphicbufv[i].draw == 0 || !graphicbufv[i].alive) {
+			continue;
+		}
+
 		// easy pointers
 		graphic_t *g = &graphicbufv[i];
 		glp_drawaction drawact = g->drawact;
 
 		// the last viewport that was used last frame.
 		recti_t lastbbox = g->cache.lastviewport;
-
-		// kills have no passage.
-		if(g->draw == 0) {
-			kills++;
-			continue;
-		}
 
 		// This switch statement will either end in break or continue:
 		//   - continue: don't call dwg_draw_func.
@@ -226,22 +225,10 @@ int draw() {
 		g->cache.lastviewport = newview;
 	}
 
-	// splice out graphics that were killed this frame.
-	for(unsigned int i = 0; kills > 0; i++) {
-		if(graphicbufv[i].draw != 0) {
-			continue;
-		}
-		// i is on an index of a graphic that needs to be killed.
-		for (unsigned int j = i + 1; j < graphicbufc; j++) {
-			graphicbufv[j - 1] = graphicbufv[j];
-		}
-		kills--;
-		graphicbufc--;
-	}
-
 #ifdef GLPLOTTER_DEBUGBOXES
 	for(int i = 0; i < graphicbufc; i++)
 	{
+		if(!graphicbufv[i].alive || !graphicbufv[i].draw) continue;
 		glViewport(graphicbufv[i].viewport.x,
 		           graphicbufv[i].viewport.y,
 		           graphicbufv[i].viewport.width,
