@@ -18,7 +18,7 @@
 #include <GLFW/glfw3.h>
 
 static void onfileload() {
-	ent_pager_new();
+	element_host_new();
 }
 
 int main(void)

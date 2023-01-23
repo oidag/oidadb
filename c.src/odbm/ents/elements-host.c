@@ -65,7 +65,15 @@ static void draw(graphic_t *g){
 	glPopMatrix();
 }
 
-void ent_pager_new() {
+/*void ent_pagerfhead_start() {
+	graphic_t *g = glp_new();
+	glp_name(g, "pagehead");
+	viewport(g,(eventdata_t){0});
+	glp_draw(g, GLP_SLEEPER, draw);
+	glp_events(g, DAF_ONWINDOWSIZE, viewport);
+}*/
+
+void element_host_new() {
 	pager = &_pager;
 	graphic_t *g = glp_new();
 	// initialize structure
@@ -85,7 +93,7 @@ void ent_pager_new() {
 
 	ent_dialog_start();
 
-	ent_page_new();
+	shard_new();
 
 	ent_dialog_start();
 }

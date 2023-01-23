@@ -28,14 +28,9 @@ static void draw(graphic_t *g) {
 
 static void events(graphic_t *g, eventdata_t e);
 
-static struct {
 
-} fhead;
 
-void ent_pagerfhead_start() {
-	graphic_t *g = glp_new();
-	glp_name(g, "pagehead");
-	viewport(g,(eventdata_t){0});
-	glp_draw(g, GLP_SLEEPER, draw);
-	glp_events(g, DAF_ONWINDOWSIZE, viewport);
+void element_edbd_new() {
+	shard_new
 }
+

@@ -27,7 +27,6 @@ typedef struct ent_background_t {
 int ent_background_new(ent_background_t *o_bg);
 
 void ent_opener_new(void (*onload)());
-void ent_pager_new();
 
 // abducts stderr and stdout
 void ent_terminal_start();

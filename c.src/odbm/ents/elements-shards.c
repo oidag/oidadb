@@ -2,24 +2,22 @@
 #include "elements_u.h"
 //#include "../../../include/ellemdb.h"
 
-typedef struct odbent {
+typedef struct element_t {
+	graphic_t *shard;
+
 	vec2i pos;
 
-	graphic_t *selector;
-
-	int selected; //bool
+	//  fields set automatically.
+	int isselected; //bool
 	int ishover;
-
-	ent_type type;
-
+	element_type type;
 	// draw the inner-contents of the selector.
 	void (*drawselector)();
-
-} odbent;
+} shard_t;
 
 static void viewport(graphic_t *g, eventdata_t e) {
 	vec2i size = glplotter_size();
-	odbent *ent = glp_userget(g);
+	shard_t *ent = glp_userget(g);
 	int width = size.width / 18*1;
 	int height = size.width / 100;
 	glp_viewport(g, (glp_viewport_t) {
@@ -36,17 +34,17 @@ static void viewport_dialog(graphic_t *g, eventdata_t e) {
 }
 
 static void draw(graphic_t *g) {
-	odbent *ent = glp_userget(g);
+	shard_t *ent = glp_userget(g);
 
 	// todo: switch statement as to which color to use based on type.
 	color_t bg_norm = color_cyan200;
 	color_t bg_hover = color_cyan100;
 
 	// special border (if selected)
-	if(!ent->selected) {
-		glp_draw(ent->selector, GLP_SLEEPER, draw);
+	if(!ent->isselected) {
+		glp_draw(ent->shard, GLP_SLEEPER, draw);
 	} else {
-		glp_draw(ent->selector, GLP_ANIMATE, draw);
+		glp_draw(ent->shard, GLP_ANIMATE, draw);
 
 		// now to draw some magical shit. You can try to
 		// read through this but who cares. If it's bad
@@ -143,11 +141,11 @@ static void draw(graphic_t *g) {
 }
 
 static void event(graphic_t *g, eventdata_t e) {
-	odbent *ent = glp_userget(g);
+	shard_t *ent = glp_userget(g);
 	switch (e.type) {
 		case DAF_ONMOUSE_DOWN:
 			if(ent->ishover) {
-				ent->selected = !ent->selected;
+				ent->isselected = !ent->isselected;
 			}
 			glp_invalidate(g);
 			break;
@@ -159,24 +157,24 @@ static void event(graphic_t *g, eventdata_t e) {
 	}
 }
 
-odbent _ent;
-odbent *o_ent = &_ent;
 // start
-void ent_page_new() {
+shard_t *element_new() {
 
-	bzero(o_ent, sizeof(odbent ));
+	// todo: memory management with o_ent.
 
-	o_ent->selector = glp_new();
-	glp_name(o_ent->selector, "oidadb-entity");
-	glp_user(o_ent->selector, o_ent, 0);
+	bzero(o_ent, sizeof(shard_t ));
+
+	o_ent->shard = glp_new();
+	glp_name(o_ent->shard, "oidadb-entity");
+	glp_user(o_ent->shard, o_ent, 0);
 
 	// todo: these should be passed in/generated
 	o_ent->pos.x = 0;
 	o_ent->pos.y = 500;
 
-	viewport(o_ent->selector,(eventdata_t){0});
-	glp_draw(o_ent->selector, GLP_SLEEPER, draw);
-	glp_events(o_ent->selector, DAF_ONMOUSE_MOVE, event);
-	glp_events(o_ent->selector, DAF_ONMOUSE_DOWN, event);
-	glp_events(o_ent->selector, DAF_ONWINDOWSIZE, viewport);
+	viewport(o_ent->shard, (eventdata_t){0});
+	glp_draw(o_ent->shard, GLP_SLEEPER, draw);
+	glp_events(o_ent->shard, DAF_ONMOUSE_MOVE, event);
+	glp_events(o_ent->shard, DAF_ONMOUSE_DOWN, event);
+	glp_events(o_ent->shard, DAF_ONWINDOWSIZE, viewport);
 }
