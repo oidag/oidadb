@@ -38,15 +38,26 @@ static const char * element_type2str(element_type t) {
 typedef struct shard_t shard_t;
 typedef struct column_t column_t;
 
+// children of column_t
+// hmmmmmm... maybe don't need these... too much politic code.
+/*typedef struct     column_edbd_t column_edbd_t;
+column_edbd_t     *column_edbd_new();
+typedef struct     column_pages_t column_pages_t;
+column_pages_t    *column_pages_new();
+typedef struct     column_pagesbuf_t column_pagesbuf_t;
+column_pagesbuf_t *column_pagesbuf_new();*/
+
 column_t *column_new();
 
 // selects the column to be modifed by the next set of functions
 void column_color(column_t *, color_t);
 void column_shard_color(column_t *, color_t);
 
-// x and y will modify the graphics viewport.
-// So screen coords.
+// x: from 0 to 11
+// y: from 0 to 15
 void column_pos(column_t *, int x, int y);
+
+void column_type(column_t *, element_type type);
 
 // height should be from 1 (min) and 12 (screen width)
 void column_width(column_t *, int);
@@ -59,7 +70,7 @@ void column_height(column_t *, int);
 //  - When selected, the dialog will be notified and it will set the contents
 //
 // The column determians a lot of the shards behaviour such as bgcolor,
-// selected animation, drawing arrows, ect.
+// selected animation, drawing arrows, position, ect.
 //
 // the shard itself can be drawn. other than its background color
 shard_t *shard_new(column_t *owner);
@@ -69,7 +80,7 @@ void shard_cookie(shard_t *, void *cookie);
 void shard_ondraw(shard_t *, void (*)cb(void *cookie));
 
 // adds an arrow from the src shard to the dest shard.
-void shard_point(shard_t *src, shard_t *dest)
+void shard_point(shard_t *src, shard_t *dest);
 
 
 

@@ -30,13 +30,6 @@ void ent_***_new/start() {
 }
 
  */
-typedef struct ent_pager {
-	glp_viewport_t vp;
-	int ishover;
-} ent_pager;
-const extern ent_pager *pager;
-void ent_pagerfhead_start();
-
 void ent_dialog_start();
 
 
