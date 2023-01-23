@@ -1,15 +1,6 @@
 #include <strings.h>
-#include "ents_u.h"
+#include "elements_u.h"
 //#include "../../../include/ellemdb.h"
-
-typedef enum ent_type {
-	ENT_UNINIT, // unitialized (0)
-	ENT_DESCRIPTOR,
-	ENT_PAGE,
-	ENT_WORKER,
-	ENT_JOB,
-	ENT_EVENT,
-} ent_type;
 
 typedef struct odbent {
 	vec2i pos;
@@ -180,7 +171,7 @@ void ent_page_new() {
 	glp_user(o_ent->selector, o_ent, 0);
 
 	// todo: these should be passed in/generated
-	o_ent->pos.x = 500;
+	o_ent->pos.x = 0;
 	o_ent->pos.y = 500;
 
 	viewport(o_ent->selector,(eventdata_t){0});
