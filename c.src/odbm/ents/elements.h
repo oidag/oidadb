@@ -10,7 +10,7 @@ typedef enum element_type {
 	ELM_EVENT,
 } element_type;
 
-void element_host_new();
+void element_host_start();
 
 // todo: provide functions here to allow dbfile namespace to call whatever
 //       it needs too.
