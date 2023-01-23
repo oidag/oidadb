@@ -78,8 +78,8 @@ static void draw(graphic_t *g) {
 		switch (terminal.linev[i].source) {
 			case APP_STDOUT:
 				prefix = "STDOUT";
-				prefix_color = color_slate100;
-				text_color = color_slate100;
+				prefix_color = color_slate50;
+				text_color = color_slate50;
 				break;
 			default:
 				prefix = "UNKNOWN";

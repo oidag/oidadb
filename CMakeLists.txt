@@ -17,4 +17,4 @@ TARGET_LINK_LIBRARIES(test_host pthread rt)
 
 file(GLOB_RECURSE thetool_src c.src/tests/stupididea/*.c)
 add_executable(stupididea ${thetool_src})
-target_link_libraries(stupididea GL glfw drawtext freetype)
+target_link_libraries(stupididea GL glfw drawtext freetype m)

@@ -63,6 +63,11 @@ void glplotter_stopserver() {
 int glplotter_serve() {
 	int err = 0;
 	int exit = 0;
+
+	// gl init
+	glEnable( GL_BLEND );
+	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
 	while (!glfwWindowShouldClose(window))
 	{
 		int ret = draw();
