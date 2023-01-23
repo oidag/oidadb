@@ -25,13 +25,21 @@ void ent_***_new/start() {
 	glp_name(g, "NAME");
 	viewport(g,(eventdata_t){0});
 	glp_draw(g, GLP_SLEEPER, draw);
-	glp_events(g, DAF_ONWINDOWSIZE, setviewport);
+	glp_events(g, DAF_ONWINDOWSIZE, viewport);
 }
 
  */
+typedef struct ent_pager {
+	glp_viewport_t vp;
+	int ishover;
+} ent_pager;
+const extern ent_pager *pager;
+void ent_pagerfhead_start();
 
+void ent_page_new();
 
-void ent_pagerfhead_new(graphic_t *pager);
+void ent_dialog_start();
+
 
 
 #endif

@@ -1,21 +1,9 @@
 #include <stdio.h>
+#include "ents_u.h"
 #include <GL/gl.h>
 #include "ents.h"
 #include "colors.h"
 #include "../dbfile/dbfile.h"
-
-
-
-typedef struct {
-
-} page;
-
-typedef struct {
-	vec3f color;
-
-	int ishover;
-
-} pager;
 
 typedef struct {
 	recti_t viewport;
@@ -23,20 +11,19 @@ typedef struct {
 	int height;
 } pagecontents;
 
-static pager _user; // don't use.
-static pager *user = &_user; // use this.
+ent_pager _pager;
+const ent_pager *pager = 0;
 
 static void event(graphic_t *g, eventdata_t e) {
 	switch (e.type) {
 		case DAF_ONMOUSE_DOWN:
-			if(user->ishover) {
-				user->color.green += 0.1f;
+			if(pager->ishover) {
+				// on hover.
 			}
-			glp_invalidate(g);
 			break;
 		default:
 		case DAF_ONMOUSE_MOVE:
-			user->ishover = rect_contains(glp_viewportget(g), e.pos);
+			_pager.ishover = rect_contains(glp_viewportget(g), e.pos);
 			break;
 	}
 
@@ -45,23 +32,23 @@ static void event(graphic_t *g, eventdata_t e) {
 static void setviewport(graphic_t *g, eventdata_t _) {
 	// move it to the middle of the screen
 	vec2i size = glplotter_size();
-	int width = (size.width/16);
+	int width = (size.width/12)*4;
 	int height = size.height;
-	glp_viewport(g, (recti_t) {
+	_pager.vp = (recti_t) {
 			0,
 			0,
 			width,
 			height
-	});
+	};
+	glp_viewport(g, _pager.vp);
+
 }
 
 static void draw(graphic_t *g){
-	glColor3f(user->color.red,user->color.green,user->color.blue);
+	color_t lcolor = color_slate800;
+	color_t rcolor = color_slate700;
 
-
-	color_t lcolor = color_slate100;
-	color_t rcolor = color_slate500;
-
+	// draw overall panel
 	glPushMatrix();
 
 	glLoadIdentity();
@@ -76,29 +63,27 @@ static void draw(graphic_t *g){
 	glEnd();
 
 	glPopMatrix();
-
-
-	// get pagec
-	int pagec = file_getpagec();
-
-
 }
 
-
 void ent_pager_new() {
+	pager = &_pager;
 	graphic_t *g = glp_new();
-
 	// initialize structure
-	user->color = (vec3f){
-		1,0,0
-	};
 
 	// glp set up
-	glp_user(g, &_user, 0);
 	setviewport(g, (eventdata_t){0});
 	glp_draw(g, GLP_SLEEPER, draw);
 	glp_name(g, "pager");
 	glp_events(g, DAF_ONMOUSE_MOVE, event);
 	glp_events(g, DAF_ONMOUSE_DOWN, event);
 	glp_events(g, DAF_ONWINDOWSIZE, setviewport);
+
+
+
+	// start the children
+	ent_pagerfhead_start();
+
+	ent_dialog_start();
+
+	ent_page_new();
 }
