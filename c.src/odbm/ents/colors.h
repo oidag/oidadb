@@ -60,15 +60,21 @@ _COLOR(slate, 700, 334155)
 _COLOR(slate, 800, 1e293b)
 _COLOR(slate, 900, 0f172a)
 
-// stones
+// stones hmmm.. think I should remove these in leu of just using slate.
 _COLOR(stone, 700, 44403c)
 _COLOR(stone, 800, 292524)
 _COLOR(stone, 900, 1c1917)
 
 
 // violet
+_COLOR(violet, 50,  faf5ff)
+_COLOR(violet, 100, f3e8ff)
+_COLOR(violet, 200, e9d5ff)
 _COLOR(violet, 300, c4b5fd)
 _COLOR(violet, 400, a78bfa)
+_COLOR(violet, 500, a855f7)
+_COLOR(violet, 600, 9333ea)
+_COLOR(violet, 700, 6d28d9)
 _COLOR(violet, 800, 5b21b6)
 _COLOR(violet, 900, 4c1d95)
 
