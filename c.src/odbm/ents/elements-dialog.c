@@ -4,7 +4,7 @@
 struct {
 	int init;
 
-	ent_type type;
+	element_type type;
 
 } ent_dialog = {0};
 
@@ -59,7 +59,7 @@ static void draw(graphic_t *g) {
 	glLoadIdentity();
 	glOrtho(0,1,0,1,1,-1);
 	glBegin(GL_QUADS);
-	color_glset(ent_type2color(ent_dialog.type));
+	color_glset(element_type2color(ent_dialog.type));
 	glVertex2f(0,0);
 	glVertex2f(0,1);
 	glVertex2f(1,1);
@@ -81,7 +81,7 @@ static void draw(graphic_t *g) {
 	// specific h1
 	text_draw(textwidth, y, specificheader());
 	// general h1
-	const char *str = ent_type2str(ent_dialog.type);
+	const char *str = element_type2str(ent_dialog.type);
 	text_draw((float)h1width - text_width(str) - textwidth, y, str);
 	glPopMatrix();
 
@@ -97,7 +97,7 @@ static void events(graphic_t *g, eventdata_t e);
 void ent_dialog_start() {
 	if(ent_dialog.init) return; // singleton
 	ent_dialog.init = 1;
-	ent_dialog.type = ENT_PAGE;
+	ent_dialog.type = ELM_PAGE;
 	graphic_t *g = glp_new();
 	glp_name(g, "element-dialog");
 	viewport(g,(eventdata_t){0});

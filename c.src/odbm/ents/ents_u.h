@@ -1,6 +1,6 @@
 #ifndef ENTS_H_U_
 #define ENTS_H_U_
-
+#include "elements.h"
 #include "ents.h"
 
 // include the standard utilities we always need.
@@ -8,6 +8,7 @@
 
 #include "colors.h"
 #include "../glplotter/glplotter.h"
+#include "elements_u.h"
 
 
 /*
@@ -35,8 +36,6 @@ typedef struct ent_pager {
 } ent_pager;
 const extern ent_pager *pager;
 void ent_pagerfhead_start();
-
-void ent_page_new();
 
 void ent_dialog_start();
 
