@@ -7,6 +7,7 @@
 
 const char *monospace_f = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf";
 const char *sans_f = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+const char *sansbold_f = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
 const char *serif_f = "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf";
 static text_font monospace ={0},body={0},headying={0};
 
@@ -25,7 +26,7 @@ text_font text_defaults_body() {
 }
 text_font text_defaults_h1() {
 	if(!headying.font) {
-		text_addfont(sans_f, 32, &headying);
+		text_addfont(sansbold_f, 32, &headying);
 	}
 	return headying;
 }

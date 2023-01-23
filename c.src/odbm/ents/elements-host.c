@@ -86,4 +86,6 @@ void ent_pager_new() {
 	ent_dialog_start();
 
 	ent_page_new();
+
+	ent_dialog_start();
 }
