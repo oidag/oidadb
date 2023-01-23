@@ -1,7 +1,7 @@
-#include "ellemdb.h"
+#include "oidadb.h"
 #include "edba.h"
 #include "edbl.h"
-#include "edba-util.h"
+#include "edba_u.h"
 
 edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 

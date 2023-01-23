@@ -5,7 +5,7 @@
 #include <errno.h>
 
 #include "edbs.h"
-#include "ellemdb.h"
+#include "oidadb.h"
 #include "errors.h"
 #include "edbs-jobs.h"
 

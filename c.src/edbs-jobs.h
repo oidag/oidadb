@@ -1,7 +1,7 @@
 #ifndef _edbJOBS_H_
 #define _edbJOBS_H_
 
-#include "include/ellemdb.h"
+#include "include/oidadb.h"
 #include "edbs.h"
 
 #define EDB_OID_OP1 0x0000ffffffffffff

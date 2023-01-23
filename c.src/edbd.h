@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "include/ellemdb.h"
+#include "include/oidadb.h"
 
 struct _edb_fhead_intro {
 	uint8_t magic[2];

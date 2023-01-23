@@ -8,10 +8,10 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "include/ellemdb.h"
+#include "include/oidadb.h"
 #include "edbl.h"
 #include "edba.h"
-#include "edba-util.h"
+#include "edba_u.h"
 #include "edbs.h"
 #include "edbp-types.h"
 

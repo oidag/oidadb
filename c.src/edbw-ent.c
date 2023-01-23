@@ -1,5 +1,5 @@
 #include "edbw.h"
-#include "edbw-util.h"
+#include "edbw_u.h"
 
 edb_err edbw_u_entjob(edb_worker_t *self) {
 

@@ -15,7 +15,7 @@
 #include <pthread.h>
 
 #include "options.h"
-#include "include/ellemdb.h"
+#include "include/oidadb.h"
 #include "edbd.h"
 #include "errors.h"
 

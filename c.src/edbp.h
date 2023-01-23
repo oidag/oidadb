@@ -5,7 +5,7 @@
 #include <sys/user.h>
 #include <pthread.h>
 
-#include "include/ellemdb.h"
+#include "include/oidadb.h"
 #include "edbd.h"
 #include "errors.h"
 

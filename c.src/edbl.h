@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "include/ellemdb.h"
+#include "include/oidadb.h"
 #include "options.h"
 #include "edbd.h"
 

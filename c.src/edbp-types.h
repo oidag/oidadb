@@ -1,7 +1,7 @@
 #ifndef _edbtypes_h_
 #define _edbtypes_h_
 
-#include "include/ellemdb.h"
+#include "include/oidadb.h"
 #include "edbp.h"
 #include "stdint.h"
 

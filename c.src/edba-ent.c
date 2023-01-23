@@ -1,6 +1,6 @@
-#include "include/ellemdb.h"
+#include "include/oidadb.h"
 #include "edba.h"
-#include "edba-util.h"
+#include "edba_u.h"
 
 edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 
