@@ -9,10 +9,10 @@
 #include <errno.h>
 
 
-#include "include/ellemdb.h"
+#include "include/oidadb.h"
 #include "edba.h"
 #include "edbw.h"
-#include "edbw-util.h"
+#include "edbw_u.h"
 #include "edbs-jobs.h"
 #include "edbd.h"
 #include "edbp-types.h"

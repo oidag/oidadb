@@ -1,0 +1,57 @@
+* My rules for c programming
+
+ - all files that are in the same directory are files that are known
+   to share a /Domain/. A given Domain can be designated a /Build
+   Target/.
+ - all files that begin with the same string of characters in the same
+   Domain are known as a /Namespace/. All Namespaces have a single
+   =.h= file that can be included outside of the Namespace.
+   - Optionally, some Namespaces may have =.h= files that contain the
+     same prefix as the master header, followed by a dash (-) and some
+     other stuff. This is callled a =Subnamespace=. (ie:
+     =edbs-jobs.h=)
+ - A Domain inside of another Domain (a directory inside of a
+   parent directory) is known as a /Child Domain/.
+ - Child Domain can include Parent Domains, but not the other way
+   around (Parents are agnostic to their Children).
+ - At no point should a =.c= file include another =.c= file.
+ - Files that end with =_u.h= are known as utility headers. These
+   files cannot be included in any file outside of the namespace.
+ - All symbols in non-utility headers must begin with the same prefix
+   as the rest of the Subnamespace. (Ie: =edbd_*= =edba_*=)
+ - Each namespace may have its own rules as to what other namespaces
+   its allowed to include so keep your eyes open.
+
+* Build Targets
+
+A given domain is a build target if it has one of the speical files:
+
+ - =main.c= - this is an executable build target.
+ - =*_main.c= - In some cases, a Domain may have multiple executables
+   that can be generated, in this case each files with the =_main.c=
+   suffix can be treated as a seperate entry point for the compiler,
+   given that the compiler not include any of the other =_main.c=
+   files.
+ - =include/= - this is a library build target. Inside this folder are
+   header files to be distributed.
+
+** liboidadb
+The big fucking library I'm making. The whole project.
+
+** odbm
+The (o)ida(db) (m)onitor. OpenGL graphical interface for monitoring
+oidadb files.
+
+** tests
+Tests files for when you run `make test`. Also contains
+benchmarks. Each test is a different =main()=.
+
+
+* Links
+  - Kanban: https://oidadb.youtrack.cloud/
+
+  TODO: list dependances... see makelist.txt
+  also: https://github.com/jtsiomb/libdrawtext
+
+
+

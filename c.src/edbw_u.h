@@ -1,5 +1,5 @@
-#ifndef EDB_EDBW_UTIL_H
-#define EDB_EDBW_UTIL_H
+#ifndef EDB_EDBW_U_H
+#define EDB_EDBW_U_H
 
 // the only thing that can include this file is other c files
 // of the same namespace
@@ -18,4 +18,4 @@ edb_err edbw_u_objjob(edb_worker_t *self);
 edb_err edbw_u_entjob(edb_worker_t *self);
 edb_err edbw_u_structjob(edb_worker_t *self);
 
-#endif //EDB_EDBW_UTIL_H
+#endif //EDB_EDBW_U_H

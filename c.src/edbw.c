@@ -1,7 +1,7 @@
 #include <strings.h>
 
 #include "edbw.h"
-#include "edbw-util.h"
+#include "edbw_u.h"
 
 // function to easily verbosely log worker and job ids
 #define edbw_logverbose(workerp, fmt, ...) \
