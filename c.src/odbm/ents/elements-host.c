@@ -92,6 +92,16 @@ void element_host_start() {
 	column_type(selected, ELM_PAGE);
 	column_viewboxr(selected, (recti_12x16) {1, 0, 1, 14});
 
+	// todo: remove this... just for testing...
+	shard_t *s = shard_new(host.pages);
+	shard_new(host.pages);
+	shard_new(host.pages);
+	shard_new(host.pages);
+	shard_new(host.pages);
+	shard_new(host.pages);
+
+
+
 	// todo: edbw
 
 	// todo: edbs
