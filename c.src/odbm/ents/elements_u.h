@@ -39,11 +39,22 @@ static const char * element_type2str(element_type t) {
 // y: from 0 to 15
 typedef vec2i vec2i_12x16;
 
+typedef recti_t recti_12x16;
+
 vec2i static inline vec2i_12x16_real(vec2i_12x16 v, vec2i windowsize) {
 	return (vec2i){
-		.x = vb.width/12*v.x;
-		.y = vb.height/16*v.y;
-	}
+		.x = windowsize.width/12*v.x,
+		.y = windowsize.height/16*v.y,
+	};
+}
+
+recti_t static inline recti_12x16_real(recti_12x16 v, vec2i windowsize) {
+	return (recti_t){
+			.x = windowsize.width/12*v.x,
+			.y = windowsize.height/16*v.y,
+			.width = windowsize.width/12*v.width,
+			.heigth = windowsize.height/16*v.heigth,
+	};
 }
 
 typedef struct shard_t shard_t;
@@ -62,16 +73,11 @@ column_t *column_new();
 
 // selects the column to be modifed by the next set of functions
 void column_color(column_t *, color_t);
-void column_shard_color(column_t *, color_t);
 
 
-void column_posr(column_t *, vec2i_12x16);
+void column_viewboxr(column_t *, recti_12x16);
 
 void column_type(column_t *, element_type type);
-
-// height should be from 1 (min) and 12 (screen width)
-// height should be from 1 (min) and 16 (screen height)
-void column_size(column_t *, vec2i_12x16 size);
 
 
 // used for deriving classes
@@ -85,7 +91,7 @@ shard_t *shard_new(column_t *owner);
 void shard_cookie(shard_t *, void *cookie);
 
 // can be set to put aditional shit on the shard
-void shard_ondraw(shard_t *, void (*)cb(void *cookie));
+void shard_ondraw(shard_t *, void (*cb)(void *cookie));
 
 // adds an arrow from the src shard to the dest shard.
 void shard_point(shard_t *src, shard_t *dest);

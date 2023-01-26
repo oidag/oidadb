@@ -77,28 +77,20 @@ void element_host_start() {
 	// header column
 	selected = host.descriptor = column_new();
 	column_color(selected, color_pink400);
-	column_shard_color(selected, color_pink300);
-	column_width(selected, 2);
+
 	column_type(selected, ELM_DESCRIPTOR);
-	column_height(selected,2);
-	column_pos(selected, 0, 14);
+	column_viewboxr(selected, (recti_12x16) {0, 14, 2, 2});
 
 	// pages
 	selected = host.pages = column_new();
 	column_color(selected, color_violet900);
-	column_shard_color(selected, color_violet300);
-	column_width(selected, 1);
 	column_type(selected, ELM_PAGE);
-	column_height(selected,14);
-	column_pos(selected, 0, 0);
+	column_viewboxr(selected, (recti_12x16) {0, 0, 1, 14});
 	// pages (buff)
 	selected = host.pagebuff = column_new();
 	column_color(selected, color_violet700);
-	column_shard_color(selected, color_violet300);
-	column_width(selected, 1);
 	column_type(selected, ELM_PAGE);
-	column_height(selected,14);
-	column_pos(selected, 1, 0);
+	column_viewboxr(selected, (recti_12x16) {1, 0, 1, 14});
 
 	// todo: edbw
 
