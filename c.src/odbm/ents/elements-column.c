@@ -6,6 +6,7 @@
 
 #define SHARD_V_MARGIN 4
 #define SHARD_H_MARGIN 4
+#define SHARD_HEIGHT   20
 
 typedef struct column_t {
 	graphic_t *g;
@@ -33,14 +34,14 @@ void static shard_vp(column_t *u, int index) {
 	graphic_t *shard = u->shardv[index];
 
 	// calculate the "base viewport"... one without margins.
-	int shardheight = u->viewport.heigth / u->shardc;
+	int shardheight = SHARD_HEIGHT;
 	recti_t vp = (recti_t){u->viewport.x,
 	                       u->viewport.y + u->viewport.heigth - shardheight*(index+1),
 			               u->viewport.width,
 			               shardheight};
 
 	// now add margin
-	vp.y += SHARD_V_MARGIN*(index+1);
+	vp.y -= SHARD_V_MARGIN*(index+1);
 	vp.x += SHARD_H_MARGIN;
 	vp.width -= SHARD_H_MARGIN * 2;
 
@@ -132,9 +133,9 @@ void column_place_child(column_t *u, graphic_t *shard) {
 	}
 
 	u->shardv[u->shardc] = shard;
-	// set up its viewport.
-	shard_vp(u,u->shardc);
 	u->shardc++;
+	// set up its viewport.
+	shard_vp(u,u->shardc-1);
 
 	// We don't need to take care of the ONWINDOWSIZE to update the
 	// viewport because the parent column will invoke glp_viewport on all

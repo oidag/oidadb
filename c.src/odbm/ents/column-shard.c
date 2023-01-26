@@ -22,9 +22,18 @@ typedef struct shard_t {
 static void draw(graphic_t *g) {
 	shard_t *ent = glp_userget(g);
 
-	// todo: switch statement as to which color to use based on type.
-	color_t bg_norm = color_cyan200;
-	color_t bg_hover = color_cyan100;
+	color_t bg_norm = element_type2color(column_typeget(ent->owner));
+
+	// calculate the hover color
+	vec3d bg_hover = vec3ub_regulate(bg_norm);
+	if(color_luminance(bg_norm) > 0.5) {
+		// bg_norm is normally bright... remove color for the hover.
+		bg_hover = vec3d_mul(bg_hover, 0.8);
+	} else {
+		// bg_norm is normall dark
+		bg_hover = vec3d_mul(bg_hover, 1.2);
+		bg_hover = vec3d_clamp(bg_hover, 1);
+	}
 
 	// special border (if selected)
 	if(!ent->isselected) {
@@ -103,7 +112,7 @@ static void draw(graphic_t *g) {
 	rect_growi(&v, -bordersize);
 	glViewport(v.x, v.y, v.width, v.heigth);
 	if(ent->ishover) {
-		color_glset(bg_hover);
+		glColor3dv((GLdouble *)&bg_hover);
 	} else {
 		color_glset(bg_norm);
 	}
@@ -117,6 +126,9 @@ static void draw(graphic_t *g) {
 	glVertex2f(1,0);
 	glEnd();
 	glPopMatrix();
+
+	// alright background/seleection animation set.
+	// let the child do the rest
 	if(ent->drawselector) {
 		glPushMatrix();
 		glLoadIdentity();
@@ -167,6 +179,7 @@ shard_t *shard_new(column_t *owner) {
 
 	shard_t *u = malloc(sizeof(shard_t));
 	bzero(u, sizeof(shard_t ));
+	u->owner = owner;
 
 	u->g = glp_new();
 	glp_name(u->g, "shard");
