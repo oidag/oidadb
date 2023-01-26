@@ -82,6 +82,36 @@ void static inline color_glset(color_t c) {
 	glColor3ubv((GLubyte*)&c);
 }
 
+// returns the luminance (aprox. brightness to the human eye)
+//
+// see https://wunnle.com/dynamic-text-color-based-on-background
+double static inline color_luminance(color_t c) {
+	return (
+			((double)c.red/UINT8_MAX)   * 0.2126 +
+			((double)c.green/UINT8_MAX) * 0.7152 +
+			((double)c.blue/UINT8_MAX)  * 0.0722
+			);
+}
+
+// returns the contrast between colors.
+//
+//
+//
+// See https://www.w3.org/WAI/GL/wiki/Contrast_ratio
+double static inline color_contrast(color_t a, color_t b) {
+	double LA = color_luminance(a);
+	double LB = color_luminance(b);
+	double L1, L2;
+	if(LA > LB) {
+		L1 = LA;
+		L2 = LB;
+	} else {
+		L1 = LB;
+		L2 = LA;
+	}
+	return (L1+0.05) / (L2+ 0.05);
+}
+
 #endif
 
 /*
