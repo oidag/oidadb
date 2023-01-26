@@ -1,6 +1,7 @@
 #ifndef graphic_primatives_h_
 #define graphic_primatives_h_
 
+#include <stdint.h>
 #include <math.h>
 #define max(a,b) \
    ({ __typeof__ (a) _a = (a); \
@@ -26,11 +27,35 @@
 		type z;                                 \
 		type blue;                              \
 	};                                        \
-} vec3##prefix;
+} vec3##prefix;\
+inline static vec3##prefix vec3##prefix##_add(vec3##prefix v, type a) \
+{return (vec3##prefix){v.x+a,v.y+a,v.z+a};}; \
+inline static vec3##prefix vec3##prefix##_sub(vec3##prefix v, type a) \
+{return (vec3##prefix){v.x-a,v.y-a,v.z-a};}; \
+inline static vec3##prefix vec3##prefix##_mul(vec3##prefix v, type a) \
+{return (vec3##prefix){v.x*a,v.y*a,v.z*a};};
 
 vec3(f,float)
 vec3(i,int);
+vec3(d,double );
 vec3(ub,unsigned char);
+
+// makes values that are 255 equal "1.000"
+// and down to values that are 0 are "0".
+static vec3d vec3ub_regulate(vec3ub a) {
+	return (vec3d){
+			.x = ((float)a.x/UINT8_MAX),
+			.y = ((float)a.y/UINT8_MAX),
+			.z = ((float)a.z/UINT8_MAX),
+	};
+}
+
+// clamps all values over max to max.
+static vec3d vec3d_clamp(vec3d v, double max) {
+	v.x = min(v.x, max);
+	v.y = min(v.y, max);
+	v.z = min(v.z, max);
+}
 
 typedef struct {
 	union {
