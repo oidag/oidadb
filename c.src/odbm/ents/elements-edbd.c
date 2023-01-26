@@ -1,14 +1,14 @@
 #include "ents_u.h"
 
 static void viewport(graphic_t *g, eventdata_t e) {
-	int h = pager->vp.heigth/8*1;
+	/*int h = pager->vp.heigth/8*1;
 	recti_t v = {
 			pager->vp.x,
 			pager->vp.y + pager->vp.heigth - h,
 			pager->vp.width/8*3,
 			h,
 	};
-	glp_viewport(g, v);
+	glp_viewport(g, v);*/
 }
 static void draw(graphic_t *g) {
 
@@ -28,9 +28,4 @@ static void draw(graphic_t *g) {
 
 static void events(graphic_t *g, eventdata_t e);
 
-
-
-void element_edbd_new() {
-	shard_new
-}
 

@@ -1,37 +1,23 @@
 #include <strings.h>
+#include <malloc.h>
 #include "elements_u.h"
 //#include "../../../include/ellemdb.h"
 
-typedef struct element_t {
-	graphic_t *shard;
+// defined in column. Cross-defined here.
+extern void column_place_child(column_t *u, graphic_t *shard);
+extern element_type column_typeget(column_t *u);
 
-	vec2i pos;
-
-	//  fields set automatically.
-	int isselected; //bool
+typedef struct shard_t {
+	int isselected;
 	int ishover;
-	element_type type;
-	// draw the inner-contents of the selector.
-	void (*drawselector)();
+	column_t *owner;
+	graphic_t *g;
+
+	void *cookie;
+
+	void (*drawselector)(void *cookie);
+
 } shard_t;
-
-static void viewport(graphic_t *g, eventdata_t e) {
-	vec2i size = glplotter_size();
-	shard_t *ent = glp_userget(g);
-	int width = size.width / 18*1;
-	int height = size.width / 100;
-	glp_viewport(g, (glp_viewport_t) {
-		ent->pos.x,
-		ent->pos.y,
-		width*2,
-		height*2
-	});
-}
-
-// view port for the dialog
-static void viewport_dialog(graphic_t *g, eventdata_t e) {
-
-}
 
 static void draw(graphic_t *g) {
 	shard_t *ent = glp_userget(g);
@@ -42,9 +28,9 @@ static void draw(graphic_t *g) {
 
 	// special border (if selected)
 	if(!ent->isselected) {
-		glp_draw(ent->shard, GLP_SLEEPER, draw);
+		glp_draw(ent->g, GLP_SLEEPER, draw);
 	} else {
-		glp_draw(ent->shard, GLP_ANIMATE, draw);
+		glp_draw(ent->g, GLP_ANIMATE, draw);
 
 		// now to draw some magical shit. You can try to
 		// read through this but who cares. If it's bad
@@ -135,7 +121,7 @@ static void draw(graphic_t *g) {
 		glPushMatrix();
 		glLoadIdentity();
 		glOrtho(0,v.width,0,v.heigth,1,-1);
-		ent->drawselector;
+		ent->drawselector(ent->cookie);
 		glPopMatrix();
 	}
 }
@@ -157,24 +143,42 @@ static void event(graphic_t *g, eventdata_t e) {
 	}
 }
 
-// start
-shard_t *element_new() {
-
-	// todo: memory management with o_ent.
-
-	bzero(o_ent, sizeof(shard_t ));
-
-	o_ent->shard = glp_new();
-	glp_name(o_ent->shard, "oidadb-entity");
-	glp_user(o_ent->shard, o_ent, 0);
-
-	// todo: these should be passed in/generated
-	o_ent->pos.x = 0;
-	o_ent->pos.y = 500;
-
-	viewport(o_ent->shard, (eventdata_t){0});
-	glp_draw(o_ent->shard, GLP_SLEEPER, draw);
-	glp_events(o_ent->shard, DAF_ONMOUSE_MOVE, event);
-	glp_events(o_ent->shard, DAF_ONMOUSE_DOWN, event);
-	glp_events(o_ent->shard, DAF_ONWINDOWSIZE, viewport);
+static void ondelete(graphic_t *g) {
+	shard_t *u = glp_userget(g);
+	free(u);
+	glp_user(g,0,0);
 }
+
+
+void shard_cookie(shard_t *s, void *cookie) {
+	s->cookie = cookie;
+}
+
+// can be set to put aditional shit on the shard
+void shard_ondraw(shard_t *s, void (*cb)(void *cookie)) {
+	s->drawselector = cb;
+}
+
+// adds an arrow from the src shard to the dest shard.
+void shard_point(shard_t *src, shard_t *dest);
+
+// start
+shard_t *shard_new(column_t *owner) {
+
+	shard_t *u = malloc(sizeof(shard_t));
+	bzero(u, sizeof(shard_t ));
+
+	u->g = glp_new();
+	glp_name(u->g, "shard");
+	glp_user(u->g, u, ondelete);
+
+	// take care of the placement.
+	column_place_child(owner, u->g);
+
+	glp_draw(u->g, GLP_SLEEPER, draw);
+	glp_events(u->g, DAF_ONMOUSE_MOVE, event);
+	glp_events(u->g, DAF_ONMOUSE_DOWN, event);
+
+	return u;
+}
+

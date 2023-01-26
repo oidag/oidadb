@@ -11,6 +11,7 @@
 #include "dbfile/dbfile.h"
 #include "glplotter/glplotter.h"
 #include "ents/ents.h"
+#include "ents/elements.h"
 
 
 #include <GL/gl.h>
@@ -18,7 +19,8 @@
 #include <GLFW/glfw3.h>
 
 static void onfileload() {
-	element_host_new();
+
+	element_host_start();
 }
 
 int main(void)
