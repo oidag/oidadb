@@ -35,6 +35,17 @@ static const char * element_type2str(element_type t) {
 	}
 }
 
+// x: from 0 to 11
+// y: from 0 to 15
+typedef vec2i vec2i_12x16;
+
+vec2i static inline vec2i_12x16_real(vec2i_12x16 v, vec2i windowsize) {
+	return (vec2i){
+		.x = vb.width/12*v.x;
+		.y = vb.height/16*v.y;
+	}
+}
+
 typedef struct shard_t shard_t;
 typedef struct column_t column_t;
 
@@ -53,17 +64,14 @@ column_t *column_new();
 void column_color(column_t *, color_t);
 void column_shard_color(column_t *, color_t);
 
-// x: from 0 to 11
-// y: from 0 to 15
-void column_pos(column_t *, int x, int y);
+
+void column_posr(column_t *, vec2i_12x16);
 
 void column_type(column_t *, element_type type);
 
 // height should be from 1 (min) and 12 (screen width)
-void column_width(column_t *, int);
-
 // height should be from 1 (min) and 16 (screen height)
-void column_height(column_t *, int);
+void column_size(column_t *, vec2i_12x16 size);
 
 
 // used for deriving classes
