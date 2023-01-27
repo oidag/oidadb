@@ -2,7 +2,7 @@
 #define COLORS_H_
 
 #include <GL/gl.h>
-#include "../glplotter/primatives.h"
+#include "../primatives.h"
 
 typedef vec3ub color_t;
 

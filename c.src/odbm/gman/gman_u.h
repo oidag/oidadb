@@ -1,6 +1,38 @@
-#ifndef elementsu_h_
-#define elementsu_h_
-#include "ents_u.h"
+#ifndef ENTS_H_U_
+#define ENTS_H_U_
+
+
+// include the standard utilities we always need.
+#include <GL/gl.h>
+
+#include "colors.h"
+#include "glplotter/glplotter.h"
+#include "../odbm.h"
+#include "text/text.h"
+#include "gman.h"
+
+
+/*
+ // ent_*_new: means you can call it multiple times and create new things each time
+ // ent_*_start: singleton. only one can exist at a time.
+ // template:
+
+static void viewport(graphic_t *g, eventdata_t e);
+static void draw(graphic_t *g);
+static void events(graphic_t *g, eventdata_t e);
+
+// start
+void ent_***_new/start() {
+ graphic_t *g = glp_new();
+	glp_name(g, "NAME");
+	viewport(g,(eventdata_t){0});
+	glp_draw(g, GLP_SLEEPER, draw);
+	glp_events(g, DAF_ONWINDOWSIZE, viewport);
+}
+
+ */
+void ent_dialog_start();
+
 
 color_t static element_type2color(element_type t) {
 	switch (t) {
@@ -43,8 +75,8 @@ typedef recti_t recti_12x16;
 
 vec2i static inline vec2i_12x16_real(vec2i_12x16 v, vec2i windowsize) {
 	return (vec2i){
-		.x = windowsize.width/12*v.x,
-		.y = windowsize.height/16*v.y,
+			.x = windowsize.width/12*v.x,
+			.y = windowsize.height/16*v.y,
 	};
 }
 
@@ -95,6 +127,8 @@ void shard_ondraw(shard_t *, void (*cb)(void *cookie));
 
 // adds an arrow from the src shard to the dest shard.
 void shard_point(shard_t *src, shard_t *dest);
+
+
 
 
 

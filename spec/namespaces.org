@@ -91,11 +91,87 @@ Everything regarding (w)orkers.
  - edba (to execute jobs)
  - edbd (for reading basic structure information for some jobs)
 
+* odbm/gman/
+This domain is what we will call "object orientated
+programming". Every Object is either a static or non-static
+object. static objects are initialized via =*_start=
+functions. Non-static functions are initialized via =*_new= functions
+and these new functions will return a pointer to the newly created
+object. They will de-allocate themselves when they find out they're
+not needed anymore on their own.
+
+=gman.h= is aware of everything in this domain. It can
+create/initialize things as it needs and these objects are never
+exposed to the outside domain. No other header file is to be included
+outside of this domain and its subdomains.
+
+** Objects
+
+ - shard*
+   - shard-descriptor
+   - shard-page
+   - shard-worker
+   - shard-job
+   - shard-event
+ - column
+ - /background/
+ - /dialog*/
+   - /dialog-structure/
+   - /dialog-index/
+   - /dialog-meta/
+   - /dialog-worker/
+   - /dialog-job/
+   - /dialog-event/
+   - /dialog-page*/
+     - /dialog-page-any/
+     - /dialog-page-object/
+     - /dialog-page-dynamic/
+     - /dialog-page-lookup/
+     - /dialog-page-deleted/
+ - /terminal/
+
+Italicised indicates static object.
+
+Asterisk (*) indicates abstract class (=gman.h= cannot create/interact with it
+directly, must be done via a subclass).
+
+* odbm/main.c
+Can include:
+
+ - Any standard utils for process politics (--help/exit codes, ect)
+ - odbm.h (for actually running the app)
+
+* odbm/odbm.h
+Can include:
+
+ - gman/gman.h (for putting shit on the screen)
+ - oidadb.h (for reading and parsing files/processes)
+
+* odbm/gman/glplotter.h
+Only thing that can import glfw functions. Handles all the logic for
+drawing/not drawing specific graphics on the basis of invalidation.
+
+ - glfw.h
+
+* odbm/gman/gman.h
+Built on top of glplotter.h and uses openGL to draw everything.
+
+This is the "entry point" for drawing everything, and deals with high
+level organization and exposes functions to odbm.h.
+
+"object oriented" C code within. So it has some weird rules.
+
+ - ../glplotter.h (for full use.)
+ - oidadb.h for structures/helpers to be passed in from odbm.h. But cannot
+   call any non-helper function.
+ - any header within the same domain.
+
 * Utility Namespaces
 All utility namespaces are things that do not start with =edb_=, these
 namespaces give symbols that require no handles and are all
 processor-wide.
-
+** =odbm/primatives.h=
+math helpers.
 ** =errors.h=
 For REPORTING errors into a specified output stream. Used for
 dianostics.
@@ -106,5 +182,4 @@ of administration to have the innerworking availabe
 
 ** =options.h=
 Here are macros for building stuff. Each macro should be documented.
-
 

@@ -1,9 +1,15 @@
 #ifndef glp_u_h_
 #define glp_u_h_
 
+#define GL_GLEXT_PROTOTYPES
 #include <GLFW/glfw3.h>
+#include <GLES3/gl3.h>
+#include <GL/glext.h>
+
+
 #include "glplotter.h"
-#include "options.h"
+#include "../../options.h"
+#include "../../primatives.h"
 
 extern GLFWwindow *window;
 

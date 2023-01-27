@@ -1,9 +1,12 @@
 #ifndef draw_h_
 #define draw_h_
+
+#include "glplotter-buttons.h"
+#include "../../primatives.h"
+#include "../../options.h"
+
 // Do NOT include any glfw
 // Do NOT include file.h
-
-#include "primatives.h"
 
 // THREADING:
 //    glplotter_init and glplotter_close must be called on the same thread.
@@ -69,8 +72,6 @@ typedef enum glp_eventtype_t {
 
 	DAF_ALL = _DAF_END_,
 } glp_eventtype_t;
-
-#include "glplotter-buttons.h"
 
 typedef struct {
 	// For an explination on this union, see drawevents

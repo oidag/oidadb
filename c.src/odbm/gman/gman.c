@@ -1,9 +1,7 @@
 #include <stdio.h>
-#include "ents_u.h"
 #include <GL/gl.h>
-#include "ents.h"
-#include "colors.h"
-#include "../dbfile/dbfile.h"
+#include "gman_u.h"
+
 
 static struct {
 	recti_t viewport;

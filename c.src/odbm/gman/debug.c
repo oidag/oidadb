@@ -2,9 +2,7 @@
 #include <stdio.h>
 #include <strings.h>
 #include <sys/time.h>
-#include "ents.h"
-#include "../text.h"
-#include "../glplotter/glplotter.h"
+#include "gman_u.h"
 
 static const char *vals[] = {
 "DAF_ONMOUSE_DOWN",

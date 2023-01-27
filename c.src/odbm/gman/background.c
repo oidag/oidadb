@@ -1,6 +1,5 @@
 #include <GL/gl.h>
-#include "ents.h"
-#include "../glplotter/glplotter.h"
+#include "gman_u.h"
 
 static void setviewport(graphic_t *g) {
 	vec2i size = glplotter_size();

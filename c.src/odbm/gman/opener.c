@@ -1,7 +1,5 @@
-#include "../glplotter/glplotter.h"
-#include <GL/gl.h>
-#include "../dbfile/dbfile.h"
-#include "../text.h"
+#include "gman_u.h"
+
 
 typedef struct {
 	const char *errmsg;
