@@ -15,7 +15,7 @@ add_executable(odbm ${odbm_src})
 target_link_libraries(odbm GL glfw drawtext freetype m)
 
 # tests
-add_executable(test_pages c.src/tests/t0020_page.c c.src/edbp.c c.src/edbd.c c.src/errors.c)
-TARGET_LINK_LIBRARIES(test_pages pthread)
-add_executable(test_host c.src/tests/t0005_host.c ${sources})
-TARGET_LINK_LIBRARIES(test_host pthread rt)
+set(stdtestlibs pthread rt)
+
+add_executable       (t0001_io c.src/tests/t0001_io.c c.src/edbh.c)
+target_link_libraries(t0001_io ${stdtestlibs})
