@@ -40,9 +40,43 @@ The big fucking library I'm making. The whole project.
 The (o)ida(db) (m)onitor. OpenGL graphical interface for monitoring
 oidadb files.
 
-** tests
+** tests targets
 Tests files for when you run `make test`. Also contains
-benchmarks. Each test is a different =main()=.
+benchmarks. Each test is a different =main()=. See [[Tests]].
+
+
+* Tests
+
+All tests are expected to be executed with the current working
+directory set to the project root. Tests will offload all test files
+in =build/test=.
+
+As you go down the lists the tests get more advanced. And they build
+on top of eachother in the sense that when the simple tests pass, it's
+assumed that the contents of the test will not fail in subsequent
+tests.
+
+All test files in =c.src/tests= that have the scheme
+=t####_(testname).c= will have a ~main.c~ defined in them and ready
+to build. You should do them in order for the full test.
+
+Most of these test do NOT require a full library build. They will
+pull in the c files on their own in some casees for unit testing.
+
+Note that if the file isn't there but in here, its because I haven't
+made it yet.
+
+ - =t0001_io.c=: simply create and initialize new database file
+   with nothing in it. Then reopen it, and close it.
+ - =t0005_host.c=: host a file, and close it from another thread.
+ - =t0006_hostactive.c=: host a file with workers, page buffer.
+ - =t0007_hostmean.c=: deliberately try to break hosting parameters
+   and make sure they all return errors.
+ - =t0010_handles.c=: host a file, and in another thread connect to it
+   with a host.
+ - =t0032_mt-obj.c=: using multiple threads blasting a single object
+   with write and read requests. Make sure the resulting object is
+   what it needs to be.
 
 
 * Links
