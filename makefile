@@ -13,6 +13,9 @@ build/manual.html: spec/manual.org
 	emacs $< --batch --kill -f org-html-export-to-html
 	mv spec/manual.html build
 
+doc: scripts/doxyfile
+	doxygen scripts/doxyfile
+
 
 PUBLISHDATE=$(shell date '+%F')
 COMMITS=$(shell git rev-list --all --count)
@@ -32,4 +35,4 @@ build/metrics.m4: .force
 clean:
 	-rm -r build
 
-.PHONY: publish .force clean
+.PHONY: publish .force clean doc

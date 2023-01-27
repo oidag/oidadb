@@ -114,7 +114,7 @@ static void hostclose(edb_host_t *host) {
 }
 
 
-edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
+edb_err odb_host(const char *path, edb_hostconfig_t hostops) {
 
 	// check for EINVAL
 	edb_err eerr = 0;
@@ -279,7 +279,7 @@ edb_err edb_host(const char *path, edb_hostconfig_t hostops) {
 }
 
 // must NOT be called from a worker thread.
-edb_err edb_hoststop(const char *path) {
+edb_err odb_hoststop(const char *path) {
 	pid_t pid;
 	edb_err eerr = edb_host_getpid(path, &pid);
 
