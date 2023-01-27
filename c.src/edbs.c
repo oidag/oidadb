@@ -56,21 +56,21 @@ edb_err edbs_host(edb_shm_t *host, edb_hostconfig_t config) {
 
 	// initialize the head with counts and offsets.
 	{
-		stackhead.jobc   = config.job_buffersize / sizeof (edb_job_t);
-		stackhead.eventc = config.event_buffersize / sizeof (edb_event_t);
+		stackhead.jobc   = config.job_buffq;
+		stackhead.eventc = config.event_bufferq;
 		stackhead.jobtransc = config.job_transfersize * stackhead.jobc;
 
 		// we need to make sure that the transfer buffer gets place on a fresh page.
 		// so lets start by getting the size of the first page(s) and round up.
 		uint64_t p1 = sizeof (edb_shmhead_t)
-		              + config.job_buffersize
-		              + config.event_buffersize;
+		              + config.job_buffq * sizeof (edb_job_t);
+		              + config.event_bufferq * sizeof (edb_event_t);
 		unsigned int p1padding = p1 % sysconf(_SC_PAGE_SIZE);
 		stackhead.shmc = p1 + p1padding + stackhead.jobtransc;
 
 		// offsets
 		stackhead.joboff      = sizeof(edb_shmhead_t);
-		stackhead.eventoff    = sizeof (edb_shmhead_t) + config.job_buffersize;
+		stackhead.eventoff    = sizeof (edb_shmhead_t) + config.job_buffq * sizeof (edb_job_t);
 		stackhead.jobtransoff = p1 + p1padding;
 	}
 
