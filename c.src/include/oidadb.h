@@ -1,3 +1,9 @@
+/**
+ * \file
+ * \brief The only header file needed to do everything with oidadb databases.
+ *
+ *
+ */
 #ifndef _EDB_H_
 #define _EDB_H_ 1
 
@@ -5,21 +11,28 @@
 #include <sys/fcntl.h>
 
 
-// easy typedefs.
-typedef uint64_t edb_dyptr; // dynamic pointer
-typedef uint64_t edb_oid; // object id
-typedef uint16_t edb_sid; // struct id
+/** @name ID Types
+ * Note that these typedefs are by-definition. These will be the same across
+ * all builds of all architectures.
+ *
+ * \{
+ */
+/// dynamic data pointer
+typedef uint64_t edb_dyptr;
+/// (o)bject (id)
+typedef uint64_t edb_oid;
+/// (s)tructure (id)
+typedef uint16_t edb_sid;
+/// (e)ntry (id)
 typedef uint16_t edb_eid;
-typedef uint64_t edb_rid; // rowid
-
-// hanlder
-
-// internal structures
-typedef struct edbh_st edbh;
+/// (r)ow (id)
+typedef uint64_t edb_rid;
+/// (p)ow (id)
 typedef uint64_t edb_pid;
-typedef struct edb_job_st edb_job_t;
+///\}
 
-// input structures
+typedef struct edbh edbh;
+typedef struct edb_job_st edb_job_t;
 
 /********************************************************************
  *
@@ -72,114 +85,199 @@ typedef struct edb_job_st edb_job_t;
 
 
 
-/********************************************************************
+/**
  *
- * Errors
+ * \defgroup Errors
+ * \brief 50% of your job is handling errors; the other 50% is making them.
  *
- ********************************************************************/
+ * Nearly all functions in OidaDB will return an edb_err. If this is not 0
+ * then this indicates an error has ocoured. The exact nature of the value
+ * depends on the function.
+ *
+ * edb_err itself represents an enum of very general errors. Again, their
+ * exact practical purpose depends on which function returned them.
+ *
+ * With the exception of \ref EDB_CRITICAL. This will mean the same thing
+ * every time.
+ *
+ * \see Logs
+ *
+ * \{
+ *
+ */
+typedef enum edb_err {
 
-// logmask. See syslog(3)'s "option" argument.
-#include <syslog.h>
-#define EDB_LCRIT    LOG_CRIT // critical (not the caller's fault)
-#define EDB_LWARNING LOG_WARNING // warning
-#define EDB_LINFO    LOG_INFO  // informational / verbose
-#define EDB_LDEBUG   LOG_DEBUG // debug message. may be redundant/useless
-
-// error enums.
-typedef enum edb_err_em {
-	
-	// no error - explicitly 0 - as all functions returning edb_err is
-	// expected to be layed out as follows for error handling:
-	//
-	//   if(err = edb_func())
-	//   {
-	//        // handle error
-	//   } else {
-	//        // no error
-	//   }
-	//   // regardless of error
-	//
+	/// no error - explicitly 0 - as all functions returning edb_err is
+	/// expected to be layed out as follows for error handling:
+	///
+	///```
+	///   if(err = edb_func())
+	///   {
+	///        // handle error
+	///   } else {
+	///        // no error
+	///   }
+	///   // regardless of error
+	///```
 	EDB_ENONE = 0,
 
-	// critical error, not the callers fault. You should never get
-	// this. If you do, try what you did again and look closely at
-	// the logger callback with all logmask.
-	//
-	// Everytime this is returned, a EDB_LCRIT message would have been
-	// generated.
+	/// critical error: not the callers fault.
+	/// You should never get this.
+	///
+	/// If you do, try what you did again and look closely at the \ref Logs -
+	/// Everytime this is returned, a \ref EDB_LCRIT message would have been
+	/// generated. You should probably send this message to the maintainers
+	/// and steps to reproduce it.
 	EDB_ECRIT = 1,
 
-	// Handle is closed, was never opened, or just null when it
-	// shoudn't have been. Use edb_open.
+	/// invalid input. You didn't read the documentation. (This error is your
+	/// fault)
+	EDB_EINVAL,
+
+	/// Handle is closed, was never opened, or just null when it
+	/// shoudn't have been.
 	EDB_ENOHANDLE,
 
-	// something went wrong with the handle.
+	/// Something went wrong with the handle.
 	EDB_EHANDLE,
-
-	// invalid input. You didn't read the documentation properly.
-	EDB_EINVAL,
 	
-	// does not exist
+	/// Something does not exist.
 	EDB_ENOENT,
 
-	// exists
+	/// Something already exists.
 	EDB_EEXIST,
 
-	// end of file / stream
+	/// End of file/stream.
 	EDB_EEOF,
 
-	// something wrong with file
+	/// Something wrong with a file.
 	EDB_EFILE,
 
-	// not a edb file
+	/// Not a oidadb file.
 	EDB_ENOTDB,
 
-	// something is already open
+	/// Something is already open.
 	EDB_EOPEN,
 
-	// no host present
+	/// No host present.
 	EDB_ENOHOST,
 
+	/// Out of bounds.
 	EDB_EOUTBOUNDS,
 
-	// system error, check errno.
+	/// System error, errno(3) will be set.
 	EDB_EERRNO,
 
-	// something regarding hardware
+	/// Something regarding hardware has gone wrong.
 	EDB_EHW,
 
-	// problem with (lack of) memory
+	/// Problem with (or lack of) memory.
 	EDB_ENOMEM,
 
-	// problem with (lack of) disk space.
+	/// Problem with (lack of) space/disk space
 	EDB_ENOSPACE,
 
+	/// Something is stopping.
 	EDB_ESTOPPING,
 
-	// try again, something else is blocking
+	/// Try again, something else is blocking
 	EDB_EAGAIN,
 
-
-	// operation failed due to user lock
+	/// Operation failed due to user-specified lock
 	EDB_EULOCK,
 
-	// something was wrong with the job description
+	/// Something was wrong with the job description
 	EDB_EJOBDESC,
 } edb_err;
 
-// All of these functions will work regardless of the open transferstate of
-// the handle so long that the handle was initialized with bzero(3).
-//
-// edb_errstr converts the relevant error into a string message.
-//
-// edb_setlogger sets the logger for the handle. The callback must be
-// threadsafe. The callback will only be called on the OR'd bitmask
-// specified in logmask (see EDB_L... enums). This function is simular
-// to syslog(3). Setting cb to null will disable it.
+/**
+ * \brief Returns the string representation of the error. Good for logging.
+ */
 const char *edb_errstr(edb_err error);
-edb_err edb_setlogger(edbh *handle, int logmask,
-					  void (*cb)(int logtype, const char *log));
+/**\}*/
 
+#include <syslog.h>
+
+/**
+ * \defgroup Logs
+ * \brief Basic telemetry information.
+ *
+ * Log messages can be generated by any thread at any time for any reason.
+ * Their purpose depends on which \ref edb_log_channel "channel" they come
+ * through.
+ *
+
+ *
+ * edb_setlogger sets the logger for the handle. The callback must be
+ * threadsafe. The callback will only be called on the OR'd bitmask
+ * specified in logmask (see EDB_L... enums). This function is simular
+ * to syslog(3). Setting cb to null will disable it.
+ * logmask. See syslog(3)'s "option" argument.
+ *
+ * \see Errors
+ *
+ * \{
+ */
+
+/**
+ * Notice the simularities between this enum and syslog.
+ */
+typedef enum edb_log_channel {
+
+	/// Messages that have been generated when something that
+	/// definitely wasn't suppose to happen has happened. The purpose of this
+	/// channel is to inform you of *our* mistakes.
+	///
+	/// Messages sent through here will be because of some crazy edge case
+	/// the developer did not deem possible. If you see a message pass
+	/// through this channel, please contact the developers with the messages
+	/// and any possible information you may have.
+	EDB_LCRIT =     LOG_CRIT,
+
+	/// Error messages are generated when something happened when it
+	/// objectively shouldn't have *because of you*. The purpose of this
+	/// channel is to inform you of *your* mistakes.
+	EDB_LERROR = LOG_ERR,
+
+	/// Warnings is anything that is supposed to happen, but should be
+	/// avoided from happening for one reason or the other.
+	EDB_LWARNING =  LOG_WARNING,
+
+	/// Info messages also known as "verbose" messages. This will describe
+	/// pretty much everything that is going on. Regardless of its importance
+	/// to you.
+	///
+	/// This maybe disabled on some builds.
+	EDB_LINFO =     LOG_INFO,
+
+	/// Debugging messages will be generated when something non-obvious that
+	/// can  impact predictability has happened.
+	///
+	/// This maybe disabled on some builds.
+	EDB_LDEBUG =    LOG_DEBUG, // debug message. may be redundant/useless
+} edb_log_channel;
+
+/**
+ *
+ * Set all messages sent via `logmask` to invoke the callback method
+ * `cb`. Only one callback method can be set at once per handle.
+ *
+ * This function will work regardless of the open state of the `handle`
+ * so long that it is at least initialized.
+ *
+ * \param logmask This is an XOR'd bitmask of 1-to-many \ref edb_log_channel. If
+ * 0, then `cb` will never be called.
+ *
+ * \param cb When invoked, `logtype` will specify which exact channel the
+ * `log` was sent through.
+ *
+ * ## THREADING
+ * This function can be called on any thread. And keep in mind that `cb` will
+ * be invoked by any random thread.
+ */
+void edb_setlogger(edbh *handle, unsigned int logmask,
+                   void (*cb)(edb_log_channel logtype, const char *log));
+/// \}
 
 
 
@@ -189,15 +287,117 @@ edb_err edb_setlogger(edbh *handle, int logmask,
  *
  ********************************************************************/
 
-// if the file does not exist then create a new database.
-#define EDB_HCREAT O_CREAT
+/**
+ * \defgroup Database Creating/Deleting
+ * \brief All the info about creating and deleting database files. Then the
+ *        subsequent opening and closing.
+ *
+ * The first step to the workflow for oidadb starts on the premise of simple
+ * file IO. A single database is stored in a single file. So creating a
+ * database is will intern create a file. And deleting a database will intern
+ * delete said file.
+ *
+ * With that being said, to create a new database see \ref odb_create. This
+ * will create the file itself (or use an existing file in some cases) and
+ * initialize that file to be a oidadb database.
+ *
+ *
+ * And to delete a database... well you can just delete the file.
+ *
+ * \see odb_host
+ * \see odb_handle
+ *
+ * \{
+ */
 
-typedef enum {
-	
-	// Least recently used. The perferend/best general algorythm.
-	EDB_PRA_LRU,
-	
-} edb_pra;
+/**
+ * \brief Parameters used for creation-time in the oidadb lifecycle.
+ */
+typedef struct odb_createparams {
+
+	/**
+	 * \brief Database Page multiplier
+	 *
+	 * This is a multiplier for the overall page size of the database. This
+	 * cannot be changed after the database's creation.
+	 *
+	 * If you don't know what this is, set it to 1.
+	 *
+	 * Must be either 1, 2, 4, or 8.
+	 *
+	 */
+	uint16_t page_multiplier;
+
+	/**
+	 * The total number of structure pages the database will have.
+	 *
+	 * Recommended value is 32 for beginners.
+	 *
+	 * Note that `indexpages`*`pagesize` bytes of RAM must be available upon
+	 * startup.
+	 */
+	uint16_t structurepages;
+
+	/**
+	 * The number of index pages the database will have.
+	 *
+	 * Recommended value is 32 for beginners.
+	 *
+	 * Note that `indexpages`*`pagesize` bytes of RAM must be available upon
+	 * startup.
+	 */
+	uint16_t indexpages;
+
+} odb_createparams;
+
+/** \name odb_create
+ *
+ * Create and initialize a file to be an oidadb file. `odb_create` does this
+ * by creating a new file all together. `odb_createt` will require the file
+ * itself be created, but will truncate its contents.
+ *
+ * Upon successful execution, the file can then be opened in \ref odb_host
+ * and \ref odb_handle.
+ *
+ * When using odb_create, you must study \ref odb_createparams. As there are
+ * many aspects of the database that cannot be changed after creation without
+ * a ton of hassle.
+ *
+ * ## ERRORS
+ *   - EDB_EINVAL - params is invalid (see \ref odb_createparams_t)
+ *   - EDB_EEXIST (odb_create) - file already exists
+ *   - EDB_ENEXIST (odb_createt) - file does not exist
+ *   - \ref EDB_ECRIT
+ *
+ * \{
+ */
+edb_err odb_create(const char *path, odb_createparams params);
+edb_err odb_createt(const char *path, odb_createparams params); // truncate existing
+/**\}*/
+/**\}*/
+
+//
+// edb_open errors:
+//   EDB_EINVAL - handle is null.
+//   EDB_EINVAL - params.path is null
+//   EDB_EERRNO - error with open(2), (ie, file does not exist, permssions)
+//   EDB_ENOHOST - file is not being hosted (see edb_host)
+//   EDB_ENOTDB - file/host is not edb format/protocol
+//
+// These functions provide access to a database provided by the
+// instrunctions set forth in params. edb_open will write to edbh and
+// mark it as open so it can be used in all other functions.
+//
+// There is a race condition to where 2 processes attempt to call
+// edb_open with both containing instunctions to start the host
+// proccess. In this case, 1 call will succeed and the other
+// will have EDB_EOPEN returned. In that case the process that failed
+// to open should attempt to run edb_open again.
+//
+// edb_create will fail if the file already exists.
+edb_err odb_handle(edbh *handle, edb_open_t params);   // will create if not existing. Not thread safe.
+edb_err odb_handleclose(edbh *handle);
+
 
 typedef struct edb_hostconfig_st {
 
@@ -219,7 +419,7 @@ typedef struct edb_hostconfig_st {
 	// risk workers doing nother but taking up resources.
 	//
 	// The job buffer will be completely allocated on startup.
-	// 
+	//
 	// A good heuristic here is to have the buffer size equal to the
 	// worker_poolsize squared:
 	//
@@ -266,9 +466,9 @@ typedef struct edb_hostconfig_st {
 	// heuristic would be 32*sizeof(edb_event_t) for new users. Once
 	// you start seeing event loss, you should first work on the
 	// efficiency of handles and then look to increasing this number.
-	// 
+	//
 	uint64_t event_buffersize;
-	
+
 	// Dictates the worker pool count that will be managed to
 	// serve queries. On paper, the optimial amount of workers is
 	// equal to the number of cores on the hardware (see
@@ -280,13 +480,6 @@ typedef struct edb_hostconfig_st {
 	// to be created outside of the thread that was used to call
 	// edb_host.
 	unsigned int worker_poolsize;
-
-	// The maximum amount of structures that are allowed to be loaded
-	// into memory. Note that all structures must be in memory at all
-	// times, structure pages must always be loaded.
-	//
-	// 
-	uint16_t maxstructurepages;
 
 	// Jobs sent to the database will need to move pages to and from
 	// the underlying filesystem and memory. Thus pages that are moved
@@ -315,41 +508,31 @@ typedef struct edb_hostconfig_st {
 	// and return early errors. So give this buffer plenty of space.
 	uint32_t slot_count;
 
-
-	// todo: document this. see spec.
-	uint16_t page_multiplier;
-
 	// Page replacement algorythm to use. See the EDB_PRA... constants
 	// for more details.
 	edb_pra pra_algo;
 
 	// See EDB_H... family of constants
 	int flags;
-	
+
 } edb_hostconfig_t;
 
-// edb_open will create the file if not exists.
-typedef struct edb_open_st {
-
-	// the file path
-	const char *path;
-
-	// the agent id (arbitrary, more of a cookie)
-	uint64_t agent;
-
-	// 
-	int flags;
-	
-} edb_open_t;
-
-// edb_host will start hosting a database for the given regular file
-// at path. edb_host will write-lock the file and will abduct the
-// calling thread and will only return once edb_hoststop is executed.
+// edb_host will start hosting a database for the given oidadb file that was
+// created with edb_create.
 //
-// See the edb_host_t structure.
+// edb_host will write-lock the file and will abduct the
+// calling thread and will only return once edb_hoststop is executed.
 //
 // A successful shutdown invoked by edb_hoststop will have both
 // edb_host and edb_hoststop return without error.
+//
+// Thread Safety: both edb_hoststop and edb_host is thread safe. The
+// aformentioned write-locks use Open File Descriptors (see fcntl(2)),
+// this means that attempts to open the same file in two seperate
+// threads will behave the same way as doing the same with two
+// seperate processes. This also means the edb_host can be used in the
+// same process as all the job scheduling functions so long their on
+// different threads.
 //
 // edb_host errors:
 //   EDB_EERRNO - from stat(2) or open(2).
@@ -364,39 +547,10 @@ typedef struct edb_open_st {
 //    EDB_ENOHOST - no host for file
 //    EDB_EERRNO - error with open(2).
 //
-// Thread Safety: both edb_hoststop and edb_host is thread safe. The
-// aformentioned write-locks use Open File Descriptors (see fcntl(2)),
-// this means that attempts to open the same file in two seperate
-// threads will behave the same way as doing the same with two
-// seperate processes. This also means the edb_host can be used in the
-// same process as all the job scheduling functions so long their on
-// different threads.
-//
 // Note to self: edb_hoststop must NOT be called in the worker threads
-// 
-edb_err edb_host(const char *path, edb_hostconfig_t hostops);
-edb_err edb_hoststop(const char *path);
-
-// edb_open errors:
-//   EDB_EINVAL - handle is null.
-//   EDB_EINVAL - params.path is null
-//   EDB_EERRNO - error with open(2), (ie, file does not exist, permssions)
-//   EDB_ENOHOST - file is not being hosted (see edb_host)
-//   EDB_ENOTDB - file/host is not edb format/protocol
 //
-// These functions provide access to a database provided by the
-// instrunctions set forth in params. edb_open will write to edbh and
-// mark it as open so it can be used in all other functions.
-//
-// There is a race condition to where 2 processes attempt to call
-// edb_open with both containing instunctions to start the host
-// proccess. In this case, 1 call will succeed and the other
-// will have EDB_EOPEN returned. In that case the process that failed
-// to open should attempt to run edb_open again.
-//
-// edb_create will fail if the file already exists.
-edb_err edb_open(edbh *handle, edb_open_t params);   // will create if not existing. Not thread safe.
-edb_err edb_close(edbh *handle);
+edb_err odb_host(const char *path, edb_hostconfig_t hostops);
+edb_err odb_hoststop(const char *path);
 
 
 #define EDB_TINIT  0
