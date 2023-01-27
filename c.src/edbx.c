@@ -56,7 +56,7 @@ static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 		log_errorf("path is null");
 		return EDB_EINVAL;
 	}
-	if(hostops.job_buffersize <= 0 || hostops.job_buffersize % sizeof(edb_job_t) != 0) {
+	if(hostops.job_buffq <= 0) {
 		log_errorf("job buffer is either <=0 or not a multiple of edb_job_t");
 		return EDB_EINVAL;
 	}
@@ -67,7 +67,7 @@ static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 	if(hostops.job_transfersize % sysconf(_SC_PAGE_SIZE) != 0) {
 		log_noticef("transfer buffer is not an multiple of system page size (%ld), this may hinder performance", sysconf(_SC_PAGE_SIZE));
 	}
-	if(hostops.event_buffersize <= 0 || hostops.event_buffersize % sizeof(edb_event_t) != 0) {
+	if(hostops.event_bufferq <= 0) {
 		log_errorf("event buffer is either <=0 or not a multiple of edb_event_t");
 		return EDB_EINVAL;
 	}
