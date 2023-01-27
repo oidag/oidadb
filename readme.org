@@ -63,6 +63,10 @@ to build. You should do them in order for the full test.
 Most of these test do NOT require a full library build. They will
 pull in the c files on their own in some casees for unit testing.
 
+Each test will have a exit code of 1 if they failed and and all errornous
+ouput will be exclusively through stderr. stdout will be used
+liberally.
+
 Note that if the file isn't there but in here, its because I haven't
 made it yet.
 
