@@ -1,6 +1,6 @@
 #include <malloc.h>
 #include <strings.h>
-#include "glp_u.h"
+#include "glplotter_u.h"
 
 typedef struct eventbind {
 //	graphic_t *g;

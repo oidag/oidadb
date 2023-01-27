@@ -2,10 +2,21 @@
 #define ENTS_H_
 
 #include <bits/types/time_t.h>
-#include "colors.h"
 
-#include "../glplotter/glplotter.h"
-#include "../text.h"
+typedef enum element_type {
+	ELM_UNINIT, // unitialized (0)
+	ELM_DESCRIPTOR,
+	ELM_PAGE,
+	ELM_WORKER,
+	ELM_JOB,
+	ELM_EVENT,
+} element_type;
+
+void element_host_start();
+
+// todo: provide functions here to allow dbfile namespace to call whatever
+//       it needs too.
+
 typedef struct {
 	int width,height;
 	text_font font;

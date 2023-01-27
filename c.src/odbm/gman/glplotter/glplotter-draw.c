@@ -1,13 +1,9 @@
-#define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
+
 #include <malloc.h>
 #include <strings.h>
-#include <GL/glext.h>
-#include <GLES3/gl3.h>
 
-#include "glplotter.h"
-#include "glp_u.h"
-#include "primatives.h"
+#include "glplotter_u.h"
+
 
 
 

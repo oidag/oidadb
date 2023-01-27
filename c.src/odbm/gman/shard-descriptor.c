@@ -1,4 +1,4 @@
-#include "ents_u.h"
+#include "gman_u.h"
 
 static void viewport(graphic_t *g, eventdata_t e) {
 	/*int h = pager->vp.heigth/8*1;

@@ -12,8 +12,6 @@
      =edbs-jobs.h=)
  - A Domain inside of another Domain (a directory inside of a
    parent directory) is known as a /Child Domain/.
- - Child Domain can include Parent Domains, but not the other way
-   around (Parents are agnostic to their Children).
  - At no point should a =.c= file include another =.c= file.
  - Files that end with =_u.h= are known as utility headers. These
    files cannot be included in any file outside of the namespace.

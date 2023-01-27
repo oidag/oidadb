@@ -1,11 +1,8 @@
-#include <GLFW/glfw3.h>
-#include <GL/gl.h>
 #include <malloc.h>
 #include <strings.h>
 #include <string.h>
 
-#include "glp_u.h"
-#include "glplotter.h"
+#include "glplotter_u.h"
 
 graphic_t   *graphicbufv;
 unsigned int graphicbufc; // count (length)

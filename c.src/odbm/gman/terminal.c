@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <errno.h>
-#include "ents_u.h"
+#include "gman_u.h"
 
 enum termline_source {
 	// from this process's STDOUT/STDERR
