@@ -43,7 +43,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 	// some easy variables we'll be needing
 	const edb_struct_t *strt;
-	edb_usrlk usrlocks;
+	odb_usrlk usrlocks;
 	void *data;
 
 	// if err is non-0 after this then it will close
@@ -200,7 +200,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 			// read-out locks
 			usrlocks = edba_objectlocks_get(handle);
-			edbs_jobwrite(&self->curjob, &usrlocks, sizeof(edb_usrlk));
+			edbs_jobwrite(&self->curjob, &usrlocks, sizeof(odb_usrlk));
 			break;
 
 		case EDB_OBJ | EDB_CUSRLKW:
@@ -211,7 +211,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			edbs_jobwrite(&self->curjob, &err, sizeof(err));
 
 			// update locks
-			edbs_jobread(&self->curjob, &usrlocks, sizeof(edb_usrlk));
+			edbs_jobread(&self->curjob, &usrlocks, sizeof(odb_usrlk));
 			edba_objectlocks_set(handle, usrlocks & _EDB_FUSRLALL);
 			break;
 		default:break;

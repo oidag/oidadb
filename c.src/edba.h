@@ -58,7 +58,7 @@ typedef struct edba_handle_st {
 	edb_sid            strctid;
 
 	edbl_lockref lock;
-	edb_type opened; // what type of operation was opened
+	odb_type opened; // what type of operation was opened
 	edbf_flags openflags;
 
 
@@ -136,8 +136,8 @@ void   *edba_objectfixed(edba_handle_t *h);
 //  - EDB_EINVAL (EDB_FUCKUPS) object not open for writing
 //  - EDB_EINVAL - lk is not a valid mask. You can prevent this error entirely by
 //                 bitwise-and-ing lk with _EDB_FUSRLALL.
-edb_usrlk edba_objectlocks_get(edba_handle_t *h);
-edb_err edba_objectlocks_set(edba_handle_t *h, edb_usrlk lk);
+odb_usrlk edba_objectlocks_get(edba_handle_t *h);
+edb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk);
 
 
 // edba_objectdeleted

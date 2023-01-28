@@ -7,7 +7,7 @@ typedef struct edbh_st {
 
 	pid_t hostpid;
 
-} edbh;
+} odbh;
 
 
 #endif
