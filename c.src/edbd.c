@@ -18,43 +18,41 @@
 #include "include/oidadb.h"
 #include "edbd.h"
 #include "errors.h"
+#include "edbd_u.h"
 
 // helper function to edb_open. returns 0 on success.
 // it is assumed that path does not exist.
 //
 // can return EDB_EERRNO from open(2)
-static edb_err createfile(const char *path, unsigned int pagemul, int flags) {
+static edb_err createfile(int fd, odb_createparams params) {
 	int err = 0;
-	int minpagesize = sysconf(_SC_PAGE_SIZE);
+	int syspagesize = sysconf(_SC_PAGE_SIZE);
+	unsigned int pagemul = params.page_multiplier;
+	int pagesneeded = 1 // for the head
+			+ params.indexpages // for index pages
+			+ params.structurepages; // for structures.
 
-	// create the file itself.
-	int fd = creat64(path, 0666);
-	if(fd == -1) {
-		return EDB_EERRNO;
-	}
-
-	// truncate the file to the full length of a page.
-	err = ftruncate(fd, minpagesize * pagemul);
+	// truncate the file to the full length of a page so we can write the
+	// header.
+	err = ftruncate(fd, pagesneeded * syspagesize * pagemul);
 	if(err == -1) {
 		int errnotmp = errno;
-		close(fd);
 		log_critf("ftruncate(2) returned error code: %d", errnotmp);
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
 
-	// generate the head structure.
+	// generate the head-intro structure.
 	edb_fhead_intro intro = {0};
 	intro.magic[0] = 0xA6;
 	intro.magic[1] = 0xF0;
 	intro.intsize  = sizeof(int);
 	intro.entrysize = sizeof(edb_entry_t);
-	intro.pagesize = minpagesize;
+	intro.pagesize = syspagesize;
 	intro.pagemul  = pagemul;
 	edb_fhead newhead = {.intro = intro};
 	// zero out the rest of the structure explicitly
-	bzero(&(newhead.newest), sizeof(edb_fhead) - sizeof(edb_fhead_intro));
-
+	bzero(&(newhead.host), sizeof(edb_fhead) - sizeof(edb_fhead_intro));
 	// generate a random newhead.intro.id
     {
 		struct timeval tv;
@@ -71,18 +69,58 @@ static edb_err createfile(const char *path, unsigned int pagemul, int flags) {
 	ssize_t n = write(fd, &newhead, sizeof(newhead));
 	if(n == -1) {
 		int errnotmp = errno;
-		close(fd);
 		log_critf("write(2) returned error code: %d", errnotmp);
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
 	if(n != sizeof(newhead)) {
-		close(fd);
 		log_critf("write(2) failed to write out entire head during creation");
 		return EDB_ECRIT;
 	}
 
-	close(fd);
+	// now the reserved indexes.
+	unsigned int finalpsize = sysconf(_SC_PAGE_SIZE) * newhead.intro.pagemul;
+	off64_t indexstart = finalpsize * 1;
+	off64_t structstart = finalpsize * (1+params.indexpages);
+
+	// initialize the index pages
+	for(int i = 0; i < params.indexpages; i++) {
+		void *page = mmap64(0,
+		                    finalpsize,
+		                    PROT_READ | PROT_WRITE,
+		                    MAP_SHARED,
+		                    fd,
+		                    indexstart + i * finalpsize);
+		if(page == (void*)-1) {
+			log_critf("mmap64 failed");
+			return EDB_ECRIT;
+		}
+		if(i==0) {
+			edbd_u_initindex_rsvdentries(page, finalpsize, params
+			.structurepages, params.indexpages);
+		} else {
+			edbd_u_initindexpage(page, finalpsize);
+		}
+		munmap(page, finalpsize);
+	}
+
+	// initialize the structure pages
+	for(int i = 0; i < params.indexpages; i++) {
+		void *page = mmap64(0,
+		                    finalpsize,
+		                    PROT_READ | PROT_WRITE,
+		                    MAP_SHARED,
+		                    fd,
+		                    indexstart + i * finalpsize);
+		if(page == (void*)-1) {
+			log_critf("mmap64 failed");
+			return EDB_ECRIT;
+		}
+		edbd_u_initstructpage(page, finalpsize);
+		munmap(page, finalpsize);
+	}
+
+
 	return 0;
 }
 
@@ -160,38 +198,77 @@ void edbd_close(edbd_t *file) {
 	}
 }
 
-edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flags) {
+static int paramsvalid(odb_createparams params) {
+	if(params.page_multiplier != 1 &&
+	   params.page_multiplier != 2 &&
+	   params.page_multiplier != 4 &&
+	   params.page_multiplier != 8)
+	{
+		log_errorf("odb_createparams.page_multiplier must be 1,2,4, or 8, got "
+				   "%d", params
+		.page_multiplier);
+		return 0;
+	}
+	if(params.indexpages <= 0) {
+		log_errorf("odb_createparams.indexpages must be at least 1");
+		return 0;
+	}
+	if(params.structurepages <= 0) {
+		log_errorf("odb_createparams.structurepages must be at least 1");
+		return 0;
+	}
+	return 1;
+}
+
+edb_err odb_create(const char *path, odb_createparams params) {
+	if(!paramsvalid(params)) return EDB_EINVAL;
+
+	// create the file itself.
+	int fd = open(path, 0666, O_CREAT | O_EXCL | O_RDWR);
+	if(fd == -1) {
+		if(errno == EEXIST) {
+			return EDB_EEXIST;
+		}
+		return EDB_EERRNO;
+	}
+	edb_err err = createfile(fd, params);
+	close(fd);
+	return err;
+}
+
+edb_err odb_createt(const char *path, odb_createparams params) {
+	if(!paramsvalid(params)) return EDB_EINVAL;
+
+	// create the file itself.
+	int fd = open(path, 0666, O_TRUNC | O_RDWR);
+	if(fd == -1) {
+		if(errno == ENOENT) {
+			return EDB_ENOENT;
+		}
+		return EDB_EERRNO;
+	}
+	edb_err err = createfile(fd, params);
+	close(fd);
+	return err;
+}
+
+edb_err edbd_open(edbd_t *o_file, const char *path) {
 
 	// initialize memeory.
-	bzero(file, sizeof(edbd_t));
-	file->path = path;
+	bzero(o_file, sizeof(edbd_t));
+	o_file->path = path;
 
 	int err = 0;
-	int trycreate = flags & EDB_HCREAT;
 
 	// get the stat of the file, and/or create the file if params dicates it.
 	restat:
-	err = stat(path, &(file->openstat));
+	err = stat(path, &(o_file->openstat));
 	if(err == -1) {
-		int errnotmp = errno;
-		if(errno == ENOENT && trycreate) {
-			// file does not exist and they would like to create it.
-			edb_err createrr = createfile(path, pagemul, flags);
-			if(createrr != 0) {
-				// failed to create
-				return createrr;
-			}
-			// create successful, go back and perform the operation
-			// with the explicit assumption that it is created.
-			trycreate = 0;
-			goto restat;
-		}
-		errno = errnotmp;
 		return EDB_EERRNO;
 	}
 
 	// make sure this is a file.
-	if((file->openstat.st_mode & S_IFMT) != S_IFREG) {
+	if((o_file->openstat.st_mode & S_IFMT) != S_IFREG) {
 		return EDB_EFILE;
 	}
 
@@ -204,12 +281,12 @@ edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flag
 	// O_NONBLOCK - set just incase mmap(2)/read(2)/write(2) are enabled to
 	//              wait for advisory locks, which they shouldn't... we manage
 	//              those locks manually. (see Mandatory locking in fnctl(2)
-	file->descriptor = open64(path, O_RDWR
-	                                | O_DIRECT
-	                                | O_SYNC
-	                                | O_LARGEFILE
-	                                | O_NONBLOCK);
-	if(file->descriptor == -1) {
+	o_file->descriptor = open64(path, O_RDWR
+	                                  | O_DIRECT
+	                                  | O_SYNC
+	                                  | O_LARGEFILE
+	                                  | O_NONBLOCK);
+	if(o_file->descriptor == -1) {
 		return EDB_EERRNO;
 	}
 
@@ -227,10 +304,10 @@ edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flag
 	};
 	// note we use OFD locks becuase the host can be started in the same
 	// process as handlers, but just use different threads.
-	err = fcntl64(file->descriptor, F_OFD_SETLK, &dbflock);
+	err = fcntl64(o_file->descriptor, F_OFD_SETLK, &dbflock);
 	if(err == -1) {
 		int errnotmp = errno;
-		close(file->descriptor);
+		close(o_file->descriptor);
 		if(errno == EACCES || errno == EAGAIN)
 			return EDB_EOPEN; // another process has this open.
 		// no other error is possible here except for out of memory error.
@@ -240,14 +317,14 @@ edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flag
 	}
 
 	// file open and locked. load in the head.
-	file->head = mmap64(0, psize, PROT_READ | PROT_WRITE,
-	                    MAP_SHARED_VALIDATE,
-	                    file->descriptor,
-	                    0);
-	if(file->head == MAP_FAILED) {
+	o_file->head = mmap64(0, psize, PROT_READ | PROT_WRITE,
+	                      MAP_SHARED_VALIDATE,
+	                      o_file->descriptor,
+	                      0);
+	if(o_file->head == MAP_FAILED) {
 		int errnotmp = errno;
 		log_critf("failed to call mmap(2) due to unpredictable errno: %d", errnotmp);
-		close(file->descriptor);
+		close(o_file->descriptor);
 		errno = errnotmp;
 		return EDB_ECRIT;
 	}
@@ -258,23 +335,24 @@ edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flag
 	// validate the head intro on the system to make sure
 	// it can run on this architecture.
 	{
-		edb_err valdationerr = validateheadintro(file->head->intro, pagemul);
+		edb_err valdationerr = validateheadintro(o_file->head->intro,
+												 o_file->head->intro.pagemul);
 		if(valdationerr != 0) {
-			edbd_close(file);
+			edbd_close(o_file);
 			return valdationerr;
 		}
 	}
 
 	// initialize the mutex.
-	err = pthread_mutex_init(&file->adddelmutex, 0);
+	err = pthread_mutex_init(&o_file->adddelmutex, 0);
 	if(err) {
 		log_critf("failed to initialize eof mutex: %d", err);
-		edbd_close(file);
+		edbd_close(o_file);
 		return EDB_ECRIT;
 	}
 
 	// calculate the page size
-	file->page_size    = file->head->intro.pagemul * file->head->intro.pagesize;
+	o_file->page_size    = o_file->head->intro.pagemul * o_file->head->intro.pagesize;
 
 	// file has been opened/created, locked, and validated. we're done here.
 	return 0;

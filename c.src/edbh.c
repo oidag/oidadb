@@ -1,4 +1,5 @@
-
+#define _LARGEFILE64_SOURCE 1
+#define _GNU_SOURCE 1
 
 #include "include/oidadb.h"
 #include "edbh.h"

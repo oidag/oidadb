@@ -157,7 +157,7 @@ typedef struct edb_shm_st {
 } edb_shm_t;
 
 // todo: document
-edb_err edbs_host(edb_shm_t *o_shm, edb_hostconfig_t config);
+edb_err edbs_host(edb_shm_t *o_shm, odb_hostconfig_t config);
 void    edbs_dehost(edb_shm_t *shm);
 
 // edbs_handle loads the shared memory of a host based

@@ -327,8 +327,9 @@ void edb_setlogger(odbh *handle, unsigned int logmask,
  *
  * ## ERRORS
  *   - EDB_EINVAL - params is invalid (see \ref odb_createparams_t)
+ *   - EDB_EERRNO - errno set, by either open(2) or stat(2).
  *   - EDB_EEXIST (odb_create) - file already exists
- *   - EDB_ENEXIST (odb_createt) - file does not exist
+ *   - EDB_ENOENT (odb_createt) - file does not exist
  *   - \ref EDB_ECRIT
  *
  * \{
@@ -409,7 +410,7 @@ typedef struct odb_createparams {
 /**
  * \brief Default parameters for a typical beginner.
  */
-const odb_createparams odb_createparams_defaults = (odb_createparams){
+static const odb_createparams odb_createparams_defaults = (odb_createparams){
 		.page_multiplier = 2,
 		.indexpages = 32,
 		.structurepages = 32,
@@ -648,7 +649,7 @@ typedef struct odb_hostconfig_t {
 
 
 /// \brief Default hosting configuration for entry-level developers.
-const odb_hostconfig_t odb_hostconfig_default = {
+static const odb_hostconfig_t odb_hostconfig_default = {
 		.job_buffq = 16,
 		.job_transfersize = PAGE_SIZE,
 		.event_bufferq = 32,
@@ -949,7 +950,7 @@ edb_err odbh_entry (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
 //
 // Thread safe.
 //
-edb_err edb_query(odbh *handle, edb_query_t *query);
+/*edb_err edb_query(odbh *handle, edb_query_t *query);*/
 
 typedef struct edb_select_st {
 } edb_select_t;
