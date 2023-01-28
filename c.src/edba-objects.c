@@ -255,11 +255,11 @@ void   *edba_objectfixed(edba_handle_t *h) {
 	return h->content;
 }
 
-edb_usrlk edba_objectlocks_get(edba_handle_t *h) {
-	return (*(edb_usrlk *)h->objectflags) & _EDB_FUSRLALL;
+odb_usrlk edba_objectlocks_get(edba_handle_t *h) {
+	return (*(odb_usrlk *)h->objectflags) & _EDB_FUSRLALL;
 }
 
-edb_err edba_objectlocks_set(edba_handle_t *h, edb_usrlk lk) {
+edb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk) {
 #ifdef EDB_FUCKUPS
 	// invals
 	if(h->opened != EDB_TOBJ || h->openflags & EDBA_FWRITE) {
@@ -272,7 +272,7 @@ edb_err edba_objectlocks_set(edba_handle_t *h, edb_usrlk lk) {
 		log_errorf("invalid user lock according to normalization mask");
 		return EDB_EINVAL;
 	}
-	 *(edb_usrlk *)h->objectflags = *(edb_usrlk *)h->objectflags & lk;
+	 *(odb_usrlk *)h->objectflags = *(odb_usrlk *)h->objectflags & lk;
 	return 0;
 }
 

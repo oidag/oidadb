@@ -9,6 +9,8 @@
 
 #include <stdint.h>
 #include <sys/fcntl.h>
+#include <syslog.h>
+#include <sys/user.h>
 
 
 /** @name ID Types
@@ -31,7 +33,7 @@ typedef uint64_t edb_rid;
 typedef uint64_t edb_pid;
 ///\}
 
-typedef struct edbh edbh;
+typedef struct odbh odbh;
 typedef struct edb_job_st edb_job_t;
 
 /********************************************************************
@@ -85,6 +87,7 @@ typedef struct edb_job_st edb_job_t;
 
 
 
+////////////////////////////////////////////////////////////////////////////////
 /**
  *
  * \defgroup errors Errors
@@ -196,9 +199,11 @@ typedef enum edb_err {
 const char *edb_errstr(edb_err error);
 /**\}*/
 
-#include <syslog.h>
-#include <sys/user.h>
 
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 /**
  * \defgroup telem_basic Logs
  * \brief Basic telemetry information.
@@ -276,18 +281,14 @@ typedef enum edb_log_channel {
  * This function can be called on any thread. And keep in mind that `cb` will
  * be invoked by any random thread.
  */
-void edb_setlogger(edbh *handle, unsigned int logmask,
+void edb_setlogger(odbh *handle, unsigned int logmask,
                    void (*cb)(edb_log_channel logtype, const char *log));
 /// \}
 
 
 
-/********************************************************************
- *
- * Database creating, opening and closing
- *
- ********************************************************************/
 
+////////////////////////////////////////////////////////////////////////////////
 /**
  * \defgroup database_io Database Creating/Deleting
  * \brief All the info about creating and deleting database files. Then the
@@ -311,9 +312,30 @@ void edb_setlogger(edbh *handle, unsigned int logmask,
  * \{
  */
 
-/**
- * \brief Parameters used for creation-time in the oidadb lifecycle.
+/** \defgroup odb_create odb_create
+ *
+ * Create and initialize a file to be an oidadb file. `odb_create` does this
+ * by creating a new file all together. `odb_createt` will require the file
+ * itself be created, but will truncate its contents.
+ *
+ * Upon successful execution, the file can then be opened in \ref odb_host
+ * and \ref odb_handle.
+ *
+ * When using odb_create, you must study \ref odb_createparams. As there are
+ * many aspects of the database that cannot be changed after creation without
+ * a ton of hassle.
+ *
+ * ## ERRORS
+ *   - EDB_EINVAL - params is invalid (see \ref odb_createparams_t)
+ *   - EDB_EEXIST (odb_create) - file already exists
+ *   - EDB_ENEXIST (odb_createt) - file does not exist
+ *   - \ref EDB_ECRIT
+ *
+ * \{
  */
+/**
+* \brief Parameters used for creation-time in the oidadb lifecycle.
+*/
 typedef struct odb_createparams {
 
 	/**
@@ -392,35 +414,17 @@ const odb_createparams odb_createparams_defaults = (odb_createparams){
 		.indexpages = 32,
 		.structurepages = 32,
 };
-
-/** \name odb_create
- *
- * Create and initialize a file to be an oidadb file. `odb_create` does this
- * by creating a new file all together. `odb_createt` will require the file
- * itself be created, but will truncate its contents.
- *
- * Upon successful execution, the file can then be opened in \ref odb_host
- * and \ref odb_handle.
- *
- * When using odb_create, you must study \ref odb_createparams. As there are
- * many aspects of the database that cannot be changed after creation without
- * a ton of hassle.
- *
- * ## ERRORS
- *   - EDB_EINVAL - params is invalid (see \ref odb_createparams_t)
- *   - EDB_EEXIST (odb_create) - file already exists
- *   - EDB_ENEXIST (odb_createt) - file does not exist
- *   - \ref EDB_ECRIT
- *
- * \{
- */
 edb_err odb_create(const char *path, odb_createparams params);
 edb_err odb_createt(const char *path, odb_createparams params); // truncate existing
+
 /**\}*/
 /**\}*/
 
 
-/** \defgroup hostshandles Hosts/Handles
+
+
+////////////////////////////////////////////////////////////////////////////////
+/** \defgroup hostshandles Database Hosts/Handles
  * \brief Everything needed to host a oidadb file, and everything to connect
  * to such host.
  *
@@ -440,32 +444,105 @@ edb_err odb_createt(const char *path, odb_createparams params); // truncate exis
  * \{
  */
 
-//
-// edb_open errors:
-//   EDB_EINVAL - handle is null.
-//   EDB_EINVAL - params.path is null
-//   EDB_EERRNO - error with open(2), (ie, file does not exist, permssions)
-//   EDB_ENOHOST - file is not being hosted (see edb_host)
-//   EDB_ENOTDB - file/host is not edb format/protocol
-//
-// These functions provide access to a database provided by the
-// instrunctions set forth in params. edb_open will write to edbh and
-// mark it as open so it can be used in all other functions.
-//
-// There is a race condition to where 2 processes attempt to call
-// edb_open with both containing instunctions to start the host
-// proccess. In this case, 1 call will succeed and the other
-// will have EDB_EOPEN returned. In that case the process that failed
-// to open should attempt to run edb_open again.
-//
-// edb_create will fail if the file already exists.
-edb_err odb_handle(edbh *handle, edb_open_t params);   // will create if not existing. Not thread safe.
-edb_err odb_handleclose(edbh *handle);
+/** \defgroup odb_handle odb_handle
+ *
+ * This is how one "connects" to a database that is being hosted. This will
+ * return a handle to which you an use to submit jobs and monitor the
+ * database as a client. Once a handle is obtained successfully, you are then
+ * to use the \ref odbh "`odbh_*`" family.
+ *
+ * odb_handleclose is a safe function. It will ensure that handle is not null
+ * and not already free'd.
+ *
+ * \param path Path to the file that is being hosted.
+ *
+ * \param o_handle This is a pointer-to-output. You just need to allocate
+ * where to place the pointer itself, memory allocation is handled between
+ * odb_handle (allocations) and odb_handleclose (frees).
+ *
+ * ## ERRORS
+ *  - EDB_EINVAL - o_handle is null/path is null.
+ *  - EDB_EINVAL - params.path is null
+ *  - EDB_EERRNO - error with open(2), (ie, file does not exist, permssions,
+ *                 see errorno)
+ *  - EDB_ENOHOST - file is not being hosted
+ *  - EDB_ENOTDB - file/host is not oidadb format/protocol
+ *
+ * \subsection THREADING
+ * All \ref odbh functions called between odb_handle and odb_handleclose are
+ * not considered thread safe. A given thread must posses their own handle if
+ * they are to use any \ref odbh functions.
+ *
+ * The thread that called odb_handle must be the same thread that calls
+ * odb_handleclose.
+ *
+ * \see odbh
+ * \see odb_host
+ *
+ * \{
+ */
+edb_err odb_handle(const char *path, odbh **o_handle);
+void    odb_handleclose(odbh *handle);
+/// \}
 
+/** \defgroup odb_host odb_host
+ * \brief Starts hosting a database for the given oidadb file.
+ *
+ * odb_host will place special locks and hints on the file that will prevent
+ * other processes and threads from trying to host it.
+ *
+ * odb_host will block the calling thread and will only (naturally) return
+ * once odb_hosstop is called on a separate thread. Any time a host has been
+ * shut down in this manner will return non-errornous.
+ *
+ * There is a boat load of configuration available, these are discussed
+ * inside of \ref odb_hostconifg_t. Use \ref odb_hostconfig_default if this
+ * sounds scary though.
+ *
+ * ## THREADING
+ * Both of these functions are MT-safe.
+ *
+ * The aforementioned write-locks use Open File Descriptors (see fcntl(2)),
+ * this means that attempts to open the same file in two separate
+ * threads will behave the same way as doing the same with two
+ * separate processes. This also means the host can be used in the
+ * same process as the handles (though its recommended not to do this on the
+ * basis of good engineering of departmentalizing crashes).
+ *
+ * There is a race condition to where 2 processes attempt to call
+ * edb_host with both containing instructions to start the host
+ * proccess. In this case, 1 call will succeed and the other
+ * will have EDB_EOPEN returned. In that case the process that failed
+ * to open should attempt to run edb_open again.
+ *
+ * ## ERRORS
+ * odb_host can return:
+ *   - EDB_EINVAL - hostops is invalid and/or path is null
+ *   - EDB_EERRNO - Unexpected error from stat(2) or open(2), see errno.
+ *   - EDB_EOPEN  - Another process is already hosting this file.
+ *   - EDB_EFILE  - Path is not a regular file.
+ *   - EDB_EHW    - this file was created on a different (non compatible)
+ *   architecture and cannot be hosted on this machine.
+ *   - EDB_ENOTDB - File is invalid format, possibly not a database.
+ *   - EDB_ENOMEM - Not enough memory to reliably host database.
+ *   - \ref EDB_ECRIT
+ *
+ * odb_hoststop can return
+ *  - EDB_ENOHOST - no host for file
+ *  - EDB_EERRNO - error with open(2).
+ *
+ *
+ * \see odb_create
+ * \see odb_hostconfig_t
+ * \see odb_hostconfig_default
+ * \see odb_handle
+ *
+ * \{
+ */
 
 /**
  * \brief All parameters for hosting
- * \see odb_hostconfig_defaults
+ * \see odb_hostconfig_default
  */
 typedef struct odb_hostconfig_t {
 
@@ -580,62 +657,24 @@ const odb_hostconfig_t odb_hostconfig_default = {
 		.flags = 0,
 };
 
-/** \name odb_host
- *
- * \brief Starts hosting a database for the given oidadb file.
- *
- * odb_host will place special locks and hints on the file that will prevent
- * other processes and threads from trying to host it.
- *
- * odb_host will block the calling thread and will only (naturally) return
- * once odb_hosstop is called on a separate thread. Any time a host has been
- * shut down in this manner will return non-errornous.
- *
- * There is a boat load of configuration available, these are discussed
- * inside of \ref odb_hostconifg_t. Use \ref odb_hostconfig_default if this
- * sounds scary though.
- *
- * ## THREADING
- * Both of these functions are MT-safe.
- *
- * The aforementioned write-locks use Open File Descriptors (see fcntl(2)),
- * this means that attempts to open the same file in two separate
- * threads will behave the same way as doing the same with two
- * separate processes. This also means the host can be used in the
- * same process as the handles (though its recommended not to do this on the
- * basis of good engineering of departmentalizing crashes).
- *
- * ## ERRORS
- * odb_host can return:
- *   - EDB_EINVAL - hostops is invalid and/or path is null
- *   - EDB_EERRNO - Unexpected error from stat(2) or open(2), see errno.
- *   - EDB_EOPEN  - Another process is already hosting this file.
- *   - EDB_EFILE  - Path is not a regular file.
- *   - EDB_EHW    - this file was created on a different (non compatible)
- *   architecture and cannot be hosted on this machine.
- *   - EDB_ENOTDB - File is invalid format, possibly not a database.
- *   - EDB_ENOMEM - Not enough memory to reliably host database.
- *   - \ref EDB_ECRIT
- *
- * odb_hoststop can return
- *  - EDB_ENOHOST - no host for file
- *  - EDB_EERRNO - error with open(2).
- *
- *
- * \see odb_create
- * \see odb_hostconfig_t
- * \see odb_hostconfig_default
- * \see odb_handle
- *
- * \{
- */
 edb_err odb_host(const char *path, odb_hostconfig_t hostops);
 edb_err odb_hoststop(const char *path);
 /// \}
-
 /// \}
 
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+/** \defgroup elements OidaDB Elements
+ * \brief The foundational elements of the database
+ *
+ * Elements AKA Types are the structures that together constitute the entire
+ * database. They all have their own purpose.
+ *
+ * \{
+ */
+typedef uint8_t odb_type;
 #define EDB_TINIT  0
 #define EDB_TDEL   1
 #define EDB_TSTRCT 2
@@ -643,19 +682,11 @@ edb_err odb_hoststop(const char *path);
 #define EDB_TENTS  4
 #define EDB_TPEND  5
 #define EDB_TLOOKUP 6
-typedef uint8_t edb_type;
-
-/********************************************************************
- *
- * Entries
- *
- ********************************************************************/
-
 // see spec.
 typedef struct edb_entry_st {
 
 	// paramaters
-	edb_type type;
+	odb_type type;
 	uint8_t rsvd;
 	uint16_t memory;
 	uint16_t structureid;
@@ -688,54 +719,79 @@ typedef struct edb_struct_st {
 	// const uint8_t *subpagesizes; // = (edb_struct_t*) + sizeof(edb_struct_t)
 	// const void    *confv;        // = (edb_struct_t*) + sizeof(edb_struct_t) + sizeof(uint8_t) * data_ptrc
 } edb_struct_t;
-
-#define EDB_FSTRCT_INIT 0x80;
-
-
-// shared-memory access functions
-//
-// todo: these should probably be jobs instead of shared memory, otherwise
-//       locking management will be out of wack. ie: what if someones in the
-//       middle of an alter statement?
-//
-// edb_structs and edb_index will take in ids and copy the respective
-// information into their o_ parameters. If the o_ parameters are
-// null, then they are ignored.
-//
-// To get all indecies for instance, you'd start at eid=0 and work your
-// way up until you get an EOF.
-//
-// If a certain entry is undergoing an operation, the function call
-// is blocked until that operation is complete.
-//
-// RETURNS:
-//
-//   EDB_EEOF - eid / sid was out of bounds
-//
-// Volitility:
-//
-//   Both structv and entryv are pointers to shared memory that can
-//   and will be edited by multiple processes at once at any time. To
-//   properly keep track of these changes you should use
-//   edb_select. But be aware that structv and entryv's contents will
-//   change.
-//
-// THREADING:
-//
-//   These functions are completely thread safe. However, if something
-//   is making substantial modifications to the chapter, thus locking the
-//   entry, these functions will block until that lock is released.
-edb_err edb_index(edbh *handle, edb_eid eid, edb_entry_t *o_entry);
-edb_err edb_structs(edbh *handle, uint16_t structureid, edb_entry_t *o_struct);
+/// \}
 
 
-/*edb_err edb_structcopy (edbh *handle, const edb_struct_t *strct);
-  edb_err edb_structwrite(edbh *handle, const edb_struct_t strct);*/
 
 
-// All EDB_C... constants must take
-// only the first 2nd set of 4 bits (0xff00 mask)
-typedef enum edb_cmd_em {
+
+////////////////////////////////////////////////////////////////////////////////
+/** \defgroup odbh The OidaDB Handle
+ * \brief All functions provided to the database handles while connected.
+ *
+ * ## THREADING -> VOLATILITY
+ * Unlike `odb_*` functions which disclaim, a general definition of threading
+ * has been specified in \ref odb_handle "odb_handle's threading" chapter.
+ * To restate: all of these functions are to be executed on the same thread
+ * that had loaded the handle via \ref odb_handle.
+ *
+ * So instead, we will be focusing on these functions *Volatility*... that is
+ * how this function may interact with other concurrently executing handles.
+ * Ie., we will discuss the volatility in the event where Handle A is writing
+ * and Handle B is reading: will Handle B's results be effected by Handle A?
+ *
+ * \see odb_handle
+ *
+ * \{
+ */
+
+/** \brief Get index data
+ *
+ * Write index information into `o_entry` with the given `eid`.
+ *
+ * If a certain entry is undergoing an exclusive-lock job, the function call
+ * is blocked until that operation is complete.
+ *
+ * ## VOLATILITY
+ *
+ * When this function returns, `o_entry` may already be out of date if
+ * another operation managed to update the entry's contents.
+ *
+ * ## ERRORS
+ *
+ *   EDB_EEOF - eid was too high (out of bounds)
+ *
+ * \see elements for information on what an entry is.
+ */
+edb_err odbh_index(odbh *handle, edb_eid eid, edb_entry_t *o_entry);
+
+/** \brief Get structure data
+ *
+ * Write index information into `o_entry` with the given `eid`.
+ *
+ * If a certain entry is undergoing an exclusive-lock job, the function call
+ * is blocked until that operation is complete.
+ *
+ * ## VOLATILITY
+ *
+ * When this function returns, `o_struct` may already be out of date if
+ * another operation managed to update the structure contents.
+ *
+ * ## ERRORS
+ *
+ *   EDB_EEOF - sid was too high (out of bounds)
+ *
+ * \see elements to for information as to what a structure is.
+ */
+edb_err odbh_structs(odbh *handle, edb_sid structureid, edb_entry_t *o_struct);
+
+/**
+ * \brief Command enumeration
+ *
+ * This enum alone doesn't describe much. It depends on the context of which
+ * odbh function is being used.
+ */
+typedef enum odb_cmd {
 	EDB_CNONE   = 0x0000,
 	EDB_CCOPY   = 0x0100,
 	EDB_CWRITE  = 0x0200,
@@ -743,34 +799,182 @@ typedef enum edb_cmd_em {
 	EDB_CDEL    = 0x0400,
 	EDB_CUSRLKR  = 0x0500,
 	EDB_CUSRLKW  = 0x0600,
-} edb_cmd;
+} odb_cmd;
 
-// See spec for more specific details.
-// General details provided here is all you
-// really need to worry about.
-typedef enum _edb_usrlk {
 
-	// Object cannot be deleted.
+/**
+ * \brief User lock bit constants
+ */
+typedef enum odb_usrlk {
+
+	/// Object cannot be deleted.
 	EDB_FUSRLDEL   = 0x0001,
 
-	// Object cannot be written too.
+	/// Object cannot be written too.
 	EDB_FUSRLWR    = 0x0002,
 
-	// Object cannot be read.
+	/// Object cannot be read.
 	EDB_FUSRLRD    = 0x0004,
 
-	// Object cannot be created, meaning if this
-	// object is deleted, it will stay deleted.
-	// If not already deleted, then it cannot be
-	// recreated once deleted.
-	//
-	// This will also make it implicitly unable to be used
-	// with creating via an AUTOID.
+	/// Object cannot be created, meaning if this
+	/// object is deleted, it will stay deleted.
+	/// If not already deleted, then it cannot be
+	/// recreated once deleted.
+	///
+	/// This will also make it implicitly unable to be used
+	/// with creating via an AUTOID.
 	EDB_FUSRLCREAT = 0x0008,
 
-	// Used for normalizing / masking
 	_EDB_FUSRLALL = 0x000F,
-} edb_usrlk;
+} odb_usrlk;
+
+// todo: need to look in edbw and reverse the definitions for that.
+// todo: probably can consolidate a lot of these odbh_ funcs into a single one
+//       like odbh_jobinstall
+
+/**
+\brief Installs a job into the queue that is regarding 1 or more objects.
+
+ This leaves dynamic data untouched.
+
+This function will block the calling thread in the following
+circumstances:
+
+- The job buffer is full and thus this function must wait until
+  other jobs complete for a chance of getting into the buffer.
+- (EDB_CCOPY, EDB_CWRITE) binc is larger than the database's
+  configured job transfer buffer (see
+  edb_hostconfig_t.job_transfersize). And thus the function must
+  wait until the job is accepted by a worker and that worker is
+  able to execute the oposite side of the transfer buffer so the
+  transfer can be complete.
+
+
+note to self: for binv, mmap binv as shared memory using mmaps first
+argument, and use binc as mmaps 2nd. map it using MAP_SHARED.
+
+What this function does and its arguments depend on arg.
+
+
+## EDB_CCOPY (edb_data_t *)
+
+ Copy the contents of the object into binv up too binc bytes
+ starting at binoff.
+
+ Note that to properly get the exact binc needed to copy the whole
+ object (given binoff is 0) you must look at the object's
+ structure. Setting binc to a higher value that it needs to be will
+ result in undefined behaviour.
+
+
+## EDB_CWRITE (edb_data_t *)
+
+ Create, update, or delete an object. Creation takes place when id
+ is 0 but binv is not null. Updates take place when id is not 0 and
+ binv is not null. Deletion takes place when id is not 0 and binv
+ is null.
+
+ During creation, the new object is written starting at binoff and
+ writes binc bytes and all other bytes are initializes as 0. During
+ updating, only the range from binoff to binoff+binc is modified.
+ binoff and binc are ignored for deletion.
+
+ Upon successful creation, id is set.
+
+ During writes, the object is placed under a write lock, preventing
+ any read operations from taking place on this same id.
+
+## EDB_CUSRLK
+ Install a persisting user lock. These locks will affect future
+ calls to odbh_obj
+
+## ERRORS
+
+  - EDB_EINVAL - handle is null or uninitialized
+  - EDB_EINVAL - cmd is not recongized
+  - EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null
+
+
+\see elements for a description of an "object" and "job".
+ */
+edb_err odbh_obj (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
+
+
+/**
+\brief Install write-jobs regarding 1 structure
+
+
+
+EDB_CWRITE (edb_struct_t *)
+
+ Create, update, or delete structures. Creation takes place when id
+ is 0 but binv is not null. Updates take place when id is not 0 and
+ if one of the fields is different than the current value: binc,
+ fixedc, data_ptrc. Deleteion takes place when id is not 0, fixedc
+ is 0, and data_ptrc is 0.
+
+ During creation, the new structure's configuration is written
+ starting at binoff and writes binc bytes and all other bytes are
+ initializes as 0. During updating, only the range from binoff to
+ binoff+binc is modified.  binoff and binc are ignored for
+ deletion.
+
+ Upon successful creation, id is set.
+
+ During updates and deletes, the structure is placed under a write
+ lock, preventing any read operations from taking place on this
+ same id.
+
+ERRORS:
+
+ EDB_EINVAL - handle is null or uninitialized
+ EDB_EINVAL - cmd is not recongized
+ EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
+
+
+ \see odbh_structs For reading structures
+ \see elements to find out what an "structure" is.
+*/
+edb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
+
+
+/**
+\brief Install a job regarding 1 entry.
+
+ \see elements to find out what an "entry" is.
+ */
+edb_err odbh_entry (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
+
+
+//
+// Thread safe.
+//
+edb_err edb_query(odbh *handle, edb_query_t *query);
+
+typedef struct edb_select_st {
+} edb_select_t;
+/** \brief select/poll from the database event buffer
+
+Listens for changes in the database by instrunctions set forth in
+params.
+
+This function blocks the calling thread and will return once a new
+change is detected.
+
+Limit 1 call to odb_select to each handle. If you attempt to call
+odb_select asyncrounously with the same handle, this will cause an
+error.
+
+If this function is called too infrequently then there's a
+possibility that the caller will miss certain events. But this is a
+very particular edge case that is described elsewhere probably.
+ */
+edb_err odb_select(odbh *handle, edb_select_t *params);
+
+/** \} */ // odbh
+
+
+
 
 
 
@@ -796,98 +1000,10 @@ typedef struct _edb_data {
 } edb_data_t;
 
 
-// Installs a job into the queue that is regarding an object in the
-// database. This leaves dynamic data untouched.
-//
-// This function will block the calling thread in the following
-// circumstances:
-//
-// - The job buffer is full and thus this function must wait until
-//   other jobs complete for a chance of getting into the buffer.
-// - (EDB_CCOPY, EDB_CWRITE) binc is larger than the database's
-//   configured job transfer buffer (see
-//   edb_hostconfig_t.job_transfersize). And thus the function must
-//   wait until the job is accepted by a worker and that worker is
-//   able to execute the oposite side of the transfer buffer so the
-//   transfer can be complete.
-//
-//
-// note to self: for binv, mmap binv as shared memory using mmaps first
-// argument, and use binc as mmaps 2nd. map it using MAP_SHARED.
-//
-// What this function does and its arguments depend on arg.
-//
-//
-// EDB_CCOPY (edb_data_t *)
-//
-//  Copy the contents of the object into binv up too binc bytes
-//  starting at binoff.
-//
-//  Note that to properly get the exact binc needed to copy the whole
-//  object (given binoff is 0) you must look at the object's
-//  structure. Setting binc to a higher value that it needs to be will
-//  result in undefined behaviour.
-//
-//
-// EDB_CWRITE (edb_data_t *)
-//
-//  Create, update, or delete an object. Creation takes place when id
-//  is 0 but binv is not null. Updates take place when id is not 0 and
-//  binv is not null. Deletion takes place when id is not 0 and binv
-//  is null.
-//
-//  During creation, the new object is written starting at binoff and
-//  writes binc bytes and all other bytes are initializes as 0. During
-//  updating, only the range from binoff to binoff+binc is modified.
-//  binoff and binc are ignored for deletion.
-//
-//  Upon successful creation, id is set.
-//
-//  During writes, the object is placed under a write lock, preventing
-//  any read operations from taking place on this same id.
-//
-// EDB_CUSRLK
-//
-//  Install a persisting user lock. These locks will affect future
-//  calls to edb_obj
-//
-// ERRORS:
-//
-//  EDB_EINVAL - handle is null or uninitialized
-//  EDB_EINVAL - cmd is not recongized
-//  EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
-edb_err edb_obj (edbh *handle, edb_cmd cmd, int flags, ... /* arg */);
 
 
-// For reading structures, use edb_structs.
-//
-// EDB_CWRITE (edb_struct_t *)
-//
-//  Create, update, or delete structures. Creation takes place when id
-//  is 0 but binv is not null. Updates take place when id is not 0 and
-//  if one of the fields is different than the current value: binc,
-//  fixedc, data_ptrc. Deleteion takes place when id is not 0, fixedc
-//  is 0, and data_ptrc is 0.
-//
-//  During creation, the new structure's configuration is written
-//  starting at binoff and writes binc bytes and all other bytes are
-//  initializes as 0. During updating, only the range from binoff to
-//  binoff+binc is modified.  binoff and binc are ignored for
-//  deletion.
-//
-//  Upon successful creation, id is set.
-//
-//  During updates and deletes, the structure is placed under a write
-//  lock, preventing any read operations from taking place on this
-//  same id.
-//
-// ERRORS:
-//
-//  EDB_EINVAL - handle is null or uninitialized
-//  EDB_EINVAL - cmd is not recongized
-//  EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
-//
-edb_err edb_struct (edbh *handle, edb_cmd cmd, int flags, ... /* arg */);
+
+
 
 
 
@@ -903,8 +1019,8 @@ edb_err edb_struct (edbh *handle, edb_cmd cmd, int flags, ... /* arg */);
 //
 // Reads and writes data to the database.
 //
-edb_err edb_datcopy (edbh *handle, edb_data_t *data);
-edb_err edb_datwrite(edbh *handle, edb_data_t data);
+/*edb_err edb_datcopy (odbh *handle, edb_data_t *data);
+edb_err edb_datwrite(odbh *handle, edb_data_t data);*/
 
 
 
@@ -919,27 +1035,6 @@ edb_err edb_datwrite(edbh *handle, edb_data_t data);
 typedef struct edb_event_st {
 	int filler;
 } edb_event_t;
-
-
-typedef struct edb_select_st {
-} edb_select_t;
-
-// Select
-//
-// Listens for changes in the database by instrunctions set forth in
-// params.
-//
-// This function blocks the calling thread and will return once a new
-// change is detected.
-//
-// Limit 1 call to edb_select to each handle. If you attempt to call
-// edb_select asyncrounously with the same handle, this will cause an
-// error.
-//
-// If this function is called too infrequently then there's a
-// possibility that the caller will miss certain events. But this is a
-// very particular edge case that is described elsewhere probably.
-edb_err edb_select(edbh *handle, edb_select_t *params);
 
 
 typedef struct edb_query_st {
@@ -957,10 +1052,7 @@ typedef struct edb_query_st {
 										 // to save.
 } edb_query_t;
 
-//
-// Thread safe.
-//
-edb_err edb_query(edbh *handle, edb_query_t *query);
+
 
 
 
@@ -980,13 +1072,13 @@ typedef struct edb_infodatabase_st {
 
 // all these info- functions just return their relevant structure's
 // data that can be used for debugging reasons.
-edb_err edb_infohandle(edbh *handle, edb_infohandle_t *info);
-edb_err edb_infodatabase(edbh *handle, edb_infodatabase_t *info);
+edb_err edb_infohandle(odbh *handle, edb_infohandle_t *info);
+edb_err edb_infodatabase(odbh *handle, edb_infodatabase_t *info);
 
 // dump- functions just format the stucture and pipe it into fd.
 // these functions provide no more information than the equvilient
 // info- function.
-int edb_dumphandle(edbh *handle, int fd);
-int edb_dumpdatabase(edbh *handle, int fd);
+int edb_dumphandle(odbh *handle, int fd);
+int edb_dumpdatabase(odbh *handle, int fd);
 	
 #endif // _EDB_H_

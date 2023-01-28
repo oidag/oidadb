@@ -48,7 +48,7 @@ typedef struct {
 
 	// all of thee other fields can be modified so long the caller
 	// has an exclusive lock on the page.
-	edb_type ptype;
+	odb_type ptype;
 	uint16_t rsvd;
 	uint64_t pleft;
 	uint64_t pright;
