@@ -71,7 +71,7 @@ Note that if the file isn't there but in here, its because I haven't
 made it yet.
 
  - =t0001_io.c=: simply create and initialize new database file
-   with nothing in it. Then reopen it, and close it.
+   with nothing in it.
  - =t0005_host.c=: host a file, and close it from another thread.
  - =t0006_hostactive.c=: host a file with workers, page buffer.
  - =t0007_hostmean.c=: deliberately try to break hosting parameters

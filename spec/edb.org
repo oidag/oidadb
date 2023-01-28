@@ -102,7 +102,7 @@ Inside the Head there is the *[[Head-Intro]]*, *[[Head-Meta]]*. The Head-Intro
 is never changed after the file's creation. The Head-Meta is updated
 very frequently.
 
-The Head in its entirety is always a page's minimum length (=4KiB=). 
+The Head in its entirety is always the length of a page.
 ** Body
 As stated before, the body is effectively just raw bytes of
 data. However there is some order to it with the use of
@@ -171,16 +171,16 @@ Meta information is the "sum" of the current status of the
 database. It provides a reasonable snapshot of the information for
 quick access to details vital for resource managment.
 
-| Name            | Clang representation (byte end) | Definition                                                                  |
-|-----------------+---------------------------------+-----------------------------------------------------------------------------|
-| Newest Entry ID | uint64_t                        | The newest existing entry (which is also the same as the number of entries) |
-| Loaded Pages    | uint32_t                        | The number of loaded pages.                                                 |
-| Master PID      | pid_t                           | The process ID of the attached host process, if 0 that means unattached     |
-| Handlers        | uint64_t                        | The number of handlers currently handling this database                     |
-| Global MPS      | uint8_t                         | The global minimum page size                                                |
-| rsvd1           | uint8_t                         |                                                                             |
-| rsvd2           | uint32_t                        | The timestamp sense Head-Meta was synced to the file (see =time(2)=)        |
-| Reserved        | char[72]                        | Reserved for future use. Will be all 0 bytes.                               |
+| Name       | Clang representation (byte end) | Definition                                                              |
+|------------+---------------------------------+-------------------------------------------------------------------------|
+| rsvd       | uint16_t                        |                                                                         |
+| rsvd       | uint64_t                        | rsvd                                                                    |
+| Master PID | pid_t                           | The process ID of the attached host process, if 0 that means unattached |
+| Handlers   | uint64_t                        | The number of handlers currently handling this database                 |
+| rsvd       | uint8_t                         |                                                                         |
+| rsvd1      | uint8_t                         |                                                                         |
+| rsvd2      | uint32_t                        |                                                                         |
+| rsvd       | char[72]                        | Reserved for future use. Will be all 0 bytes.                           |
 
 ** TODO Global MPS
 This is the minimum page strait for all items not including in the body.

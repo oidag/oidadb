@@ -1,13 +1,14 @@
+#define _LARGEFILE64_SOURCE 1
+#define _GNU_SOURCE 1
 #ifndef _FILE_H_
 #define _FILE_H_ 1
 
-#define _LARGEFILE64_SOURCE 1
-#define _GNU_SOURCE 1
-
+#include <unistd.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
+
 
 #include "include/oidadb.h"
 
@@ -28,12 +29,7 @@ typedef struct {
 	// intro must be first in this structure.
 	const edb_fhead_intro intro;
 
-	edb_eid newest;
-	uint32_t loadedpages;
 	pid_t host;
-	uint64_t handlers;
-	uint64_t lastsync;
-	char rsvd[72];
 } edb_fhead;
 
 // todo: sort these structures:
@@ -122,13 +118,13 @@ unsigned int edbd_size(const edbd_t *c);
 //
 // edb_fileclose will preserve errno.
 //
-edb_err edbd_open(edbd_t *file, const char *path, unsigned int pagemul, int flags);
+edb_err edbd_open(edbd_t *o_file, const char *path);
 void    edbd_close(edbd_t *file);
 
 
 // see edb_index and edb_structs.
-// these do the exact same thing but only specifically needs the shm and will return
-// the pointer to the mmap'd region rather than copy the data.
+// these do the exact same thing but only specifically needs the shm and
+// will return the pointer to the mmap'd region rather than copy the data.
 //
 // This memory is mapped to the file. Changes are persistant (except for edbd_struct,
 // I put the const constraint on it. You must edit structure data via edba).
@@ -174,10 +170,10 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id);
 // helper functions
 
 // changes the pid into a file offset.
-off64_t inline edbd_pid2off(const edbd_t *c, edb_pid id) {
+static inline off64_t edbd_pid2off(const edbd_t *c, edb_pid id) {
 	return (off64_t)id * edbd_size(c);
 }
-edb_pid inline edbd_off2pid(const edbd_t *c, off64_t off) {
+static edb_pid edbd_off2pid(const edbd_t *c, off64_t off) {
 	return off / edbd_size(c);
 }
 

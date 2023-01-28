@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-typedef struct edbh_st {
+typedef struct odbh {
 
 	pid_t hostpid;
 

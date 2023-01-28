@@ -4,11 +4,11 @@
 #include "../include/oidadb.h"
 
 void t0001() {
-	edb_hostconfig_t hostops = {0};
+	odb_createparams c = {0};
 
-	err = odb_host(test_filenmae, hostops);
+	err = odb_create(test_filenmae, odb_createparams_defaults);
 	if(err) {
-		test_error("failed to host");
+		test_error("failed to create file");
 		return;
 	}
 
