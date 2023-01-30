@@ -15,7 +15,7 @@
 #include "edbw_u.h"
 #include "edbs-jobs.h"
 #include "edbd.h"
-#include "edbp-types.h"
+#include "odb-structures.h"
 
 // job data is assumed to be EDB_OBJ
 edb_err edbw_u_objjob(edb_worker_t *self) {

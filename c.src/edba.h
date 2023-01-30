@@ -4,7 +4,7 @@
 #include "edbl.h"
 #include "edbp.h"
 #include "edbd.h"
-#include "edbp-types.h"
+#include "odb-structures.h"
 
 typedef enum {
 	EDBA_FWRITE = 0x0001,

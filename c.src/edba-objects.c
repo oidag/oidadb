@@ -13,7 +13,7 @@
 #include "edba.h"
 #include "edba_u.h"
 #include "edbs.h"
-#include "edbp-types.h"
+#include "odb-structures.h"
 
 static void inline assignobject(edba_handle_t *h,
 								void *page,
