@@ -5,7 +5,7 @@
 #define _EDBA_UTIL_ 1
 
 #include "edba.h"
-#include "edbp-types.h"
+#include "odb-structures.h"
 
 
 // returns EDB_EEOF if eid is out of bounds

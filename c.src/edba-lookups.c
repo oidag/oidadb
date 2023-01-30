@@ -1,5 +1,5 @@
 #include "edba.h"
-#include "edbp-types.h"
+#include "odb-structures.h"
 
 // converts a pid offset to the actual page address
 // note to self: the only error returned by this should be a critical error
