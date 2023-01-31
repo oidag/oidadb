@@ -43,16 +43,16 @@ static edb_err createfile(int fd, odb_createparams params) {
 	}
 
 	// generate the head-intro structure.
-	edb_fhead_intro intro = {0};
+	odb_spec_headintro intro = {0};
 	intro.magic[0] = 0xA6;
 	intro.magic[1] = 0xF0;
 	intro.intsize  = sizeof(int);
-	intro.entrysize = sizeof(edb_entry_t);
+	intro.entrysize = sizeof(odb_spec_index_entry);
 	intro.pagesize = syspagesize;
 	intro.pagemul  = pagemul;
-	edb_fhead newhead = {.intro = intro};
+	odb_spec_head newhead = {.intro = intro};
 	// zero out the rest of the structure explicitly
-	bzero(&(newhead.host), sizeof(edb_fhead) - sizeof(edb_fhead_intro));
+	bzero(&(newhead.host), sizeof(odb_spec_head) - sizeof(odb_spec_headintro));
 	// generate a random newhead.intro.id
     {
 		struct timeval tv;
@@ -96,8 +96,12 @@ static edb_err createfile(int fd, odb_createparams params) {
 			return EDB_ECRIT;
 		}
 		if(i==0) {
-			edbd_u_initindex_rsvdentries(page, finalpsize, params
-			.structurepages, params.indexpages);
+			// initialize the resevered slots.
+			edbd_u_initindex_rsvdentries(page, finalpsize,
+			                             indexstart,
+			                             structstart,
+			                             params.indexpages,
+			                             params.structurepages);
 		} else {
 			edbd_u_initindexpage(page, finalpsize);
 		}
@@ -111,7 +115,7 @@ static edb_err createfile(int fd, odb_createparams params) {
 		                    PROT_READ | PROT_WRITE,
 		                    MAP_SHARED,
 		                    fd,
-		                    indexstart + i * finalpsize);
+		                    structstart + i * finalpsize);
 		if(page == (void*)-1) {
 			log_critf("mmap64 failed");
 			return EDB_ECRIT;
@@ -128,7 +132,7 @@ static edb_err createfile(int fd, odb_createparams params) {
 // validates the headintro with the current system. returns
 // EDB_ENOTDB if bad magic number (probably meaning not a edb file)
 // EDB_EHW if invalid hardware.
-static edb_err validateheadintro(edb_fhead_intro head, int pagemul) {
+static edb_err validateheadintro(odb_spec_headintro head, int pagemul) {
 	if(head.magic[0] != 0xA6 || head.magic[1] != 0xF0) {
 		log_errorf("invalid magic number: got {0x%02X, 0x%02X} but expecting {0x%02X, 0x%02X}",
 				   head.magic[0], head.magic[1],
@@ -141,10 +145,10 @@ static edb_err validateheadintro(edb_fhead_intro head, int pagemul) {
 				   sizeof(int));
 		return EDB_EHW;
 	}
-	if(head.entrysize != sizeof(edb_entry_t)) {
+	if(head.entrysize != sizeof(odb_spec_index_entry)) {
 		log_errorf("entry size mismatch: got %d but accepting %ld",
 				   head.entrysize,
-				   sizeof(edb_entry_t));
+				   sizeof(odb_spec_index_entry));
 		return EDB_EHW;
 	}
 	if(head.pagesize != sysconf(_SC_PAGE_SIZE)) {

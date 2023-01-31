@@ -2,9 +2,12 @@
 #define _edbtypes_h_
 
 #include "include/oidadb.h"
-#include "edbp.h"
-#include "stdint.h"
 
+#include <stdint.h>
+
+// Always use this instead of sizeof(edbp_head) because
+// edbp_head doesn't include the page-specific heading
+#define ODB_SPEC_HEADSIZE 48
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -39,6 +42,45 @@ typedef struct edb_deletedref_st {
 	uint16_t _rsvd2;
 } odb_spec_deleted_ref;
 
+typedef uint64_t eid;
+
+// see spec.
+typedef struct odb_spec_index_entry {
+
+	// paramaters
+	odb_type type;
+	uint8_t rsvd;
+	uint16_t memory;
+	uint16_t structureid;
+
+	// cached values
+	uint16_t objectsperpage;
+	uint16_t lookupsperpage;
+
+	// references
+	edb_pid ref0; // starting chapter start
+	edb_pid ref1; // lookup chapter start
+	edb_pid ref2; // dynamic chapter start
+	edb_pid ref0c;
+	edb_pid lastlookup;
+	edb_pid ref2c;
+	edb_pid trashlast;
+
+} odb_spec_index_entry;
+
+typedef struct odb_spec_struct_struct {
+	//uint16_t     id;   // cant put ids in structures
+
+	uint16_t    fixedc;    // total size (see spec)
+	uint16_t    confc;     // configuration size
+	uint8_t     flags;     // flags see spec.
+	uint8_t     data_ptrc; // data pointer count
+
+	// implicit fields:
+	// const uint8_t *subpagesizes; // = (edb_struct_t*) + sizeof(edb_struct_t)
+	// const void    *confv;        // = (edb_struct_t*) + sizeof(edb_struct_t) + sizeof(uint8_t) * data_ptrc
+} odb_spec_struct_struct;
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -56,17 +98,12 @@ struct odb_spec_headintro {
 	char id[32];
 } __attribute__((__packed__)); // we pack the intro to make it more universal.
 typedef struct odb_spec_headintro odb_spec_headintro;
-
-typedef uint64_t eid;
-
 typedef struct odb_spec_head {
 	// intro must be first in this structure.
 	const odb_spec_headintro intro;
 
-	pid_t host;
+	uint64_t host;
 } odb_spec_head;
-
-
 typedef struct _odb_stdhead {
 
 	// Do not touch these fields outside of pages-*.c files:
@@ -87,6 +124,11 @@ typedef struct _odb_stdhead {
 	//uint8_t  psecf[16]; // page spcific. see types.h
 } _odb_stdhead;
 
+typedef struct odb_spec_index {
+	_odb_stdhead head;
+	uint8_t rsvd[16];
+	// after this: array of odb_spec_index_entry
+} odb_spec_index;
 typedef struct odb_spec_deleted {
 	_odb_stdhead head;
 	uint16_t largeststrait; // largest strait on the page
@@ -106,6 +148,9 @@ typedef struct odb_spec_object {
 	// in memeory after this is structures.
 	//edb_obj_t objects;
 } odb_spec_object;
+
+typedef odb_spec_object odb_spec_struct;
+//typedef odb_spec_struct struct odb_spec_struct;
 
 typedef struct odb_spec_lookup {
 	_odb_stdhead head;
@@ -130,5 +175,26 @@ typedef struct odb_spec_dynamic {
 	// Which are not static sizes.
 	//edbp_dsm_t *
 } odb_spec_dynamic;
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// helper functions
+
+// initializes header according to spec.
+// assumes the page is 0-initialized (so make sure it is)
+//
+// does NOT touch anything outside of page.
+//
+//		.structureid = header.structureid,
+//		.entryid = header.entryid,
+//		.trashvor = header.trashvor,
+//		.trashc = objectsperpage,
+//		.head.pleft = header.head.pleft,
+//
+// later: this probably belongs in edbd.
+void edba_u_initobj_pages(void *page, odb_spec_object header,  uint16_t fixedc,
+                          unsigned int objectsperpage);
 
 #endif

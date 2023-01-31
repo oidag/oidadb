@@ -18,7 +18,7 @@
 static void inline assignobject(edba_handle_t *h,
 								void *page,
 								uint16_t intrapagebyteoff,
-								const edb_struct_t *structdat) {
+								const odb_spec_struct_struct *structdat) {
 	h->objectoff  = intrapagebyteoff;
 	h->objectc    = structdat->fixedc;
 	h->objectflags = page + intrapagebyteoff;
@@ -53,7 +53,7 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	}
 
 	// get the struct data
-	const edb_struct_t *structdat;
+	const odb_spec_struct_struct *structdat;
 	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &structdat);
 
 	// get the chapter offset
@@ -177,9 +177,9 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// at this point, we have a lock on the trashstart_off and need
 	// to place another lock on the actual trash record.
 	// Store this in the h->lock so we can unlock when edba_objectclose is called
-	const edb_struct_t *structdat;
+	const odb_spec_struct_struct *structdat;
 	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &structdat);
-	uint16_t intrapagebyteoff = EDBD_HEADSIZE + structdat->fixedc * o->trashstart_off;
+	uint16_t intrapagebyteoff = ODB_SPEC_HEADSIZE + structdat->fixedc * o->trashstart_off;
 	h->lock = (edbl_lockref) {
 		.l_type = EDBL_EXCLUSIVE,
 		.l_len = structdat->fixedc,
@@ -245,8 +245,8 @@ void    edba_objectclose(edba_handle_t *h) {
 }
 
 
-const edb_struct_t *edba_objectstruct(edba_handle_t *h) {
-	const edb_struct_t *ret;
+const odb_spec_struct_struct *edba_objectstruct(edba_handle_t *h) {
+	const odb_spec_struct_struct *ret;
 	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &ret);
 	return ret;
 }
@@ -437,7 +437,7 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 }
 
 edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
-                         uint16_t page_byteoff, const edb_struct_t *structdat,
+                         uint16_t page_byteoff, const odb_spec_struct_struct *structdat,
                          edbf_flags flags) {
 	// as per locking spec, need to place the lock on the data before we load the page.
 	// install the SH lock as per Object-Reading
@@ -484,10 +484,10 @@ typedef enum obj_searchflags_em {
 
 } obj_searchflags;
 
-void edba_u_rid2chptrpageoff(edba_handle_t *handle, edb_entry_t *entrydat, edb_rid rowid,
+void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entrydat, edb_rid rowid,
                              edb_pid *o_chapter_pageoff,
-							 uint16_t *o_page_byteoff) {
-	const edb_struct_t *structdata;
+                             uint16_t *o_page_byteoff) {
+	const odb_spec_struct_struct *structdata;
 	edbd_struct(handle->parent->descriptor, entrydat->structureid, &structdata);
 	*o_chapter_pageoff = rowid / entrydat->objectsperpage;
 

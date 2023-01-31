@@ -34,7 +34,7 @@ edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 
 	// assign the handle fields.
 	h->strctid = sid;
-	h->strct = (edb_struct_full_t *)(o + EDBD_HEADSIZE + sizeof(edb_struct_full_t) * o->trashstart_off);
+	h->strct = (edb_struct_full_t *)(o + ODB_SPEC_HEADSIZE + sizeof(edb_struct_full_t) * o->trashstart_off);
 
 	// make sure the structure isn't deleted.
 	if(h->strct->obj_flags & EDB_FDELETED) {
@@ -46,7 +46,7 @@ edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 }
 
 // todo: make sure to initialize structure pages using edba_u_pagecreate_objects
-edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct) {
+edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_struct strct) {
 
 	// easy ptrs
 	edbl_handle_t *lockh = &h->lockh;
@@ -103,7 +103,7 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct) 
 	// and just as easy as that, we have all the info to get the writable structure data.
 	// much more simple than dealing with normal edbp_object pages.
 	h->strctid = *o_sid = trashpage_offset * h->clutchedentry->objectsperpage + o->trashstart_off;
-	h->strct = (edb_struct_full_t *)(o + EDBD_HEADSIZE + sizeof(edb_struct_full_t) * o->trashstart_off);
+	h->strct = (edb_struct_full_t *)(o + ODB_SPEC_HEADSIZE + sizeof(edb_struct_full_t) * o->trashstart_off);
 
 	// todo: allocate space for arbitrary configuration when edbp_dynamics are
 	//       implemented. See h->strct.confc
@@ -115,7 +115,7 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct) 
 	{
 		// some redundant logic to make sure that structdat and
 		// edbd_struct are aligned.
-		edb_struct_t *test;
+		odb_spec_struct_struct *test;
 		edbd_struct(file, *o_sid, &test);
 		if(test != &h->strct->content) {
 			log_critf("edbd_struct and structure search logic misaligned.");
@@ -174,7 +174,7 @@ edb_err edba_structdelete(edba_handle_t *h) {
 	// search the entire index and make sure nothing has our structure.
 	edb_eid searcheid = EDBD_EIDSTART;
 	for(; ; searcheid++) {
-		edb_entry_t *entry;
+		odb_spec_index_entry *entry;
 		// roll-on locks
 		err = edbd_index(file, searcheid, &entry);
 		if(err) {

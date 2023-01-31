@@ -1,6 +1,8 @@
 #ifndef _edbl_h_
 #define _edbl_h_
 
+#define _LARGEFILE64_SOURCE 1
+#define _GNU_SOURCE 1
 #include <unistd.h>
 #include <fcntl.h>
 

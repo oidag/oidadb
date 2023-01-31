@@ -1,8 +1,9 @@
-#include <strings.h>
 #include "edba_u.h"
 #include "edba.h"
 #include "odb-structures.h"
 #include "analytics.h"
+
+#include <strings.h>
 
 // helper function
 static edb_err xlloadlookup(edba_handle_t *handle,
@@ -31,7 +32,7 @@ static edb_err xlloadlookup(edba_handle_t *handle,
 	// get the void pointer of the existing lookup page
 	void *lookup = edbp_graw(edbp);
 	*lookuphead = lookup;
-	*lookuprefs = lookup + EDBD_HEADSIZE;
+	*lookuprefs = lookup + ODB_SPEC_HEADSIZE;
 
 	// we can set this hint now to save us from doing it on the
 	// several exits.
@@ -72,7 +73,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 
 	// easy ptrs
 	edbphandle_t *edbp = &handle->edbphandle;
-	edb_entry_t *entry = handle->clutchedentry;
+	odb_spec_index_entry *entry = handle->clutchedentry;
 	unsigned int entryid = handle->clutchedentryeid;
 	int depth = entry->memory >> 0xC;
 	unsigned int refmax = handle->clutchedentry->lookupsperpage;
@@ -119,7 +120,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 
 	// create the new object pages
 	// grab the structure
-	const edb_struct_t *structdat;
+	const odb_spec_struct_struct *structdat;
 	edbd_struct(handle->parent->descriptor, entry->structureid, &structdat);
 	// initialize the header per edba_u_pagecreate_objects spec
 	odb_spec_object header;
@@ -435,7 +436,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	void *page = edbp_graw(edbp);
 	bzero(page, edbd_size(descriptor));
 	odb_spec_lookup *pageheader = (odb_spec_lookup *)page;
-	odb_spec_lookup_lref *pagerefs = page + EDBD_HEADSIZE;
+	odb_spec_lookup_lref *pagerefs = page + ODB_SPEC_HEADSIZE;
 
 	// write the header
 	pageheader->entryid = header.entryid;
@@ -465,53 +466,15 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	return 0;
 }
 
-// assumes the page is 0-initialized.
-void static initobjectspage(void *page, odb_spec_object header, const edb_struct_t *strct, unsigned int objectsperpage) {
-
-	// set up the header
-	odb_spec_object *phead = (odb_spec_object *)page;
-	*phead = (odb_spec_object){
-		.structureid = header.structureid,
-		.entryid = header.entryid,
-		.trashvor = header.trashvor,
-		.trashc = objectsperpage,
-		.trashstart_off = 0,
-
-		.head.pleft = header.head.pleft,
-		.head.pright = 0,
-		.head.ptype = EDB_TOBJ,
-		.head.rsvd = 0,
-	};
-
-	// set up the body
-	void *body = page + EDBD_HEADSIZE;
-	for(int i = 0; i < objectsperpage; i++) {
-		void *obj = body + strct->fixedc * i;
-		odb_spec_object_flags *flags = obj;
-		// mark them as all deleted. And daisy chain the trash
-		// linked list.
-		*flags = EDB_FDELETED;
-		uint16_t *nextdeleted_rowid = obj + sizeof(odb_spec_object_flags);
-		if(i + 1 == objectsperpage) {
-			// last one, set to -1.
-			*nextdeleted_rowid = (uint16_t)-1;
-		} else {
-			*nextdeleted_rowid = ((uint16_t)i)+1;
-		}
-		// note we don't need to touch the dynamic pointers because they should all be
-		// 0 (null). And we know any byte we don't touch will be 0.
-	}
-}
-
 edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
                                   odb_spec_object header,
-                                  const edb_struct_t *strct,
+                                  const odb_spec_struct_struct *strct,
                                   uint8_t straitc, edb_pid *o_pid) {
 	// easy ptrs
 	edbphandle_t *edbp = &handle->edbphandle;
 	edb_err err;
 	edbd_t *descriptor = handle->parent->descriptor;
-	unsigned int objectsperpage = (edbd_size(handle->edbphandle.parent->fd) - EDBD_HEADSIZE) / strct->fixedc;
+	unsigned int objectsperpage = (edbd_size(handle->edbphandle.parent->fd) - ODB_SPEC_HEADSIZE) / strct->fixedc;
 
 	// later: need to reuse deleted pages rather than creating them by utilizing the
 	//        deleted page / trash line
@@ -539,7 +502,7 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 		// initiate the page
 		void *page = edbp_graw(edbp);
 		bzero(page, edbd_size(descriptor));
-		initobjectspage(page, header, strct, objectsperpage);
+		edba_u_initobj_pages(page, header, strct->fixedc, objectsperpage);
 
 		// we do the referance  logic after so the first iteration of
 		// initobjectspage uses the trashvor/pleaft supplied by the caller of this

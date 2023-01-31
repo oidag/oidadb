@@ -10,7 +10,7 @@ edb_err edbw_u_entjob(edb_worker_t *self) {
 	edba_handle_t *handle = &self->edbahandle;
 
 	// get params
-	edb_entry_t entryparams;
+	odb_spec_index_entry entryparams;
 	edb_eid eid;
 	switch (jobdesc & 0xFF00) {
 		case EDB_CCREATE:

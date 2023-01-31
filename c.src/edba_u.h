@@ -60,7 +60,7 @@ void edba_u_locktransstartoff_release(edba_handle_t *handle);
 // flags only check for EDBA_FWRITE, if true than makes the
 // row lock exclusvive
 edb_err edba_u_pageload_row(edba_handle_t *handle, edb_pid pid,
-					 uint16_t page_byteoff, const edb_struct_t *structdat,
+					 uint16_t page_byteoff, const odb_spec_struct_struct *structdat,
 					     edbf_flags flags);
 void edba_u_pagedeload(edba_handle_t *handle);
 
@@ -100,21 +100,22 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
                                  odb_spec_lookup_lref ref);
 edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
                                   odb_spec_object header,
-                                  const edb_struct_t *strct,
+                                  const odb_spec_struct_struct *strct,
                                   uint8_t straitc, edb_pid *o_pid);
+
 
 // converts a intra-chapter row offset to a intra-chapter page offset
 // as well as its intra-page byte offset.
-void edba_u_rid2chptrpageoff(edba_handle_t *handle, edb_entry_t *entry, edb_rid rid,
-							 edb_pid *o_chapter_pageoff, uint16_t *o_page_byteoff);
+void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entry, edb_rid rid,
+                             edb_pid *o_chapter_pageoff, uint16_t *o_page_byteoff);
 
 // executes a b-tree lookup and converts the intra-chapter page
 // ofsset to a pid.
 //
 // ERRORS:
 //   EDB_EEOF - chapter_pageoff was out of bounds.
-edb_err edba_u_lookupoid(edba_handle_t *handle, edb_entry_t *entry,
-					  edb_pid chapter_pageoff, edb_pid *o_pid);
+edb_err edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
+                         edb_pid chapter_pageoff, edb_pid *o_pid);
 
 void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid *o_rid) {
 	*o_eid = oid >> 0x30;

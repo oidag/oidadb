@@ -10,7 +10,7 @@ edb_err edbw_u_structjob(edb_worker_t *self) {
 	edba_handle_t *handle = &self->edbahandle;
 
 	// working variables
-	edb_struct_t s;
+	odb_spec_struct_struct s;
 	edb_sid  structid;
 
 	// per-description
