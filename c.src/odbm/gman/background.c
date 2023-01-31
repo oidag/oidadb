@@ -42,11 +42,12 @@ static void drawbg(graphic_t *g){
 	glEnd();
 }
 
-int ent_background_new(ent_background_t *o_bg) {
+ent_background_t bg;
+
+int background_start() {
 
 	graphic_t *g = glp_new();
-	glp_user(g, o_bg, 0);
-
+	glp_user(g, &bg, 0);
 	setviewport(g);
 	glp_name(g, "background");
 	glp_draw(g, GLP_SLEEPER, drawbg);

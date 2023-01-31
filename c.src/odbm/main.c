@@ -32,30 +32,18 @@ int main(void)
 	// **defer: file_close
 
 	// drawer
-	if(glplotter_init()) {
+	if(gman_init()) {
 		return 1;
 	}
 	// **defer: draw_close
 
-	// add the background
-	ent_background_t bg;
-	ent_background_new(&bg);
-
-	// terminal
-	ent_terminal_start();
-
-	// debugger
-	ent_debug_t db;
-	ent_opener_new(onfileload);
-	ent_debug_new(&db);
-
 	// enter render cycle.
-	err = glplotter_serve();
+	err = gman_serve();
 
 	// render cycle died for whatever reason.
 
 	// close out everything.
-	glplotter_close();
+	gman_close();
 	//file_close();
     return err;
 }

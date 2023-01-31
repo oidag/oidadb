@@ -60,25 +60,36 @@ static void draw(graphic_t *g){
 	glp_events(g, DAF_ONWINDOWSIZE, viewport);
 }*/
 
-void element_host_start() {
-	graphic_t *g = glp_new();
+int gman_init() {
+
+	int err = 0;
+	if((err = glplotter_init())) {
+		return err;
+	}
+
+
+	// statics
+	background_start();
+	ent_terminal_start();
+	debug_start();
+
+	// columns
+
+	//graphic_t *g = glp_new();
 	// initialize structure
 
 	// graphic for the background.
-	setviewport(g, (eventdata_t){0});
+	/*setviewport(g, (eventdata_t){0});
 	glp_draw(g, GLP_SLEEPER, draw);
 	glp_name(g, "column-host");
-	glp_events(g, DAF_ONWINDOWSIZE, setviewport);
+	glp_events(g, DAF_ONWINDOWSIZE, setviewport);*/
 
 	column_t *selected;
-
 	// header column
 	selected = host.descriptor = column_new();
 	column_color(selected, color_pink400);
-
 	column_type(selected, ELM_DESCRIPTOR);
 	column_viewboxr(selected, (recti_12x16) {0, 14, 2, 2});
-
 	// pages
 	selected = host.pages = column_new();
 	column_color(selected, color_violet900);
@@ -103,4 +114,13 @@ void element_host_start() {
 	// todo: edbw
 
 	// todo: edbs
+	return 0;
+}
+
+int gman_serve() {
+	glplotter_serve();
+}
+
+void gman_close() {
+	glplotter_close();
 }
