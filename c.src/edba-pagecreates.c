@@ -8,8 +8,8 @@
 static edb_err xlloadlookup(edba_handle_t *handle,
                             edb_pid lookuppid,
                             edbl_lockref *lock,
-                            edbp_lookup_t **lookuphead,
-                            edb_lref_t **lookuprefs) {
+                            odb_spec_lookup **lookuphead,
+                            odb_spec_lookup_lref **lookuprefs) {
 	edb_err err;
 	edbphandle_t *edbp = &handle->edbphandle;
 
@@ -122,7 +122,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	const edb_struct_t *structdat;
 	edbd_struct(handle->parent->descriptor, entry->structureid, &structdat);
 	// initialize the header per edba_u_pagecreate_objects spec
-	edbp_object_t header;
+	odb_spec_object header;
 	header.structureid = entry->structureid;
 	header.entryid = entryid;
 	header.trashvor = 0;
@@ -166,12 +166,12 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	//
 	// See also: rollbackcreatedpages, rollbackcreateandreference.
 	edb_pid        lookuppid = entry->lastlookup;
-	edb_lref_t    *lookuprefs;
-	edbp_lookup_t *lookuphead; // will be null when unloaded.
+	odb_spec_lookup_lref    *lookuprefs;
+	odb_spec_lookup *lookuphead; // will be null when unloaded.
 	edb_pid        createdlookups[depth];
 	int            createdlookupsc = 0;
 	edbl_lockref   lookuppagelock;
-	edb_lref_t     newreference;
+	odb_spec_lookup_lref     newreference;
 	err = xlloadlookup(handle,
 	             lookuppid,
 	             &lookuppagelock,
@@ -236,7 +236,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 			// afformentioned parent.
 
 			// Create the (sibling) lookup page
-			edbp_lookup_t newheader;
+			odb_spec_lookup newheader;
 			newheader.depth = i;
 			newheader.entryid = entryid;
 
@@ -403,9 +403,9 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 }
 
 edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
-								 edbp_lookup_t header,
-								 edb_pid *o_pid,
-								 edb_lref_t ref) {
+                                 odb_spec_lookup header,
+                                 edb_pid *o_pid,
+                                 odb_spec_lookup_lref ref) {
 
 	// easy ptrs
 	edbphandle_t *edbp = &handle->edbphandle;
@@ -434,8 +434,8 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	// **defer: edbp_finish(edbp);
 	void *page = edbp_graw(edbp);
 	bzero(page, edbd_size(descriptor));
-	edbp_lookup_t *pageheader = (edbp_lookup_t *)page;
-	edb_lref_t *pagerefs = page + EDBD_HEADSIZE;
+	odb_spec_lookup *pageheader = (odb_spec_lookup *)page;
+	odb_spec_lookup_lref *pagerefs = page + EDBD_HEADSIZE;
 
 	// write the header
 	pageheader->entryid = header.entryid;
@@ -466,11 +466,11 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 }
 
 // assumes the page is 0-initialized.
-void static initobjectspage(void *page, edbp_object_t header, const edb_struct_t *strct, unsigned int objectsperpage) {
+void static initobjectspage(void *page, odb_spec_object header, const edb_struct_t *strct, unsigned int objectsperpage) {
 
 	// set up the header
-	edbp_object_t *phead = (edbp_object_t *)page;
-	*phead = (edbp_object_t){
+	odb_spec_object *phead = (odb_spec_object *)page;
+	*phead = (odb_spec_object){
 		.structureid = header.structureid,
 		.entryid = header.entryid,
 		.trashvor = header.trashvor,
@@ -487,11 +487,11 @@ void static initobjectspage(void *page, edbp_object_t header, const edb_struct_t
 	void *body = page + EDBD_HEADSIZE;
 	for(int i = 0; i < objectsperpage; i++) {
 		void *obj = body + strct->fixedc * i;
-		edb_object_flags *flags = obj;
+		odb_spec_object_flags *flags = obj;
 		// mark them as all deleted. And daisy chain the trash
 		// linked list.
 		*flags = EDB_FDELETED;
-		uint16_t *nextdeleted_rowid = obj + sizeof(edb_object_flags);
+		uint16_t *nextdeleted_rowid = obj + sizeof(odb_spec_object_flags);
 		if(i + 1 == objectsperpage) {
 			// last one, set to -1.
 			*nextdeleted_rowid = (uint16_t)-1;
@@ -504,7 +504,7 @@ void static initobjectspage(void *page, edbp_object_t header, const edb_struct_t
 }
 
 edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
-                                  edbp_object_t header,
+                                  odb_spec_object header,
                                   const edb_struct_t *strct,
                                   uint8_t straitc, edb_pid *o_pid) {
 	// easy ptrs

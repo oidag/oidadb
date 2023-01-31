@@ -23,12 +23,12 @@ static void inline assignobject(edba_handle_t *h,
 	h->objectc    = structdat->fixedc;
 	h->objectflags = page + intrapagebyteoff;
 	h->dy_pointersc = structdat->data_ptrc;
-	h->dy_pointers  = (void *)h->objectflags + sizeof(edb_object_flags);
+	h->dy_pointers  = (void *)h->objectflags + sizeof(odb_spec_object_flags);
 	h->contentc   = structdat->fixedc
-	                - sizeof(edb_object_flags)
+	                - sizeof(odb_spec_object_flags)
 	                - (sizeof(edb_dyptr) * h->dy_pointersc);
 	h->content    = (void *)h->objectflags
-	                + sizeof(edb_object_flags)
+	                + sizeof(odb_spec_object_flags)
 	                + (sizeof(edb_dyptr) * h->dy_pointersc);
 }
 
@@ -142,7 +142,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// check for trashfault
 	edbp_start(&h->edbphandle, pageid);
-	edbp_object_t *o = edbp_gobject(&h->edbphandle);
+	odb_spec_object *o = edbp_gobject(&h->edbphandle);
 	if(o->trashstart_off == (uint16_t)-1) {
 
 		// if we're in here then what has happened is a trash fault.
@@ -209,11 +209,11 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	edba_u_locktransstartoff_release(h);
 
 	// calculate the id
-	*o_oid = ((edbp_object_t *)page)->head.pleft * (uint64_t)h->clutchedentry->objectsperpage + intrapagerowoff;
+	*o_oid = ((odb_spec_object *)page)->head.pleft * (uint64_t)h->clutchedentry->objectsperpage + intrapagerowoff;
 
 	// as per this function's description, and the fact we just removed it
 	// from the trash management, we will make sure its not marked as deleted.
-	edb_object_flags *objflags = h->objectflags;
+	odb_spec_object_flags *objflags = h->objectflags;
 #ifdef EDB_FUCKUPS
 	// analyze the objectflags to make sure we're allowed to create this.
 	// If this record has fallen into the trash list and the objectflags
@@ -325,7 +325,7 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	// We do this first just incase we crash by the time we get to the trash linked list
 	// we'd rather have it marked as deleted so future query processes won't try to use it.
 	// It'll be up to pmaint to finally put it in the trash linked list in that case.
-	edb_object_flags *objflags = h->objectflags;
+	odb_spec_object_flags *objflags = h->objectflags;
 	*objflags = *objflags & EDB_FDELETED;
 
 	// delete all dynamic data. We'll 0-out the pointers as their deleted just incase
@@ -339,7 +339,7 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	}
 
 	// get the header of the object page
-	edbp_object_t *objheader = edbp_graw(&h->edbphandle);
+	odb_spec_object *objheader = edbp_graw(&h->edbphandle);
 	// add to the trash linked list
 	*(uint16_t *)(h->content) = objheader->trashstart_off;
 	objheader->trashstart_off = h->objectoff;
@@ -396,7 +396,7 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 
 	// get the header of the object page
 	void *objpage = edbp_graw(&h->edbphandle);
-	edbp_object_t *objheader = objpage;
+	odb_spec_object *objheader = objpage;
 
 #ifdef EDB_FUCKUPS
 	if(objheader->trashc == 0 || objheader->trashstart_off == (uint16_t)-1) {
@@ -424,12 +424,12 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 			*ll_ref = ll_ref_after;
 			break;
 		}
-		ll_ref = (uint16_t *)(objpage+(*ll_ref)+sizeof(edb_object_flags));
+		ll_ref = (uint16_t *)(objpage+(*ll_ref)+sizeof(odb_spec_object_flags));
 	}
 	objheader->trashc--;
 
 	// mark as live
-	edb_object_flags *objflags = h->objectflags;
+	odb_spec_object_flags *objflags = h->objectflags;
 	*objflags = *objflags & ~EDB_FDELETED;
 
 	edba_u_locktransstartoff_release(h);

@@ -30,7 +30,7 @@ edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 	}
 	void *structpages; // todo: where are we storing the structurepages?
 	// as per spec we can parse this page as a edbp_object.
-	edbp_object_t  *o = structpages + pageoffset * edbd_size(file);
+	odb_spec_object  *o = structpages + pageoffset * edbd_size(file);
 
 	// assign the handle fields.
 	h->strctid = sid;
@@ -91,7 +91,7 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct) 
 	trashpage_offset = h->clutchedentry->trashlast - h->clutchedentry->ref0;
 
 	// as per spec we can parse this page as a edbp_object.
-	edbp_object_t  *o = structpages + trashpage_offset * edbd_size(file);
+	odb_spec_object  *o = structpages + trashpage_offset * edbd_size(file);
 	if(o->trashstart_off == (uint16_t)-1) {
 		// trashfault. Not much to do here compared to edba_objectopenc other
 		// than just update the trashlast.
@@ -109,7 +109,7 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct) 
 	//       implemented. See h->strct.confc
 
 	// update trash management on this page as we do in any edbp_object page.
-	o->trashstart_off = *(uint16_t *)(h->strct + sizeof(edb_object_flags));
+	o->trashstart_off = *(uint16_t *)(h->strct + sizeof(odb_spec_object_flags));
 
 #ifdef EDB_FUCKUPS
 	{

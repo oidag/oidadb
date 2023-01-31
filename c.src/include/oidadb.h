@@ -6,9 +6,10 @@
  */
 #ifndef _EDB_H_
 #define _EDB_H_ 1
-
+#define _LARGEFILE64_SOURCE 1
+#define _GNU_SOURCE 1
 #include <stdint.h>
-#include <sys/fcntl.h>
+//#include <sys/fcntl.h>
 #include <syslog.h>
 #include <sys/user.h>
 
@@ -832,6 +833,15 @@ typedef enum odb_usrlk {
 // todo: need to look in edbw and reverse the definitions for that.
 // todo: probably can consolidate a lot of these odbh_ funcs into a single one
 //       like odbh_jobinstall
+/// todo... consolidate all job installs into this function.
+/***
+ * \brief Install a job.
+ * \param jobclass This is a XOR'd value between one \ref odb_type and one \ref
+ *                 odb_cmd
+ * \param ...
+ * \return
+ */
+edb_err edbh_job(odbh *, unsigned int jobclass, ... /* arg */);
 
 /**
 \brief Installs a job into the queue that is regarding 1 or more objects.

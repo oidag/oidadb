@@ -12,59 +12,6 @@
 
 #include "include/oidadb.h"
 
-struct _edb_fhead_intro {
-	uint8_t magic[2];
-	uint8_t intsize;
-	uint8_t entrysize;
-	uint16_t pagesize;
-	uint16_t pagemul;
-	char rsvd[24];
-	char id[32];
-} __attribute__((__packed__)); // we pack the intro to make it more universal.
-typedef struct _edb_fhead_intro edb_fhead_intro;
-
-typedef uint64_t eid;
-
-typedef struct {
-	// intro must be first in this structure.
-	const edb_fhead_intro intro;
-
-	pid_t host;
-} edb_fhead;
-
-// todo: sort these structures:
-typedef struct {
-
-	// Do not touch these fields outside of pages-*.c files:
-	// these can only be modified by edbp_mod
-	uint32_t _checksum;
-	uint32_t _hiid;
-	uint32_t _rsvd2; // used to set data regarding who has the exclusive lock.
-	uint8_t  _pflags;
-
-	// all of thee other fields can be modified so long the caller
-	// has an exclusive lock on the page.
-	odb_type ptype;
-	uint16_t rsvd;
-	uint64_t pleft;
-	uint64_t pright;
-
-	// 16 bytes left for type-specific.
-	//uint8_t  psecf[16]; // page spcific. see types.h
-} _edbd_stdhead;
-typedef struct edb_deletedref_st {
-	edb_pid ref;
-	uint16_t straitc;
-	uint16_t _rsvd2;
-} edb_deletedref_t;
-typedef struct edb_deleted_refhead_st {
-	_edbd_stdhead head;
-	uint16_t largeststrait; // largest strait on the page
-	uint16_t refc; // non-null references.
-	uint32_t pagesc; // total count of pages
-	uint64_t _rsvd2;
-} edb_deleted_refhead_t;
-
 typedef struct edb_file_st {
 	int descriptor;
 
