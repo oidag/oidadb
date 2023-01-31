@@ -129,13 +129,13 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	edb_pid parentid = 0;
 	edb_pid lookuppages[depth+1];
 	for (int i = 0; i <= depth; i ++) { // "<=" because depth is 0-based.
-		edbp_lookup_t lookup_header;
+		odb_spec_lookup lookup_header;
 		lookup_header.entryid = h->clutchedentryeid;
 		lookup_header.parentlookup = parentid;
 		lookup_header.depth = i;
 		lookup_header.head.pleft = 0;
 		lookup_header.head.pright = 0;
-		err = edba_u_pagecreate_lookup(h, lookup_header, &lookuppages[i], (edb_lref_t){0});
+		err = edba_u_pagecreate_lookup(h, lookup_header, &lookuppages[i], (odb_spec_lookup_lref){0});
 		if(err) {
 			// failed for whatever reason,
 			// roll back page creations
@@ -161,7 +161,7 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	// 0 out the reserved block just for future refeance.
 	e.rsvd = 0;
 	//e.type = EDB_TOBJ; (just to make corruptiong VERY obvious, we'll save this after)
-	e.lookupsperpage = (edbd_size(edbphandle->parent->fd) - EDBD_HEADSIZE) / sizeof(edb_lref_t);
+	e.lookupsperpage = (edbd_size(edbphandle->parent->fd) - EDBD_HEADSIZE) / sizeof(odb_spec_lookup_lref);
 	e.objectsperpage = (edbd_size(edbphandle->parent->fd) - EDBD_HEADSIZE) / strck->fixedc;
 	e.trashlast = 0;
 

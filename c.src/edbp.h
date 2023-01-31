@@ -5,6 +5,7 @@
 #include <sys/user.h>
 #include <pthread.h>
 
+#include "odb-structures.h"
 #include "include/oidadb.h"
 #include "edbd.h"
 #include "errors.h"
@@ -324,5 +325,37 @@ edb_pid edbp_gpid(const edbphandle_t *handle);
 // UNDEFINED:
 //   - calling with an unitialized handle/cache
 edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...);
+
+
+
+
+// all edbp_g... functions type-cast the started page into the
+// relevant structure.
+//
+// UNDEFINED:
+//    - edbp_start was not called properly.
+//    - the page that was selected is not the type its being
+//      casted too.
+odb_spec_lookup  *edbp_glookup(edbphandle_t *handle);
+odb_spec_object  *edbp_gobject(edbphandle_t *handle);
+
+// returns the pointer to the start of the ref list.
+odb_spec_lookup_lref *edbp_lookup_refs(odb_spec_lookup *l);
+
+// returns the amount of bytes into the object page until the start of the given row.
+inline unsigned int edbp_object_intraoffset(uint64_t rowid, uint64_t pageoffset, uint16_t objectsperpage, uint16_t fixedlen)
+{
+	unsigned int ret = EDBD_HEADSIZE + (unsigned int)(rowid - pageoffset * (uint64_t)objectsperpage) * (unsigned int)fixedlen;
+#ifdef EDB_FUCKUPS
+	if(ret > (EDBD_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen)) {
+		log_critf("intraoffset calculation corruption: calculated byte offset (%d) exceeds that of theoretical maximum (%d)",
+		          ret, EDBD_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen);
+	}
+#endif
+	return ret;
+
+}
+//inline void *edbp_body(edbp_t *page) {return page + EDBD_HEADSIZE;}
+
 
 #endif

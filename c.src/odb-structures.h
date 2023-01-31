@@ -5,33 +5,98 @@
 #include "edbp.h"
 #include "stdint.h"
 
-typedef struct {
-	_edbd_stdhead head;
-	uint8_t _tphead[16];
 
-	// in memory after this structure is entries.
-	//edb_entry_t entryv;
-} edbp_index_t;
+////////////////////////////////////////////////////////////////////////////////
+//
+// Child Structures.
+//
 
-
-typedef struct {
-	_edbd_stdhead head;
-	uint8_t _tphead[16];
-
-	// in memeory after this is structures.
-	//edb_struct_t structv;
-} edbp_struct_t;
-
-typedef enum {
+typedef enum odb_sysflags {
 	EDB_FDELETED = 0x1000
-} edb_sysflags;
+} odb_spec_sysflags;
 
 // edb_object_flags is a xor'd combiniation between
-// edb_usrlk and edb_sysflags
-typedef uint32_t edb_object_flags;
+// edb_usrlk and odb_sysflags
+typedef uint32_t odb_spec_object_flags;
 
+// later: this is an edb structure. not sure if it should be here.
+//        but its never in the sight of the handle. hmm.
 typedef struct {
-	_edbd_stdhead head;
+	edb_pid ref;
+	uint64_t startoff_strait;
+} odb_spec_lookup_lref;
+
+// see spec, 'DSM'
+typedef struct odb_dsm_t {
+	uint16_t subpagesize;
+	uint16_t subpagecount;
+	uint16_t paddingdel;
+	uint16_t rsvd;
+} odb_spec_dynamic_dsm;
+typedef struct edb_deletedref_st {
+	edb_pid ref;
+	uint16_t straitc;
+	uint16_t _rsvd2;
+} odb_spec_deleted_ref;
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// Page Structures. See file spec.
+//
+//
+
+struct odb_spec_headintro {
+	uint8_t magic[2];
+	uint8_t intsize;
+	uint8_t entrysize;
+	uint16_t pagesize;
+	uint16_t pagemul;
+	char rsvd[24];
+	char id[32];
+} __attribute__((__packed__)); // we pack the intro to make it more universal.
+typedef struct odb_spec_headintro odb_spec_headintro;
+
+typedef uint64_t eid;
+
+typedef struct odb_spec_head {
+	// intro must be first in this structure.
+	const odb_spec_headintro intro;
+
+	pid_t host;
+} odb_spec_head;
+
+
+typedef struct _odb_stdhead {
+
+	// Do not touch these fields outside of pages-*.c files:
+	// these can only be modified by edbp_mod
+	uint32_t _checksum;
+	uint32_t _hiid;
+	uint32_t _rsvd2; // used to set data regarding who has the exclusive lock.
+	uint8_t  _pflags;
+
+	// all of thee other fields can be modified so long the caller
+	// has an exclusive lock on the page.
+	odb_type ptype;
+	uint16_t rsvd;
+	uint64_t pleft;
+	uint64_t pright;
+
+	// 16 bytes left for type-specific.
+	//uint8_t  psecf[16]; // page spcific. see types.h
+} _odb_stdhead;
+
+typedef struct odb_spec_deleted {
+	_odb_stdhead head;
+	uint16_t largeststrait; // largest strait on the page
+	uint16_t refc; // non-null references.
+	uint32_t pagesc; // total count of pages
+	uint64_t _rsvd2;
+} odb_spec_deleted;
+
+typedef struct odb_spec_object {
+	_odb_stdhead head;
 	uint16_t structureid;
 	uint16_t trashstart_off;
 	uint64_t trashvor; // careful accessing this outside of a =trashlast= lock.
@@ -40,10 +105,10 @@ typedef struct {
 
 	// in memeory after this is structures.
 	//edb_obj_t objects;
-} edbp_object_t;
+} odb_spec_object;
 
-typedef struct {
-	_edbd_stdhead head;
+typedef struct odb_spec_lookup {
+	_odb_stdhead head;
 	uint16_t entryid;
 	uint16_t refc;
 	uint64_t parentlookup;
@@ -53,25 +118,10 @@ typedef struct {
 
 	// in memeory after this is lookup entries..
 	//edb_lref_t objects;
-} edbp_lookup_t;
+} odb_spec_lookup;
 
-// later: this is an edb structure. not sure if it should be here.
-//        but its never in the sight of the handle. hmm.
-typedef struct {
-	edb_pid ref;
-	uint64_t startoff_strait;
-} edb_lref_t;
-
-// see spec, 'DSM'
-typedef struct {
-	uint16_t subpagesize;
-	uint16_t subpagecount;
-	uint16_t paddingdel;
-	uint16_t rsvd;
-} edbp_dsm_t;
-
-typedef struct {
-	_edbd_stdhead head;
+typedef struct odb_spec_dynamic {
+	_odb_stdhead head;
 	uint32_t _rsvd;
 	uint32_t garbagestart;
 	uint8_t _tphead[8];
@@ -79,37 +129,6 @@ typedef struct {
 	// in memeory after this is (C)DSMs and their data.
 	// Which are not static sizes.
 	//edbp_dsm_t *
-} edbp_dynamic_t;
-
-// all edbp_g... functions type-cast the started page into the
-// relevant structure.
-//
-// UNDEFINED:
-//    - edbp_start was not called properly.
-//    - the page that was selected is not the type its being
-//      casted too.
-edbp_struct_t  *edbp_gstruct(edbphandle_t *handle);
-edbp_index_t   *edbp_gindex(edbphandle_t *handle);
-edbp_lookup_t  *edbp_glookup(edbphandle_t *handle);
-edbp_dynamic_t *edbp_gdynamic(edbphandle_t *handle);
-edbp_object_t  *edbp_gobject(edbphandle_t *handle);
-
-// returns the pointer to the start of the ref list.
-edb_lref_t *edbp_lookup_refs(edbp_lookup_t *l);
-
-// returns the amount of bytes into the object page until the start of the given row.
-inline unsigned int edbp_object_intraoffset(uint64_t rowid, uint64_t pageoffset, uint16_t objectsperpage, uint16_t fixedlen)
-{
-	unsigned int ret = EDBD_HEADSIZE + (unsigned int)(rowid - pageoffset * (uint64_t)objectsperpage) * (unsigned int)fixedlen;
-#ifdef EDB_FUCKUPS
-	if(ret > (EDBD_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen)) {
-		log_critf("intraoffset calculation corruption: calculated byte offset (%d) exceeds that of theoretical maximum (%d)",
-		          ret, EDBD_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen);
-	}
-#endif
-	return ret;
-
-}
-//inline void *edbp_body(edbp_t *page) {return page + EDBD_HEADSIZE;}
+} odb_spec_dynamic;
 
 #endif

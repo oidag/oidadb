@@ -137,7 +137,7 @@ static edb_err lockpages(edbpcache_t *cache,
 			for (int w = 1; w < pagesize / sizeof(uint32_t); w++) {
 				sum += ((uint32_t *) (slot->page))[w];
 			}
-			_edbd_stdhead *head = (_edbd_stdhead *)(slot->page);
+			_odb_stdhead *head = (_odb_stdhead *)(slot->page);
 			head->_checksum = sum;
 		}
 

@@ -26,7 +26,7 @@ void    edba_host_decom(edba_host_t *host);
 
 // edb_struct_full_t is the structure that fills all edbp_struct pages.
 typedef struct{
-	edb_object_flags obj_flags;
+	odb_spec_object_flags obj_flags;
 	edb_dyptr dy_pointer;
 	edb_struct_t content;
 } edb_struct_full_t;
@@ -45,7 +45,7 @@ typedef struct edba_handle_st {
 
 	uint16_t          objectoff; // byte offset from the page until objectflags.
 	unsigned int      objectc; // same as the object's struct->fixedc
-	edb_object_flags *objectflags; // pointer to the very start of the object
+	odb_spec_object_flags *objectflags; // pointer to the very start of the object
 	unsigned int      dy_pointersc;
 	edb_dyptr        *dy_pointers; // dynamic pointers
 	unsigned int      contentc;

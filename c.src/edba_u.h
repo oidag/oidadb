@@ -95,13 +95,13 @@ void edba_u_pagedeload(edba_handle_t *handle);
 //   - EDB_ENOSPACE - no more space left in file / cannot expand
 //   - EDB_ENOMEM - no memeory left
 edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
-								 edbp_lookup_t header,
-								 edb_pid *o_pid,
-								 edb_lref_t ref);
+                                 odb_spec_lookup header,
+                                 edb_pid *o_pid,
+                                 odb_spec_lookup_lref ref);
 edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
-								  edbp_object_t header,
-								  const edb_struct_t *strct,
-								  uint8_t straitc, edb_pid *o_pid);
+                                  odb_spec_object header,
+                                  const edb_struct_t *strct,
+                                  uint8_t straitc, edb_pid *o_pid);
 
 // converts a intra-chapter row offset to a intra-chapter page offset
 // as well as its intra-page byte offset.
