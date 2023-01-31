@@ -42,7 +42,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 	}
 
 	// some easy variables we'll be needing
-	const edb_struct_t *strt;
+	const odb_spec_struct_struct *strt;
 	odb_usrlk usrlocks;
 	void *data;
 

@@ -94,7 +94,7 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 			chapter_pageoff, o_pid, depth-1);
 }
 
-edb_err edba_u_lookupoid(edba_handle_t *handle, edb_entry_t *entry,
+edb_err edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
                          edb_pid chapter_pageoff, edb_pid *o_pid) {
 	if(chapter_pageoff >= entry->ref0c) {
 		return EDB_EEOF;

@@ -28,7 +28,7 @@ void    edba_host_decom(edba_host_t *host);
 typedef struct{
 	odb_spec_object_flags obj_flags;
 	edb_dyptr dy_pointer;
-	edb_struct_t content;
+	odb_spec_struct_struct content;
 } edb_struct_full_t;
 
 typedef struct edba_handle_st {
@@ -40,7 +40,7 @@ typedef struct edba_handle_st {
 
 	// Will be the entry that has a clutch locked established.
 	// (note to self: points to persistant mem)
-	edb_entry_t *clutchedentry;
+	odb_spec_index_entry *clutchedentry;
 	edb_eid clutchedentryeid;
 
 	uint16_t          objectoff; // byte offset from the page until objectflags.
@@ -174,8 +174,8 @@ edb_err edba_objectundelete(edba_handle_t *h);
 // edbf_objectentry
 //   Will return the (readonly) entry data.
 //   This will point to whatever is given by edbd.
-const edb_struct_t *edba_objectstruct(edba_handle_t *h);
-const edb_entry_t  *edba_objectentry(edba_handle_t *h);
+const odb_spec_struct_struct *edba_objectstruct(edba_handle_t *h);
+const odb_spec_index_entry  *edba_objectentry(edba_handle_t *h);
 
 // entry (ent) mods
 
@@ -206,7 +206,7 @@ void    edba_entryclose(edba_handle_t *h);
 edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid);
 
 // Get a pointer to the entry for read-only purposes.
-const edb_entry_t *edba_entrydatr(edba_handle_t *h);
+const odb_spec_index_entry *edba_entrydatr(edba_handle_t *h);
 
 // update the entry's contents to match that supplied of
 // e. This may not be successful, as several validation steps
@@ -227,7 +227,7 @@ const edb_entry_t *edba_entrydatr(edba_handle_t *h);
 //   - EDB_EEOF - e.structureid was too high / does not exist
 //   - EDB_ENOSPACE - no more space left in file for blank pages.
 //   - EDB_ENOMEM - no memory for operaiton
-edb_err edba_entryset(edba_handle_t *h, edb_entry_t e);
+edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e);
 
 
 // open a new structure for editing.
@@ -259,7 +259,7 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e);
 //     this structure.
 //   - EDB_ENOENT - (edba_structopen) structure at sid is not initialized/invalid
 edb_err edba_structopen(edba_handle_t *h, edb_sid sid);
-edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, edb_struct_t strct);
+edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_struct strct);
 void    edba_structclose(edba_handle_t *h);
 edb_err edba_structdelete(edba_handle_t *h);
 

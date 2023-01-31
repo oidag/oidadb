@@ -1,15 +1,15 @@
+#ifndef _edbdFILE_H_
+#define _edbdFILE_H_ 1
+
 #define _LARGEFILE64_SOURCE 1
 #define _GNU_SOURCE 1
-#ifndef _FILE_H_
-#define _FILE_H_ 1
-
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
-
+#include "odb-structures.h"
 #include "include/oidadb.h"
 
 typedef struct edb_file_st {
@@ -26,7 +26,7 @@ typedef struct edb_file_st {
 	// total allocation of head will always be sysconf(_SC_PAGE_SIZE);
 	// this page is allocated using MAP_SYNC.
 	//
-	edb_fhead *head;
+	odb_spec_head *head;
 
 	// calculated by native page size by page mutliplier.
 	// doesn't change after init.
@@ -42,10 +42,6 @@ typedef struct edb_file_st {
 	int    delpagesc; // constant number of pages in window
 
 } edbd_t;
-
-// Always use this instead of sizeof(edbp_head) because
-// edbp_head doesn't include the page-specific heading
-#define EDBD_HEADSIZE 48
 
 // simply returns the size of the pages found in this cache.
 // note: this can be replaced with a hardcoded macro in builds
@@ -85,8 +81,10 @@ void    edbd_close(edbd_t *file);
 //   - EDB_EEOF: returned by both when the submitted id is out of bounds. Note that if you submit
 //     an id that hasn't have itself initialized, then it will return errorless but the out pointer
 //     will point to a 0val.
-edb_err edbd_index(const edbd_t *file, edb_eid eid, edb_entry_t **o_entry);
-edb_err edbd_struct(const edbd_t *file, uint16_t structureid, const edb_struct_t **o_struct);
+edb_err edbd_index(const edbd_t *file, edb_eid eid, odb_spec_index_entry
+**o_entry);
+edb_err edbd_struct(const edbd_t *file, uint16_t structureid, const odb_spec_struct_struct
+**o_struct);
 
 // edbd_add
 //   is the most primative way to create. will create a page strait of length straitc and will return the

@@ -19,7 +19,7 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	edb_pid setid;
 	edb_err err = 0;
 	edb_deletedref_t *ref;
-	const unsigned int refsperpage = (edbd_size(file) - EDBD_HEADSIZE) / sizeof(edb_deletedref_t);
+	const unsigned int refsperpage = (edbd_size(file) - ODB_SPEC_HEADSIZE) / sizeof(edb_deletedref_t);
 
 
 	// first look at our edbp_deleted window see if we already have some pages that we
@@ -47,7 +47,7 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 			//        Note that this j-loop will always go through (it will never break) so this
 			//        optimization won't hurt anything.
 
-			ref = file->delpages[i] + EDBD_HEADSIZE + sizeof(edb_deletedref_t) * j;
+			ref = file->delpages[i] + ODB_SPEC_HEADSIZE + sizeof(edb_deletedref_t) * j;
 			if(*o_id != 0 || ref->ref == 0 || ref->straitc < straitc) {
 
 				// if we're passing up this reference that doesn't mean it could be the next
@@ -219,7 +219,7 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 	edb_err err = 0;
 	edb_deletedref_t *ref;
 	edb_deleted_refhead_t *head;
-	const unsigned int refsperpage = (edbd_size(file) - EDBD_HEADSIZE) / sizeof(edb_deletedref_t);
+	const unsigned int refsperpage = (edbd_size(file) - ODB_SPEC_HEADSIZE) / sizeof(edb_deletedref_t);
 	pthread_mutex_lock(&file->adddelmutex);
 
 	// first look at our deleted window. Do we have any free slots?
@@ -235,7 +235,7 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 		}
 		// with this page selected see if we have any null refs.
 		for(unsigned int j = 0; j < refsperpage; j++) {
-			ref = file->delpages[i] + EDBD_HEADSIZE + sizeof(edb_deletedref_t) * j;
+			ref = file->delpages[i] + ODB_SPEC_HEADSIZE + sizeof(edb_deletedref_t) * j;
 			if(ref->ref == 0) {
 				// found a null reference
 				ref->ref = id;

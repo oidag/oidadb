@@ -684,43 +684,6 @@ typedef uint8_t odb_type;
 #define EDB_TENTS  4
 #define EDB_TPEND  5
 #define EDB_TLOOKUP 6
-// see spec.
-typedef struct edb_entry_st {
-
-	// paramaters
-	odb_type type;
-	uint8_t rsvd;
-	uint16_t memory;
-	uint16_t structureid;
-
-	// cached values
-	uint16_t objectsperpage;
-	uint16_t lookupsperpage;
-
-	// references
-	edb_pid ref0; // starting chapter start
-	edb_pid ref1; // lookup chapter start
-	edb_pid ref2; // dynamic chapter start
-	edb_pid ref0c;
-	edb_pid lastlookup;
-	edb_pid ref2c;
-	edb_pid trashlast;
-
-} edb_entry_t;
-
-typedef struct edb_struct_st {
-
-	//uint16_t     id;   // cant put ids in structures
-
-	uint16_t    fixedc;    // total size (see spec)
-	uint16_t    confc;     // configuration size
-	uint8_t     flags;     // flags see spec.
-	uint8_t     data_ptrc; // data pointer count
-
-	// implicit fields:
-	// const uint8_t *subpagesizes; // = (edb_struct_t*) + sizeof(edb_struct_t)
-	// const void    *confv;        // = (edb_struct_t*) + sizeof(edb_struct_t) + sizeof(uint8_t) * data_ptrc
-} edb_struct_t;
 /// \}
 
 
@@ -765,7 +728,8 @@ typedef struct edb_struct_st {
  *
  * \see elements for information on what an entry is.
  */
-edb_err odbh_index(odbh *handle, edb_eid eid, edb_entry_t *o_entry);
+edb_err odbh_index(odbh *handle, edb_eid eid, void *o_entry); //todo: what is
+// o_entry?
 
 /** \brief Get structure data
  *
@@ -785,7 +749,8 @@ edb_err odbh_index(odbh *handle, edb_eid eid, edb_entry_t *o_entry);
  *
  * \see elements to for information as to what a structure is.
  */
-edb_err odbh_structs(odbh *handle, edb_sid structureid, edb_entry_t *o_struct);
+edb_err odbh_structs(odbh *handle, edb_sid structureid, void *o_struct); //
+// todo: what is o_struct?
 
 /**
  * \brief Command enumeration

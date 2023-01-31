@@ -63,7 +63,7 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	return 0;
 }
 
-edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
+edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 #ifdef EDB_FUCKUPS
 	if(!(h->openflags & EDBA_FWRITE) || h->opened != EDB_TENTS) {
 		log_critf("edba_entryset: no FWRITE on EDB_TENTS");
@@ -72,10 +72,10 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 #endif
 
 	// easy pointers
-	edb_entry_t *entry = h->clutchedentry;
+	odb_spec_index_entry *entry = h->clutchedentry;
 	edbd_t *descriptor = h->parent->descriptor;
 	edbphandle_t *edbphandle = &h->edbphandle;
-	const edb_struct_t *strck;
+	const odb_spec_struct_struct *strck;
 	edb_err err;
 
 	// value assumptions
@@ -161,8 +161,8 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	// 0 out the reserved block just for future refeance.
 	e.rsvd = 0;
 	//e.type = EDB_TOBJ; (just to make corruptiong VERY obvious, we'll save this after)
-	e.lookupsperpage = (edbd_size(edbphandle->parent->fd) - EDBD_HEADSIZE) / sizeof(odb_spec_lookup_lref);
-	e.objectsperpage = (edbd_size(edbphandle->parent->fd) - EDBD_HEADSIZE) / strck->fixedc;
+	e.lookupsperpage = (edbd_size(edbphandle->parent->fd) - ODB_SPEC_HEADSIZE) / sizeof(odb_spec_lookup_lref);
+	e.objectsperpage = (edbd_size(edbphandle->parent->fd) - ODB_SPEC_HEADSIZE) / strck->fixedc;
 	e.trashlast = 0;
 
 	// we're all done, save to persistant memory.
@@ -171,7 +171,7 @@ edb_err edba_entryset(edba_handle_t *h, edb_entry_t e) {
 	return 0;
 }
 
-const edb_entry_t *edba_entrydatr(edba_handle_t *h) {
+const odb_spec_index_entry *edba_entrydatr(edba_handle_t *h) {
 	return h->clutchedentry;
 }
 

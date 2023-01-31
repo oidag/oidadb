@@ -5,6 +5,7 @@
 #include <sys/user.h>
 #include <pthread.h>
 
+
 #include "odb-structures.h"
 #include "include/oidadb.h"
 #include "edbd.h"
@@ -345,11 +346,11 @@ odb_spec_lookup_lref *edbp_lookup_refs(odb_spec_lookup *l);
 // returns the amount of bytes into the object page until the start of the given row.
 inline unsigned int edbp_object_intraoffset(uint64_t rowid, uint64_t pageoffset, uint16_t objectsperpage, uint16_t fixedlen)
 {
-	unsigned int ret = EDBD_HEADSIZE + (unsigned int)(rowid - pageoffset * (uint64_t)objectsperpage) * (unsigned int)fixedlen;
+	unsigned int ret = ODB_SPEC_HEADSIZE + (unsigned int)(rowid - pageoffset * (uint64_t)objectsperpage) * (unsigned int)fixedlen;
 #ifdef EDB_FUCKUPS
-	if(ret > (EDBD_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen)) {
+	if(ret > (ODB_SPEC_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen)) {
 		log_critf("intraoffset calculation corruption: calculated byte offset (%d) exceeds that of theoretical maximum (%d)",
-		          ret, EDBD_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen);
+		          ret, ODB_SPEC_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen);
 	}
 #endif
 	return ret;
