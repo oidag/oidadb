@@ -4,6 +4,18 @@
 #include <sys/time.h>
 #include "gman_u.h"
 
+typedef struct ent_debug_t {
+	int width,height;
+	text_font font;
+	unsigned int frameid;
+	char buff[255];
+	glp_eventtype_t lastevent;
+
+	time_t       frame_last_rec;
+	unsigned int frame_last_recid;
+	unsigned int fps;
+} ent_debug_t;
+
 static const char *vals[] = {
 "DAF_ONMOUSE_DOWN",
 "DAF_ONMOUSE_UP",
@@ -64,11 +76,11 @@ static void draw(graphic_t *g){
 	text_draw(8,24+8+8, d->buff);
 }
 
-
-
-void ent_debug_new(ent_debug_t *o_ent) {
+static ent_debug_t d;
+static ent_debug_t *o_ent;
+void debug_start() {
 	graphic_t *g = glp_new();
-
+	o_ent = &d;
 	bzero(o_ent, sizeof(ent_debug_t));
 	o_ent->font = text_defaults_monospace();
 	o_ent->lastevent = 8;

@@ -1,6 +1,8 @@
 #ifndef ENTS_H_
 #define ENTS_H_
 
+#include "text/text.h"
+
 #include <bits/types/time_t.h>
 
 typedef enum element_type {
@@ -12,30 +14,22 @@ typedef enum element_type {
 	ELM_EVENT,
 } element_type;
 
-void element_host_start();
+int gman_init();
+int gman_serve();
+void gman_close();
 
 // todo: provide functions here to allow dbfile namespace to call whatever
 //       it needs too.
 
-typedef struct {
-	int width,height;
-	text_font font;
-	unsigned int frameid;
-	char buff[255];
-	glp_eventtype_t lastevent;
+typedef struct ent_debug_t ent_debug_t;
 
-	time_t       frame_last_rec;
-	unsigned int frame_last_recid;
-	unsigned int fps;
-} ent_debug_t;
-
-void ent_debug_new(ent_debug_t *o_ent);
+void debug_start();
 
 typedef struct ent_background_t {
 	int _;
 } ent_background_t;
 
-int ent_background_new(ent_background_t *o_bg);
+int background_start();
 
 void ent_opener_new(void (*onload)());
 
