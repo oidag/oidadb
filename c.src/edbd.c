@@ -228,7 +228,7 @@ edb_err odb_create(const char *path, odb_createparams params) {
 	if(!paramsvalid(params)) return EDB_EINVAL;
 
 	// create the file itself.
-	int fd = open(path, 0666, O_CREAT | O_EXCL | O_RDWR);
+	int fd = open(path, O_CREAT | O_EXCL | O_RDWR, 0666);
 	if(fd == -1) {
 		if(errno == EEXIST) {
 			return EDB_EEXIST;
