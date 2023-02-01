@@ -115,7 +115,7 @@ outside of this domain and its subdomains.
    - shard-event
  - column
  - /background/
- - /dialog*/
+ - dialog*
    - /dialog-structure/
    - /dialog-index/
    - /dialog-meta/
