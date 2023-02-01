@@ -63,11 +63,15 @@ void edbd_u_initindex_rsvdentries(void *page,
 
 	// the index
 	rsvd_index->type = EDB_TENTS;
+	rsvd_index->objectsperpage = (psize-ODB_SPEC_HEADSIZE) / sizeof
+			(odb_spec_index_entry);
 	rsvd_index->ref0 = indexstart;
 	rsvd_index->ref0c = indexpagec;
 
 	// structure chapter
 	rsvd_struct->type = EDB_TSTRCT;
+	rsvd_struct->objectsperpage = (psize-ODB_SPEC_HEADSIZE) / sizeof
+			(odb_spec_struct_struct);
 	rsvd_struct->ref0c = structurepagec;
 	rsvd_struct->ref0 = structstart;
 	// todo: dynamic pages: structures need dynamic info
