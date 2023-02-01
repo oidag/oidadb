@@ -2,6 +2,8 @@
 #include <GL/gl.h>
 #include "gman_u.h"
 
+#include "dialog.h"
+
 
 static struct {
 	recti_t viewport;
@@ -71,7 +73,6 @@ int gman_init() {
 	// statics
 	background_start();
 	ent_terminal_start();
-	debug_start();
 
 	// columns
 
@@ -110,10 +111,18 @@ int gman_init() {
 	shard_new(host.pages);
 
 
+	dialog_index_start();
+
+
 
 	// todo: edbw
 
 	// todo: edbs
+
+
+	// debuger
+	debug_start();
+
 	return 0;
 }
 

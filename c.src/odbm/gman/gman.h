@@ -37,4 +37,7 @@ void ent_opener_new(void (*onload)());
 void ent_terminal_start();
 
 
+void term_log(const char *msg, ...)  __attribute__ ((format (printf, 1, 2)));
+
+
 #endif

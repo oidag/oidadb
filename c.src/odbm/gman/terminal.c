@@ -187,7 +187,7 @@ static void onscroll(graphic_t *g, eventdata_t e) {
 			return;
 	}
 }
-
+/*
 void *listener(void *_) {
 	char buff[255];
 	while(1) {
@@ -203,11 +203,11 @@ void closelistener() {
 	close(terminal.fd_app_stdout_pipe[1]);
 	fclose(stdout);
 	pthread_join(terminal.pthread, 0);
-}
+}*/
 
 
 void ent_terminal_ondestroy() {
-	closelistener();
+	//closelistener();
 }
 
 void term_log(const char *fmt, ...) {
@@ -215,6 +215,7 @@ void term_log(const char *fmt, ...) {
 	va_start(args, fmt);
 	char buff[1024];
 	vsprintf(buff, fmt, args);
+	vfprintf(stdout, fmt, args);
 	addline(APP_STDOUT, buff);
 	va_end(args);
 }
