@@ -80,8 +80,11 @@ static edb_err createfile(int fd, odb_createparams params) {
 
 	// now the reserved indexes.
 	unsigned int finalpsize = sysconf(_SC_PAGE_SIZE) * newhead.intro.pagemul;
-	off64_t indexstart = finalpsize * 1;
-	off64_t structstart = finalpsize * (1+params.indexpages);
+	edb_pid indexstartp = 1;
+	off64_t indexstart = finalpsize * indexstartp;
+	edb_pid structstartp = (1+params.indexpages);
+	off64_t structstart = finalpsize * structstartp;
+
 
 	// initialize the index pages
 	for(int i = 0; i < params.indexpages; i++) {
@@ -98,8 +101,8 @@ static edb_err createfile(int fd, odb_createparams params) {
 		if(i==0) {
 			// initialize the resevered slots.
 			edbd_u_initindex_rsvdentries(page, finalpsize,
-			                             indexstart,
-			                             structstart,
+			                             indexstartp,
+			                             structstartp,
 			                             params.indexpages,
 			                             params.structurepages);
 		} else {

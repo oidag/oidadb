@@ -340,7 +340,7 @@ which all pages in that collection are.
 | rsvd            | uint8_t  | rsvd (used for edbn?)                                                                        |
 | memset          | uint16_t | [[Memory Settings]]                                                                              |
 | struct_id       | uint16_t | if edbp_object: the structure ID                                                             |
-| objectsperpage  | uint16_t | cached amount of objects per page.                                                           |
+| objectsperpage  | uint16_t | cached amount of objects per page. Or enteries if type is EDB_TENTS                          |
 | lookupsperpage  | uint16_t | cached amount of lookups per page                                                            |
 | ref0            | [[Page ID]]  | The starting page of the chapter (0 if none)                                                 |
 | ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup (will never be 0)                                            |
