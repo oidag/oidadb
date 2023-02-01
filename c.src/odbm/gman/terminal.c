@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdarg.h>
 #include "gman_u.h"
 
 enum termline_source {
@@ -54,6 +55,7 @@ static void draw(graphic_t *g) {
 	// cache the viewport so we can reset it
 	glp_viewport_t v = glp_viewportget(g);
 	const int padding = 20;
+	const int prefixspace = 70;
 	color_glset(color_stone800);
 	glRecti(0,0,10000,10000);
 
@@ -64,7 +66,11 @@ static void draw(graphic_t *g) {
 			   v.heigth);
 
 	text_defaults_monospace();
-	glPushMatrix();
+	// calc max characters
+	int maxchars = (v.width - prefixspace) / 10; // todo: no idea where that
+	// 10 comes from but its pretty much on the money.
+
+			glPushMatrix();
 	glLoadIdentity();
 	glOrtho(0,v.width,0,v.heigth,1, -1);
 	// scroll offset
@@ -77,7 +83,7 @@ static void draw(graphic_t *g) {
 	for(int i = 0; i < terminal.lineq; i++) {
 		switch (terminal.linev[i].source) {
 			case APP_STDOUT:
-				prefix = "STDOUT";
+				prefix = "STDOUT ";
 				prefix_color = color_slate50;
 				text_color = color_slate50;
 				break;
@@ -91,11 +97,44 @@ static void draw(graphic_t *g) {
 		if(msg == 0) {
 			continue;
 		}
+
+		// Print the line backwards to handle new lines.
+		// todo: this is gross code. Oh well gets the job done.
+		int lineheight = (int)text_height("W") * ((int)(strlen(msg) /
+				maxchars)+1);
+		linestarty += (float)lineheight;
 		color_glset(prefix_color);
 		text_draw(0,linestarty,prefix);
+		float intralinestarty = linestarty;
 		color_glset(text_color);
-		text_draw(70,linestarty,msg);
-		linestarty += text_height(msg);
+		const char *line = msg;
+		while(strlen(line)) {
+			int linec = min(strlen(line), maxchars);
+			text_drawc((float)prefixspace,intralinestarty,line, linec);
+			line += sizeof(char)*linec;
+			intralinestarty -= text_height("W");
+		}
+
+
+
+
+/*
+		unsigned int msglen = strlen(msg);
+		const char *line = msg + msglen;
+		while(1) {
+			int linec = min(msglen - strlen(line), maxchars);
+			line -= sizeof(char)*linec;
+			text_drawc((float)prefixspace,linestarty,line, linec);
+			if(strlen(line) != msglen) {
+				linestarty += text_height(line);
+			} else {
+				break;
+			}
+		}*/
+
+
+
+
 	}
 	terminal.scolly_maxoff = -(linestarty - (float)v.heigth);
 	if(terminal.scolly_maxoff > 0) terminal.scolly_maxoff = 0;
@@ -104,7 +143,7 @@ static void draw(graphic_t *g) {
 
 
 // note: thread safe
-void addline(enum termline_source source, const char *message) {
+static void addline(enum termline_source source, const char *message) {
 
 	// dealloc the message that's leaving if its there
 	if(terminal.linev[terminal.lineq-1].msg) {
@@ -138,12 +177,12 @@ static void onscroll(graphic_t *g, eventdata_t e) {
 			terminal.scrolly_off -= (float)e.scroll.y * 10;
 
 			// clamp
-			if(terminal.scrolly_off < terminal.scolly_maxoff) {
+			/*if(terminal.scrolly_off < terminal.scolly_maxoff) {
 				terminal.scrolly_off = terminal.scolly_maxoff;
 			}
 			if(terminal.scrolly_off > 0) {
 				terminal.scrolly_off = 0;
-			}
+			}*/
 			glp_invalidate(g);
 			return;
 	}
@@ -171,6 +210,15 @@ void ent_terminal_ondestroy() {
 	closelistener();
 }
 
+void term_log(const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	char buff[1024];
+	vsprintf(buff, fmt, args);
+	addline(APP_STDOUT, buff);
+	va_end(args);
+}
+
 // start
 void ent_terminal_start() {
 	if(terminal.init) return; // singleton
@@ -186,13 +234,13 @@ void ent_terminal_start() {
 	glp_events(g, DAF_ONMOUSE_MOVE, onscroll);
 	terminal.g = g;
 
-
+/*
+ * // listen t stdout
 	pipe(terminal.fd_app_stdout_pipe);
 	dup2(terminal.fd_app_stdout_pipe[1], fileno(stdout));
 	setvbuf(stdout, NULL, _IONBF, 0);
-
-
 	// start the listener
-	pthread_create(&terminal.pthread, 0, listener, 0);
+	//pthread_create(&terminal.pthread, 0, listener, 0);
+*/
 }
 

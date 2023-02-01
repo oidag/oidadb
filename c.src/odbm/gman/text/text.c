@@ -1,6 +1,7 @@
 
 #include <drawtext.h>
 #include <GL/gl.h>
+#include <string.h>
 
 #include "error.h"
 #include "text.h"
@@ -49,11 +50,21 @@ float text_width(const char *text) {
 float text_height(const char *text) {
 	return dtx_string_height(text);
 }
-void text_draw(float x, float y, const char *text) {
+void text_drawc(float x, float y, const char *text, int size) {
 	glPushMatrix();
 	// nvm. I'm not translating it. You do it.
 	//glTranslatef(x,y + (dtx_string_height(text) - dtx_line_height()),0);
 	glTranslatef(x,y,0);
-	dtx_string(text);
+	if(size == -1) {
+		dtx_string(text);
+	} else {
+		char buff[size+1];
+		memcpy(buff, text, size);
+		buff[size] = 0;
+		dtx_string(buff);
+	}
 	glPopMatrix();
+}
+void text_draw(float x, float y, const char *text) {
+	text_drawc(x,y,text,-1);
 }

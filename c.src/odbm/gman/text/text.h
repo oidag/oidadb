@@ -17,4 +17,8 @@ float text_width(const char *text);
 float text_height(const char *text);
 void text_draw(float x, float y, const char *text);
 
+// only writes up to size chars found in text.
+// if size is -1, will look for null term.
+void text_drawc(float x, float y, const char *text, int size);
+
 #endif
