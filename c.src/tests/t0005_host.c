@@ -10,20 +10,21 @@
 #include <pthread.h>
 
 static void *closeme(void *_) {
-
-	int i;
-	for( i = 0; i < 10; i++) {
-		err = odb_hoststop(test_filenmae);
-		if(err) {
-			if(err != EDB_ENOHOST)
-			test_error("odb_hoststop returned non-0 that wasn't EDB_ENOHOST");
-			return 0;
-		}
-		usleep(500);
+	err = odb_hostselect(test_filenmae, ODB_EVENT_HOSTED, 0);
+	if(err) {
+		test_error("odb_hostselect");
+		return 0;
 	}
-	if(i == 10) {
-		test_error("odb_hoststop tried 10 times to close host but the host "
-				   "was never found");
+	err = odb_hoststop(test_filenmae);
+	if(err) {
+		if(err != EDB_ENOHOST)
+			test_error("odb_hoststop returned non-0");
+			return 0;
+	}
+	err = odb_hostselect(test_filenmae, ODB_EVENT_CLOSED, 0);
+	if(err) {
+		test_error("odb_hostselect 2");
+		return 0;
 	}
 	return 0;
 }
@@ -44,6 +45,7 @@ int t0005() {
 		test_error("host returned non-0");
 		return 1;
 	}
+	pthread_join(thread, 0);
 
 
 	return test_waserror;
