@@ -661,7 +661,58 @@ static const odb_hostconfig_t odb_hostconfig_default = {
 
 edb_err odb_host(const char *path, odb_hostconfig_t hostops);
 edb_err odb_hoststop(const char *path);
+
+// odb_host
 /// \}
+
+
+/** \defgroup odb_hostpoll odb_hostpoll
+ * \brief Wait for hosting-related events on a file
+ *
+ * Anytime you want to "listen" to a given file and have your thread wait
+ * around for a particular event(s), use this function.
+ *
+ * Calling this odb_hostpoll (on a valid file) will block the caller until
+ * an event that was included into the odb_event bitmask is triggered. See
+ * below for specific information about each event.
+ *
+ * odb_event is a XOR'd mask of which events you'd like to wait around for.
+ * ODB_EVENT_ANY can be used to select any event.
+ *
+ * You may also optionally provide `o_env` so that when that when an event is
+ * triggered, o_env will specify which event had triggered.
+ *
+ * Only one event is returned per call. Note that events will be triggered
+ * retroactively.
+ *
+ *  - `ODB_EVENT_HOSTED` - Triggered when the file is now hosted, or is
+ *  currently hosted when odb_hostpoll was called.
+ *  - `ODB_EVENT_CLOSED` - Triggered when the file's host has closed, or is
+ *  currently closed when odb_hostpoll was called.
+ *
+ *
+ * ## THREADING
+ * odb_hostselect is thread safe.
+ *
+ * ## ERRORS
+ *   - EDB_EINVAL `event` was not an allowed value
+ *   - EDB_EINVAL `path` was null
+ *   - EDB_ENOENT file does not exist.
+ *   - \ref EDB_ECRIT
+ *
+ *
+ * \{
+ */
+typedef unsigned int odb_event;
+#define ODB_EVENT_HOSTED 1
+#define ODB_EVENT_CLOSED 2
+#define ODB_EVENT_ANY (odb_event)(-1)
+edb_err odb_hostpoll(const char *path, odb_event event, odb_event *o_env);
+// odb_hostpoll
+/// \}
+
+
+// hostshandles
 /// \}
 
 
