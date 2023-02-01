@@ -1,6 +1,9 @@
 #ifndef teststuff
 #define teststuff
 
+#include "oidadb.h"
+
+#include <stdio.h>
 #include <stdarg.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -9,7 +12,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <libgen.h>
-#include "oidadb.h"
 
 edb_err err;
 static int test_waserror = 0;
