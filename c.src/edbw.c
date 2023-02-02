@@ -1,7 +1,7 @@
-#include <strings.h>
-
 #include "edbw.h"
 #include "edbw_u.h"
+
+#include <strings.h>
 
 // function to easily verbosely log worker and job ids
 #define edbw_logverbose(workerp, fmt, ...) \
@@ -90,7 +90,7 @@ void static *workermain(void *_selfv) {
 }
 
 unsigned int nextworkerid = 1;
-edb_err edb_workerinit(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_shm_t *shm) {
+edb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_shm_t *shm) {
 	edb_err eerr;
 	//initialize
 	bzero(o_worker, sizeof (edb_worker_t));
@@ -104,13 +104,13 @@ edb_err edb_workerinit(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_
 	return 0;
 }
 
-void edb_workerdecom(edb_worker_t *worker) {
-	edb_workerstop(worker);
+void edbw_decom(edb_worker_t *worker) {
+	edbw_stop(worker);
 	edba_handle_decom(&worker->edbahandle);
 }
 
 
-edb_err edb_workerasync(edb_worker_t *worker) {
+edb_err edbw_async(edb_worker_t *worker) {
 	if(worker->state != EDB_WWORKNONE) {
 		log_critf("attempting to start already-running worker");
 		return EDB_ECRIT;
@@ -126,7 +126,7 @@ edb_err edb_workerasync(edb_worker_t *worker) {
 
 
 
-void edb_workerstop(edb_worker_t *worker) {
+void edbw_stop(edb_worker_t *worker) {
 	if(worker->state != EDB_WWORKASYNC) {
 		log_noticef("attempted to stop worker when not in working transferstate");
 		return;
@@ -134,7 +134,7 @@ void edb_workerstop(edb_worker_t *worker) {
 	worker->state = EDB_WWORKSTOP;
 }
 
-edb_err edb_workerjoin(edb_worker_t *worker) {
+edb_err edbw_join(edb_worker_t *worker) {
 	if (worker->state == EDB_WWORKNONE) {
 		return 0; // already stopped and joined.
 	}

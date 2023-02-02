@@ -37,8 +37,8 @@ typedef struct edb_worker_st {
 //
 // edb_workerdecom will only crit out.
 // edb_workerdecom will implicitly call edb_workerstop
-edb_err edb_workerinit(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_shm_t *shm);
-void edb_workerdecom(edb_worker_t *worker);
+edb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_shm_t *shm);
+void edbw_decom(edb_worker_t *worker);
 
 // once initialized, a worker can be started with either of these functions.
 // starts a new thread.
@@ -59,9 +59,9 @@ void edb_workerdecom(edb_worker_t *worker);
 // Threading: edb_workerstop is completely thread safe. sync and async are not
 // thread safe on the same worker. Limit edb_workerjoin to 1 call per thread
 // per worker.
-edb_err edb_workerasync(edb_worker_t *worker);
-void edb_workerstop(edb_worker_t *worker);
-edb_err edb_workerjoin(edb_worker_t *worker);
+edb_err edbw_async(edb_worker_t *worker);
+void edbw_stop(edb_worker_t *worker);
+edb_err edbw_join(edb_worker_t *worker);
 
 
 #endif

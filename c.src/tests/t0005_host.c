@@ -10,7 +10,7 @@
 #include <pthread.h>
 
 static void *closeme(void *_) {
-	err = odb_hostselect(test_filenmae, ODB_EVENT_HOSTED, 0);
+	err = odb_hostpoll(test_filenmae, ODB_EVENT_HOSTED, 0);
 	if(err) {
 		test_error("odb_hostselect");
 		return 0;
@@ -21,7 +21,7 @@ static void *closeme(void *_) {
 			test_error("odb_hoststop returned non-0");
 			return 0;
 	}
-	err = odb_hostselect(test_filenmae, ODB_EVENT_CLOSED, 0);
+	err = odb_hostpoll(test_filenmae, ODB_EVENT_CLOSED, 0);
 	if(err) {
 		test_error("odb_hostselect 2");
 		return 0;

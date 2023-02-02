@@ -1,15 +1,14 @@
-#define _LARGEFILE64_SOURCE 1
-#define _GNU_SOURCE 1
+#define _GNU_SOURCE
+
+#include "include/oidadb.h"
+#include "edbd.h"
+#include "errors.h"
 
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
-
-#include "include/oidadb.h"
-#include "edbd.h"
-#include "errors.h"
 
 // same as edbd_add but no mutex/locking controls. Seperated because of its use in
 // both edbd_add and edbd_del
@@ -18,14 +17,15 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	int fd = file->descriptor;
 	edb_pid setid;
 	edb_err err = 0;
-	edb_deletedref_t *ref;
-	const unsigned int refsperpage = (edbd_size(file) - ODB_SPEC_HEADSIZE) / sizeof(edb_deletedref_t);
+	odb_spec_deleted_ref *ref;
+	const unsigned int refsperpage = (edbd_size(file) - ODB_SPEC_HEADSIZE) / 
+			sizeof(odb_spec_deleted_ref);
 
 
 	// first look at our edbp_deleted window see if we already have some pages that we
 	// can recycle.
 	for(unsigned int i = 0; i < file->delpagesc; i++) {
-		edb_deleted_refhead_t *head = file->delpages[i];
+		odb_spec_deleted *head = file->delpages[i];
 		int newlargeststrait = 0;
 		if (head->largeststrait < straitc) {
 			// no references in this edbp_deleted have enough space for us so we can quickly skip it.
@@ -47,7 +47,7 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 			//        Note that this j-loop will always go through (it will never break) so this
 			//        optimization won't hurt anything.
 
-			ref = file->delpages[i] + ODB_SPEC_HEADSIZE + sizeof(edb_deletedref_t) * j;
+			ref = file->delpages[i] + ODB_SPEC_HEADSIZE + sizeof(odb_spec_deleted_ref) * j;
 			if(*o_id != 0 || ref->ref == 0 || ref->straitc < straitc) {
 
 				// if we're passing up this reference that doesn't mean it could be the next
@@ -103,14 +103,14 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	// However, we may have some bookkeeping to do in the fact that we may need to shift
 	// the deleted page window to the left (closer to the beginning)
 	{ //(scoped for clarity)
-		edb_deleted_refhead_t *firstpage = file->delpages[file->delpagesc - 1];
-		edb_deleted_refhead_t *lastpage = file->delpages[0];
+		odb_spec_deleted *firstpage = file->delpages[file->delpagesc - 1];
+		odb_spec_deleted *lastpage = file->delpages[0];
 		if (firstpage->head.pleft != 0 && lastpage->refc == 0) {
 			// we know that our window CAN be moved to the left and we know our last
 			// page has no more references. So we can move the window to the right.
 
 			// unmap the rightmost (latest and empty) page. And make it leave our window.
-			munmap(lastpage);
+			munmap(lastpage, edbd_size(file));
 
 			// move all the pages
 			for(int i = 0; i < file->delpagesc - 1; i++) {
@@ -217,9 +217,9 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 
 	// some working vars.
 	edb_err err = 0;
-	edb_deletedref_t *ref;
-	edb_deleted_refhead_t *head;
-	const unsigned int refsperpage = (edbd_size(file) - ODB_SPEC_HEADSIZE) / sizeof(edb_deletedref_t);
+	odb_spec_deleted_ref *ref;
+	odb_spec_deleted *head;
+	const unsigned int refsperpage = (edbd_size(file) - ODB_SPEC_HEADSIZE) / sizeof(odb_spec_deleted_ref);
 	pthread_mutex_lock(&file->adddelmutex);
 
 	// first look at our deleted window. Do we have any free slots?
@@ -235,7 +235,7 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 		}
 		// with this page selected see if we have any null refs.
 		for(unsigned int j = 0; j < refsperpage; j++) {
-			ref = file->delpages[i] + ODB_SPEC_HEADSIZE + sizeof(edb_deletedref_t) * j;
+			ref = file->delpages[i] + ODB_SPEC_HEADSIZE + sizeof(odb_spec_deleted_ref) * j;
 			if(ref->ref == 0) {
 				// found a null reference
 				ref->ref = id;
@@ -292,7 +292,7 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 		// We will opt-in for creating a new edbp_delete page because it's unlikely that a previous left-of-window
 		// page in the deleted chapter isn't full... yeah it can still happen... but unlikely.
 		// So just create a new page.
-		edb_entry_t *ent;
+		odb_spec_index_entry *ent;
 		edbd_index(file, EDBD_EIDDELTED, &ent);
 		edb_pid newdeletedpage;
 

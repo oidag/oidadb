@@ -1,4 +1,6 @@
-#define _LARGEFILE64_SOURCE     /* See feature_test_macros(7) */
+#define _GNU_SOURCE
+#include "edbs.h"
+
 #include <sys/mman.h>
 #include <sys/shm.h>
 #include <fcntl.h>
@@ -7,8 +9,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <strings.h>
-
-#include "edbs.h"
 
 
 // generates the file name for the shared memory
@@ -46,7 +46,7 @@ void edbs_dehost(edb_shm_t *host) {
 // builds, allocates, and initializes the static shared memory region.
 //
 //
-edb_err edbs_host(edb_shm_t *host, edb_hostconfig_t config) {
+edb_err edbs_host(edb_shm_t *host, odb_hostconfig_t config) {
 
 	edb_err eerr;
 

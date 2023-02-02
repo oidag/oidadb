@@ -101,11 +101,3 @@ edb_err edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
 	}
 	return edba_u_lookup_rec(handle, entry->ref1, chapter_pageoff, o_pid, entry->memory >> 12);
 }
-
-
-
-
-
-
-
-}

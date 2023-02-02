@@ -126,7 +126,8 @@ typedef struct {
 
 // all this does is build up a helper structure.
 // Allows you to use the edbs_jobhandler functions
-edbs_jobhandler edbs_jobhandle(const edb_shm_t *shm, unsigned int jobindex) {
+static edbs_jobhandler edbs_jobhandle(const edb_shm_t *shm,
+									  unsigned int jobindex) {
 	return (edbs_jobhandler){
 		.shm = shm,
 		.job = &shm->jobv[jobindex],
