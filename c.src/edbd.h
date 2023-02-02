@@ -51,9 +51,10 @@ unsigned int edbd_size(const edbd_t *c);
 // open, create, and close valid edb files. does not edit
 // Head-Meta after loading.
 //
-// flags is an or'd bitflags of the EDB_H... constant family.
+// The descriptor is the main master descriptor. path is used for opening
+// child descriptors and log messages.
 //
-// edb_fileopen can return the following:
+// edbd_open can return the following:
 //   EDB_EERRNO - from stat(2) or open(2)
 //   EDB_EFILE  - path is not a regular file,
 //   EDB_ENOTDB - if bad magic number (probably meaning not a edb file)
@@ -61,7 +62,7 @@ unsigned int edbd_size(const edbd_t *c);
 //
 // edb_fileclose will preserve errno.
 //
-edb_err edbd_open(edbd_t *o_file, const char *path);
+edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path);
 void    edbd_close(edbd_t *file);
 
 

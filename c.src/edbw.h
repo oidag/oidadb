@@ -36,6 +36,7 @@ typedef struct edb_worker_st {
 // _init initializs a new worker and _decom decommissions it.
 //
 // edb_workerdecom will only crit out.
+// edb_workerdecom will implicitly call edb_workerstop
 edb_err edb_workerinit(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_shm_t *shm);
 void edb_workerdecom(edb_worker_t *worker);
 

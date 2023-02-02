@@ -194,15 +194,6 @@ void edbd_close(edbd_t *file) {
 		errno = errtmp;
 		return;
 	}
-
-	// close the descriptor
-	err = close(file->descriptor);
-	if(err == -1) {
-		int errtmp = errno;
-		log_critf("failed to close file descriptor from close(2) errno: %d", errtmp);
-		errno = errtmp;
-		return;
-	}
 }
 
 static int paramsvalid(odb_createparams params) {
@@ -259,11 +250,12 @@ edb_err odb_createt(const char *path, odb_createparams params) {
 	return err;
 }
 
-edb_err edbd_open(edbd_t *o_file, const char *path) {
+edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path) {
 
 	// initialize memeory.
 	bzero(o_file, sizeof(edbd_t));
 	o_file->path = path;
+	o_file->descriptor = descriptor;
 
 	int err = 0;
 
@@ -277,24 +269,6 @@ edb_err edbd_open(edbd_t *o_file, const char *path) {
 	// make sure this is a file.
 	if((o_file->openstat.st_mode & S_IFMT) != S_IFREG) {
 		return EDB_EFILE;
-	}
-
-	// open the actual file descriptor.
-	//
-	// I use O_DIRECT here because we will be operating our own cache and
-	// operating exclusively on a block-by-block basis with mmap. Maybe
-	// that's good reason?
-	//
-	// O_NONBLOCK - set just incase mmap(2)/read(2)/write(2) are enabled to
-	//              wait for advisory locks, which they shouldn't... we manage
-	//              those locks manually. (see Mandatory locking in fnctl(2)
-	o_file->descriptor = open64(path, O_RDWR
-	                                  | O_DIRECT
-	                                  | O_SYNC
-	                                  | O_LARGEFILE
-	                                  | O_NONBLOCK);
-	if(o_file->descriptor == -1) {
-		return EDB_EERRNO;
 	}
 
 	int psize = sysconf(_SC_PAGE_SIZE);
