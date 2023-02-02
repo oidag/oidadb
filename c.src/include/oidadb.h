@@ -6,8 +6,7 @@
  */
 #ifndef _EDB_H_
 #define _EDB_H_ 1
-#define _LARGEFILE64_SOURCE 1
-#define _GNU_SOURCE 1
+#define _GNU_SOURCE
 #include <stdint.h>
 //#include <sys/fcntl.h>
 #include <syslog.h>

@@ -1,5 +1,12 @@
+#include "include/oidadb.h"
+#include "edba.h"
+#include "edbw.h"
+#include "edbw_u.h"
+#include "edbs-jobs.h"
+#include "edbd.h"
+#include "odb-structures.h"
+
 #include <stddef.h>
-#define _LARGEFILE64_SOURCE
 #include <stdint.h>
 #include <string.h>
 #include <pthread.h>
@@ -8,14 +15,9 @@
 #include <unistd.h>
 #include <errno.h>
 
-
-#include "include/oidadb.h"
-#include "edba.h"
-#include "edbw.h"
-#include "edbw_u.h"
-#include "edbs-jobs.h"
-#include "edbd.h"
-#include "odb-structures.h"
+static void edbw_logverbose(edb_worker_t *self, const char *fmt, edb_oid oid) {
+	log_debugf(fmt, oid);
+}
 
 // job data is assumed to be EDB_OBJ
 edb_err edbw_u_objjob(edb_worker_t *self) {

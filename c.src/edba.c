@@ -1,8 +1,8 @@
-#include <strings.h>
-
 #include "edba.h"
 #include "edbp.h"
 #include "edbd.h"
+
+#include <strings.h>
 
 edb_err edba_host_init(edba_host_t *o_host, edbpcache_t *pagecache, edbd_t *descriptor) {
 	bzero(o_host, sizeof(edba_host_t));

@@ -23,5 +23,7 @@ add_executable       (t0001_io ${stdtestfiles} c.src/tests/t0001_io.c c.src/edbh
 target_link_libraries(t0001_io ${stdtestlibs})
 
 # t0005
-add_executable       (t0005_host ${stdtestfiles} c.src/tests/t0005_host.c)
+add_executable       (t0005_host ${liboidadb_src}
+        c.src/tests/t0005_host.c)
+
 target_link_libraries(t0005_host ${stdtestlibs})

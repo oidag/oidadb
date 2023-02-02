@@ -1,14 +1,12 @@
 #ifndef _edbl_h_
 #define _edbl_h_
-
-#define _LARGEFILE64_SOURCE 1
-#define _GNU_SOURCE 1
-#include <unistd.h>
-#include <fcntl.h>
-
+#define _GNU_SOURCE
 #include "include/oidadb.h"
 #include "options.h"
 #include "edbd.h"
+
+#include <unistd.h>
+#include <fcntl.h>
 
 // the lock directory is split up into 2 parts in a
 // host/handle structure. The handle side is expected to

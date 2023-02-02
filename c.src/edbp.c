@@ -295,10 +295,10 @@ void    edbp_decom(edbpcache_t *cache) {
 
 	// munmap all slots that have data in them.
 	for(int i = 0; i < cache->slot_count; i++) {
-		if(cache->slots[i].page.head != 0) {
-			msync(cache->slots[i].page.head, edbd_size(cache->fd), MS_SYNC);
-			munmap(cache->slots[i].page.head, edbd_size(cache->fd));
-			cache->slots[i].page.head = 0;
+		if(cache->slots[i].page != 0) {
+			msync(cache->slots[i].page, edbd_size(cache->fd), MS_SYNC);
+			munmap(cache->slots[i].page, edbd_size(cache->fd));
+			cache->slots[i].page = 0;
 		}
 	}
 

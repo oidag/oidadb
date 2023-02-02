@@ -1,15 +1,14 @@
 #ifndef _EDBP_PAGES_H_
 #define _EDBP_PAGES_H_ 1
 
-#include <stdint.h>
-#include <sys/user.h>
-#include <pthread.h>
-
-
 #include "odb-structures.h"
 #include "include/oidadb.h"
 #include "edbd.h"
 #include "errors.h"
+
+#include <stdint.h>
+#include <sys/user.h>
+#include <pthread.h>
 
 /*
  * Quick overview of how pages.h works:

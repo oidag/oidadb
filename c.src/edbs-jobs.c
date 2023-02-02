@@ -1,11 +1,11 @@
+#include "edbs-jobs.h"
+#include "errors.h"
+
 #include <linux/futex.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
-
-#include "edbs-jobs.h"
-#include "errors.h"
 
 void edb_jobclose(edb_job_t *job) {
 	pthread_mutex_lock(&job->bufmutex);
@@ -40,8 +40,9 @@ int edb_jobreset(edb_job_t *job) {
 }
 
 // todo: really need to test this function.
-int edb_jobwrite(edb_job_t *job, void *transferbuf, const void *buff, int count) {
-
+int edbs_jobread(edbs_jobhandler *jh, void *buff, int count) {
+	edb_job_t *job = jh->job;
+	void *transferbuf = jh->shm->transbuffer;
 	int err;
 	{
 		// we must block until we know we have room. So block if we are capacity.
@@ -97,8 +98,9 @@ int edb_jobwrite(edb_job_t *job, void *transferbuf, const void *buff, int count)
 }
 
 
-int edb_jobread(edb_job_t *job, const void *transferbuf, void *buff, int count) {
-
+int edbs_jobwrite(edbs_jobhandler *jh, const void *buff, int count) {
+	edb_job_t *job = jh->job;
+	void *transferbuf = jh->shm->transbuffer;
 	int err;
 	{
 		// we must wait if there nothing in the buffer.

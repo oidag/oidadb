@@ -319,8 +319,6 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	edba_u_locktrashstartoff(h, edbp_gpid(&h->edbphandle));
 	// **defer: edba_u_locktransstartoff_release(h);
 
-	int trashcrit1 = EDB_TRASHCRITCALITY(objheader->trashc, h->clutchedentry->objectsperpage);
-
 	// mark as deleted
 	// We do this first just incase we crash by the time we get to the trash linked list
 	// we'd rather have it marked as deleted so future query processes won't try to use it.
@@ -340,6 +338,7 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 
 	// get the header of the object page
 	odb_spec_object *objheader = edbp_graw(&h->edbphandle);
+	int trashcrit1 = EDB_TRASHCRITCALITY(objheader->trashc, h->clutchedentry->objectsperpage);
 	// add to the trash linked list
 	*(uint16_t *)(h->content) = objheader->trashstart_off;
 	objheader->trashstart_off = h->objectoff;
@@ -445,7 +444,7 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 	h->lock = (edbl_lockref) {
 			.l_type  = EDBL_TYPSHARED,
 			.l_start = edbd_pid2off(h->parent->pagecache->fd, pid) + page_byteoff,
-			.l_len   = fixedc,
+			.l_len   = structdat->fixedc,
 	};
 	if(flags & EDBA_FWRITE) {
 		h->lock.l_type = EDBL_EXCLUSIVE;

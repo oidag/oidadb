@@ -236,7 +236,7 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 
 
 	for(int i = 0; i < host.config.worker_poolsize; i++) {
-		eerr = edb_workerinit(&(host.workerv[i]), &host.ahost, &host.shm);
+		eerr = edbw_init(&(host.workerv[i]), &host.ahost, &host.shm);
 		if(eerr) {
 			goto ret;
 		}
@@ -247,7 +247,7 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 	// enter hosting cycle
 	// start all the workers.
 	for(int i = 0; i < host.workerc; i++) {
-		eerr = edb_workerasync(&(host.workerv[i]));
+		eerr = edbw_async(&(host.workerv[i]));
 		if(eerr) {
 			goto ret;
 		}
@@ -286,15 +286,15 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 		case HOST_OPEN:
 			log_infof("stopping %d workers...", host.workerc);
 			for(int i = 0; i < host.workerc; i++) {
-				edb_workerstop(&(host.workerv[i]));
+				edbw_stop(&(host.workerv[i]));
 			}
 			for(int i = 0; i < host.workerc; i++) {
-				edb_workerjoin(&(host.workerv[i]));
+				edbw_join(&(host.workerv[i]));
 				log_infof("  ...worker %d joined", i);
 			}
 			log_infof("decommissioning workers...");
 			for(int i = 0; i < host.workerc; i++) {
-				edb_workerdecom(&(host.workerv[i]));
+				edbw_decom(&(host.workerv[i]));
 			}
 			log_infof("freeing worker pool...");
 			if(host.workerv) free(host.workerv);

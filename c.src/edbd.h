@@ -1,16 +1,15 @@
 #ifndef _edbdFILE_H_
 #define _edbdFILE_H_ 1
+#define _GNU_SOURCE
 
-#define _LARGEFILE64_SOURCE 1
-#define _GNU_SOURCE 1
+#include "odb-structures.h"
+#include "include/oidadb.h"
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
-#include "odb-structures.h"
-#include "include/oidadb.h"
 
 typedef struct edb_file_st {
 	int descriptor;
