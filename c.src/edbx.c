@@ -1,11 +1,4 @@
 #define _GNU_SOURCE 1
-#include <sys/types.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <stdio.h>
-#include <pthread.h>
 
 #include "edbx.h"
 #include "edbd.h"
@@ -15,25 +8,35 @@
 #include "edba.h"
 #include "edbs.h"
 
+#include <sys/types.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <stdio.h>
+#include <linux/futex.h>
+#include <sys/syscall.h>
+
 
 typedef struct edb_host_st {
 
+	// this is also a futex:
+	//    if state == HOST_OPEN then you can:
+	//      - set state to HOST_CLOSING
+	//      - send FUTEX_WAKE to state.
+	//    otherwise, if state != HOST_OPEN, then you must
+	//    wait. (use FUTEX_WAIT on state)
 	enum hoststate state;
 
-	// todo: these locks may not be needed sense the only thing
-	//       allowed to acces host structures directly are the
-	//       workers... and they only exist after HOST_OPEN is true
-	// bootup - edb_host locks this until its in the HOST_OPEN transferstate.
-	pthread_mutex_t bootup;
-	// retlock - locked before switching to HOST_OPEN and double locked.
-	// unlock this to have edb_host return.
-	pthread_mutex_t retlock;
+	// file stuff
+	int fdescriptor; // the master descriptor
+	const char *fname; // file name
 
 	// the file it is hosting
 	edbd_t       file;
 
 	// configuration it has when starting up
-	edb_hostconfig_t config;
+	odb_hostconfig_t config;
 
 	// shared memory with handles
 	edb_shm_t shm;
@@ -48,10 +51,11 @@ typedef struct edb_host_st {
 
 
 } edb_host_t;
+static edb_host_t host = {0};
 
 
 // helper function for edb_host to Check for EDB_EINVALs
-static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
+static edb_err validatehostops(const char *path, odb_hostconfig_t hostops) {
 	if(path == 0) {
 		log_errorf("path is null");
 		return EDB_EINVAL;
@@ -65,14 +69,15 @@ static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 		return  EDB_EINVAL;
 	}
 	if(hostops.job_transfersize % sysconf(_SC_PAGE_SIZE) != 0) {
-		log_noticef("transfer buffer is not an multiple of system page size (%ld), this may hinder performance", sysconf(_SC_PAGE_SIZE));
+		log_warnf("transfer buffer is not an multiple of system page size (%ld), "
+			 "this may hinder performance", sysconf(_SC_PAGE_SIZE));
 	}
 	if(hostops.event_bufferq <= 0) {
-		log_errorf("event buffer is either <=0 or not a multiple of edb_event_t");
+		log_errorf("event buffer is <=0");
 		return EDB_EINVAL;
 	}
 	if(hostops.worker_poolsize == 0) {
-		log_errorf("worker_poolsize is 0 or not a multiple of edb_event_t");
+		log_errorf("worker_poolsize is 0");
 		return EDB_EINVAL;
 	}
 	if(hostops.slot_count < hostops.worker_poolsize) {
@@ -82,209 +87,271 @@ static edb_err _validatehostops(const char *path, edb_hostconfig_t hostops) {
 	return 0;
 }
 
-// closes the host. syncs and closes all descriptors and buffers.
+// places a lock on the file according to locking spec. If a lock has already
+// been placed on this file, EDB_EOPEN is returned and o_curhost is written too.
 //
-// all errors that can occour will be critical in nature.
+// Also retursn
 //
-// if waitjobs is not 0, then it will wait until the current job buffer is finished before
-// starting the shutdown but will not accept any more jobs.
-static void hostclose(edb_host_t *host) {
-	if (host->state == HOST_NONE) {
-		log_errorf("tried to close a host that has not been started");
-		return;
+// See unlock file to remove the lock
+edb_err static lockfile(pid_t *o_curhost) {
+	// read any fcntl locks
+	struct flock dblock = (struct flock){
+			.l_type = F_WRLCK,
+			.l_whence = SEEK_SET,
+			.l_start = 0,
+			.l_len = 1, // first byte but mind you any host should have
+			// locked the entire first page
+			.l_pid = 0,
+	};
+	int err = fcntl(host.fdescriptor, F_SETLK, &dblock);
+	if(err == -1) {
+		if(errno == EACCES || errno == EAGAIN) {
+			fcntl(host.fdescriptor, F_GETLK, &dblock);
+			*o_curhost = dblock.l_pid;
+			return EDB_EOPEN;
+		}
+		log_critf("fcntl(2) returned unexpected errno");
+		return EDB_ECRIT;
 	}
-
-	// wait until we know that the host is booted up
-	int err = pthread_mutex_lock(&host->bootup);
-	if (err) {
-		log_critf("failed to obtain host bootup mutex: %d", err);
-		return;
+	return 0;
+}
+void static unlockfile() {
+	// read any fcntl locks
+	struct flock dblock = (struct flock){
+			.l_type = F_UNLCK,
+			.l_whence = SEEK_SET,
+			.l_start = 0,
+			.l_len = 1, // first byte but mind you any host should have
+			// locked the entire first page
+			.l_pid = 0,
+	};
+	int err = fcntl(host.fdescriptor, F_SETLK, &dblock);
+	if(err == -1) {
+		log_critf("failed to unlock file");
 	}
-
-	// okay we know its booted up. Go ahead and release the return mutex.
-	err = pthread_mutex_unlock(&host->retlock);
-	if (err) {
-		log_critf("failed to release retlock mutex: %d", err);
-		return;
-	}
-
-	// and that's it. the edb_host function will clean up the rest.
-
-	pthread_mutex_unlock(&host->bootup);
 }
 
-
-edb_err odb_host(const char *path, edb_hostconfig_t hostops) {
+edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 
 	// check for EINVAL
-	edb_err eerr = 0;
-	int preserved_errno = 0;
-	eerr = _validatehostops(path, hostops);
+	edb_err eerr;
+	eerr = validatehostops(path, hostops);
 	if(eerr) return eerr;
 
-	// start building out our host.
-	edb_host_t host = {0};
+	// make sure host isn't already running
+	if(host.state != HOST_NONE) {
+		return EDB_EAGAIN;
+	}
+
+	// easy vals
 	host.config = hostops;
-	int err = pthread_mutex_init(&host.bootup, 0);
-	if(err) {
-		log_critf("failed to initialize transferstate change mutex: %d", err);
-		return EDB_ECRIT;
+	host.fname = path;
+	host.state = HOST_OPENING_DESCRIPTOR;
+
+	// open the actual file descriptor.
+	//
+	// I use O_DIRECT here because we will be operating our own cache and
+	// operating exclusively on a block-by-block basis with mmap. Maybe
+	// that's good reason?
+	//
+	// O_NONBLOCK - set just incase mmap(2)/read(2)/write(2) are enabled to
+	//              wait for advisory locks, which they shouldn't... we manage
+	//              those locks manually. (see Mandatory locking in fnctl(2)
+	host.fdescriptor = open64(path, O_RDWR
+	                                  | O_DIRECT
+	                                  | O_SYNC
+	                                  | O_LARGEFILE
+	                                  | O_NONBLOCK);
+	if(host.fdescriptor == -1) {
+		switch (errno) {
+			case ENOENT:
+				log_errorf("failed to open file %s: path of file does not "
+						   "exist",
+						   path);
+				return EDB_ENOENT;
+			default:
+				log_errorf("failed to open file %s", path);
+				return EDB_EERRNO;
+		}
 	}
-	err = pthread_mutex_lock(&host.bootup);
-	if(err) {
-		log_critf("failed to lock bootup mutex: %d", err);
-		pthread_mutex_destroy(&host.bootup);
-		return EDB_ECRIT;
+	// **defer: close(host.fdescriptor)
+	host.state = HOST_OPENING_XLLOCK;
+
+	// put exclusive locks on the file.
+	{
+		pid_t curhost;
+		eerr = lockfile(&curhost);
+		if (eerr) {
+			goto ret;
+		}
 	}
+	// **defer: unlockfile(&host);
+	// todo: use host.state at the return block of this function to determian
+	//       what must be deallocated.
+	host.state = HOST_OPENING_FILE;
 
-	// we are now in the opening transferstate: we have work to do but we can be hostclose
-	// will work even before we're done
-	host.state = HOST_OPENING;
-
-	err = pthread_mutex_init(&host.retlock, 0);
-	if(err) {
-		log_critf("failed to initialize transferstate change mutex: %d", err);
-		pthread_mutex_destroy(&host.bootup);
-		return EDB_ECRIT;
-	}
-
-
-	// past this point we need pthread_mutex_destroy(&(host.bootup));
-
-	// open and lock the file
-	eerr = edbd_open(&(host.file), path, hostops.page_multiplier, hostops.flags);
+	// open the file
+	eerr = edbd_open(&(host.file), host.fdescriptor, host.fname);
 	if(eerr) {
-		goto clean_mutex;
+		goto ret;
 	}
-
-	// past this point, if we get an error we must close the file via edb_fileclose + pthread_mutex_destroy(&(host.bootup))
+	// **defer: edbd_fileclose(host.file)
+	host.state = HOST_OPENING_SHM;
 
 	eerr = edbs_host(&host.shm, hostops);
 	if(eerr) {
-		goto clean_file;
+		goto ret;
 	}
-
-	// past this point, we must edbs_dehost + edb_fileclose + pthread_mutex_destroy(&(host.bootup))
+	// **defer: edbs_dehost(host.shm);
+	host.state = HOST_OPENING_PAGEBUFF;
 
 	// page buffers & edba
 	eerr = edbp_init(&host.pcache, &host.file, host.config.slot_count);
 	if(eerr) {
-		goto clean_shm;
+		goto ret;
 	}
+	// **defer: edbp_decom(&host.pcache);
+	host.state = HOST_OPENING_ARTICULATOR;
+
 	eerr = edba_host_init(&host.ahost, &host.pcache, &host.file);
 	if(eerr) {
-		goto clean_pages;
+		goto ret;
 	}
+	// **defer: edba_host_decom(edba_host_t *host);
+	host.state = HOST_OPENING_WORKERS;
 
 	// configure all the workers.
-	host.workerc = host.config.worker_poolsize;
-	host.workerv = malloc(host.workerc * sizeof(edb_worker_t)); //todo: free
+	host.workerc = 0; // we'll increment this on success
+	host.workerv = malloc(host.config.worker_poolsize * sizeof(edb_worker_t));
 	if(host.workerv == 0) {
 		if (errno == ENOMEM) {
 			eerr = EDB_ENOMEM;
 		} else {
-			preserved_errno = errno;
 			log_critf("malloc(3) returned an unexpected error: %d", errno);
 			eerr = EDB_ECRIT;
 		}
-		goto clean_ahost;
+		goto ret;
 	}
-	for(int i = 0; i < host.workerc; i++) {
-		eerr = edb_workerinit(&(host.workerv[i]), &host.pcache, &host.shm);
+	// **defer: free(host.workerv);
+
+
+	for(int i = 0; i < host.config.worker_poolsize; i++) {
+		eerr = edb_workerinit(&(host.workerv[i]), &host.ahost, &host.shm);
 		if(eerr) {
-			goto clean_decomworkers;
+			goto ret;
+		}
+		host.workerc++;
+	}
+	// **defer: edb_workerdecom(&(host.workerv[0->host.workerc]));
+
+	// enter hosting cycle
+	// start all the workers.
+	for(int i = 0; i < host.workerc; i++) {
+		eerr = edb_workerasync(&(host.workerv[i]));
+		if(eerr) {
+			goto ret;
 		}
 	}
-
-	// before we start the workers, lets lock the finished
-	pthread_mutex_lock(&host.retlock);
-	// todo: error handling
-
-	// from this point on, all we need to do is edb_hostclose to fully clean up everything.
+	// **defer: edb_workerjoin(&(host.workerv[0->host.workerc]));
+	// **defer: edb_workerstop(&(host.workerv[0->host.workerc]));
 
 	// at this point we have an open transferstate.
 	// this by definition means clients can start filling up the job buffer even
 	// though there's no workers to satsify the jobs yet.
 	host.state = HOST_OPEN;
-	pthread_mutex_unlock(&host.bootup);
-	// todo: error handling
 
-	// enter hosting cycle
-	// start all the async workers. Note we do int i = 1 because the first one
-	// will be the sync worker.
-	for(int i = 0; i < host.workerc; i++) {
-		eerr = edb_workerasync(&(host.workerv[i]));
-		if(eerr) {
-			goto clean_stopwork;
-		}
+	// broadcast to any curious listeners that we're up and running.
+	syscall(SYS_futex, (uint32_t *)&host.state,
+	        FUTEX_WAKE, INT32_MAX, 0, 0, 0);
+
+
+	// now we can freeze this thread until we get the futex signal to close.
+	syscall(SYS_futex, (uint32_t *)&host.state,
+	        FUTEX_WAIT, (uint32_t)HOST_OPEN, 0,
+	        0, 0);
+
+	// these two lines are only hit if it was a graceful shutdown.
+	eerr = 0;
+	errno = 0;
+	host.state = HOST_CLOSING;
+
+	// not we could have been brought here for any reason. That reason
+	// depends on host.state, which will dicate what needs to be cleaned up.
+	ret:
+	log_infof("closing %s...", path);
+
+	switch (host.state) {
+		case HOST_CLOSING:
+			// fallthrough
+		case HOST_OPEN:
+			log_infof("stopping %d workers...", host.workerc);
+			for(int i = 0; i < host.workerc; i++) {
+				edb_workerstop(&(host.workerv[i]));
+			}
+			for(int i = 0; i < host.workerc; i++) {
+				edb_workerjoin(&(host.workerv[i]));
+				log_infof("  ...worker %d joined", i);
+			}
+			log_infof("decommissioning workers...");
+			for(int i = 0; i < host.workerc; i++) {
+				edb_workerdecom(&(host.workerv[i]));
+			}
+			log_infof("freeing worker pool...");
+			if(host.workerv) free(host.workerv);
+			// fallthrough
+		case HOST_OPENING_WORKERS:
+			log_infof("decommissioning file articulator...");
+			edba_host_decom(&host.ahost);
+			// fallthrough
+		case HOST_OPENING_ARTICULATOR:
+			log_infof("decommissioning page buffer...");
+			edbp_decom(&host.pcache);
+			// fallthrough
+		case HOST_OPENING_PAGEBUFF:
+			log_infof("closing shared memory...");
+			edbs_dehost(&host.shm);
+			//fallthrough
+		case HOST_OPENING_SHM:
+			log_infof("closing meta controller...");
+			edbd_close(&(host.file));
+			//fallthrough
+		case HOST_OPENING_FILE:
+			log_infof("unlocking file...");
+			unlockfile();
+			// fallthrough
+		case HOST_OPENING_XLLOCK:
+			log_infof("closing file descriptor...");
+			close(host.fdescriptor);
+			// fallthrough
+		case HOST_OPENING_DESCRIPTOR:
+			log_infof("database closed");
+			host.state = HOST_NONE;
+			// fallthrough
+		case HOST_NONE:
+			break;
 	}
 
-	// double-lock the retlock. this will freeze this calling thread until
-	// the closer is called to unlock us.
-	pthread_mutex_lock(&host.retlock);
-
-	log_infof("closing %s...", host.file.path);
-
-	// clean up everything
-	// stop all the workers.
-	clean_stopwork:
-	pthread_mutex_unlock(&host.retlock);
-	log_infof("stopping %d workers...", host.workerc);
-	for(int i = 0; i < host.workerc; i++) {
-		edb_workerstop(&(host.workerv[i]));
-	}
-	for(int i = 0; i < host.workerc; i++) {
-		edb_workerjoin(&(host.workerv[i]));
-		log_infof("  ...worker %d joined", i);
-	}
-
-	clean_decomworkers:
-	// decomission all the workers
-	for(int i = 0; i < host.workerc; i++) {
-		edb_workerdecom(&(host.workerv[i]));
-	}
-
-	// unallocate the worker space
-	clean_freepool:
-	log_infof("freeing worker pool...");
-	free(host.workerv);
-
-	clean_ahost:
-	log_infof("decommissioning file actuator...");
-	edba_host_decom(&host.ahost);
-
-	clean_pages:
-	log_infof("freeing page cache...");
-	edbp_decom(&host.pcache);
-
-	// unallocate the shared memory
-	clean_shm:
-	log_infof("deleting shared memory...");
-	edbs_dehost(&host.shm, 1);
-
-	// close the file
-	clean_file:
-	log_infof("closing database file...");
-	edbd_close(&(host.file));
-
-	clean_mutex:
-	log_infof("destroying mutexes...");
-	pthread_mutex_destroy(&host.retlock);
-	pthread_mutex_destroy(&host.bootup);
-
-	if(preserved_errno) {
-		errno = preserved_errno;
-	}
+	// broadcast that we're closed.
+	syscall(SYS_futex, (uint32_t *)&host.state,
+	        FUTEX_WAKE, INT32_MAX, 0, 0, 0);
 	return eerr;
 }
 
 // must NOT be called from a worker thread.
-edb_err odb_hoststop(const char *path) {
-	pid_t pid;
-	edb_err eerr = edb_host_getpid(path, &pid);
+edb_err odb_hoststop() {
+	if(host.state == HOST_NONE) {
+		return EDB_ENOHOST;
+	}
+	if(host.state != HOST_OPEN) {
+		return EDB_EAGAIN;
+	}
 
-	// todo: need to send an instrunction to the host... and some how the workers need
-	//       to call hostclose?... hmmm see this functions comment though...
+	// we must set this before the FUTEX_WAKE to prevent lost wakes.
+	host.state = HOST_CLOSING;
+	syscall(SYS_futex, (uint32_t *)&host.state,
+	        FUTEX_WAKE, 1, 0,
+	        0, 0);
+	return 0;
 }
 
 edb_err edb_host_getpid(const char *path, pid_t *outpid) {
@@ -296,6 +363,10 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid) {
 	// open the file for the only purpose of reading locks.
 	fd = open(path,O_RDONLY);
 	if (fd == -1) {
+		log_errorf("failed to open pid-check descriptor");
+		if(errno == EDB_ENOENT) {
+			return EDB_ENOENT;
+		}
 		return EDB_EERRNO;
 	}
 	// read any fcntl locks
@@ -303,7 +374,8 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid) {
 			.l_type = F_WRLCK,
 			.l_whence = SEEK_SET,
 			.l_start = 0,
-			.l_len = 0,
+			.l_len = 1, // first byte but mind you any host should have
+			            // locked the entire first page
 			.l_pid = 0,
 	};
 	err = fcntl(fd, F_OFD_GETLK, &dblock);

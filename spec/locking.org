@@ -36,6 +36,24 @@ Next, what cateogyr of operations are you trying to perform?
 | *Update* | clutch on   | /not possible/               | clutch off, xl locks |
 | *Delete* | clutch on   | clutches on, structure mutex | clutch off, xl locks |
 
+* Files
+When it comes to odb_host, it must be sure not to try to host a file
+that is already hosted. We must prevent other threads and other
+processes from trying to open the file.
+
+ - Always check for the lock. Never block the thread if an XL lock is
+   already there. This is for the user's convinence.
+ - Upon an attempt to start hosting a file, place a XL OFD lock on the
+   first byte.
+
+
+** shm
+ - shm_open should be done for connecting to a process via the file
+   name schema of /EDB_HOST-{PID} where {PID} is the host process ID.
+ - For read-access only, you're welcome to connect to this shm block
+   and read whatever you want. But mind you the futuxes and mutexes in
+   shm are configured to be inner-process... does this require write
+   access to read these?... I have no idea.
 
 * Note on Page deletion
 Sometimes pages are created for an operaiton but that operation ends

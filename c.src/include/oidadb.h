@@ -502,26 +502,28 @@ void    odb_handleclose(odbh *handle);
  * sounds scary though.
  *
  * ## THREADING
- * Both of these functions are MT-safe.
+ * odb_host is not thread-safe. You should only call this once a 1 thread and
+ * wait for it to return before calling it again
+ *
+ * odb_hoststop is MT-safe.
  *
  * The aforementioned write-locks use Open File Descriptors (see fcntl(2)),
  * this means that attempts to open the same file in two separate
  * threads will behave the same way as doing the same with two
  * separate processes. This also means the host can be used in the
  * same process as the handles (though its recommended not to do this on the
- * basis of good engineering of departmentalizing crashes).
+ * basis of good engineering and departmentalizing crashes).
  *
- * There is a race condition to where 2 processes attempt to call
- * edb_host with both containing instructions to start the host
- * proccess. In this case, 1 call will succeed and the other
- * will have EDB_EOPEN returned. In that case the process that failed
- * to open should attempt to run edb_open again.
+ * Only 1 odb_host can be active per process.
+ *
+ * odb_hoststop must be called in the same process as odb_host.
  *
  * ## ERRORS
  * odb_host can return:
  *   - EDB_EINVAL - hostops is invalid and/or path is null
  *   - EDB_EERRNO - Unexpected error from stat(2) or open(2), see errno.
  *   - EDB_EOPEN  - Another process is already hosting this file.
+ *   - EDB_EAGAIN - odb_host is already active.
  *   - EDB_EFILE  - Path is not a regular file.
  *   - EDB_EHW    - this file was created on a different (non compatible)
  *   architecture and cannot be hosted on this machine.
@@ -530,8 +532,9 @@ void    odb_handleclose(odbh *handle);
  *   - \ref EDB_ECRIT
  *
  * odb_hoststop can return
- *  - EDB_ENOHOST - no host for file
- *  - EDB_EERRNO - error with open(2).
+ *  - EDB_EAGAIN - odb_host is in the process of booting up. try again in a
+ *                 little bit.
+ *  - EDB_ENOHOST - odb_host not active at all.
  *
  *
  * \see odb_create
@@ -660,7 +663,7 @@ static const odb_hostconfig_t odb_hostconfig_default = {
 };
 
 edb_err odb_host(const char *path, odb_hostconfig_t hostops);
-edb_err odb_hoststop(const char *path);
+edb_err odb_hoststop();
 
 // odb_host
 /// \}

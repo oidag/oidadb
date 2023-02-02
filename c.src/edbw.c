@@ -105,6 +105,7 @@ edb_err edb_workerinit(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_
 }
 
 void edb_workerdecom(edb_worker_t *worker) {
+	edb_workerstop(worker);
 	edba_handle_decom(&worker->edbahandle);
 }
 
