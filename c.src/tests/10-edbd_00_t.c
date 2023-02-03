@@ -1,8 +1,11 @@
 
-#include <stdio.h>
-#include "teststuff.h"
-#include "../include/oidadb.h"
 #include "../edbd.h"
+#include "../include/oidadb.h"
+#include "teststuff.h"
+
+
+#include <stdio.h>
+
 
 int main(int argc, const char **argv) {
 
@@ -13,21 +16,21 @@ int main(int argc, const char **argv) {
 	err = odb_create(test_filenmae, createparams);
 	if(err) {
 		test_error("failed to create file");
-		goto ret;
+		return 1;
 	}
 
 	// open the file
 	int fd = open(test_filenmae, O_RDWR);
 	if(fd == -1) {
 		test_error("bad fd");
-		goto ret;
+		return 1;
 	}
 
 	edbd_t dfile;
 	err = edbd_open(&dfile, fd, test_filenmae);
 	if(err) {
 		test_error("edbd_open failed");
-		goto ret;
+		return 1;
 	}
 
 	// testing configs
@@ -90,7 +93,7 @@ int main(int argc, const char **argv) {
 	// check in the odb_deleted chapter to make sure all pages were deleted.
 	odb_spec_index_entry *oid_deleted;
 	edbd_index(&dfile, EDBD_EIDDELTED, &oid_deleted);
-	if(lseek(fd,edbd_pid2off(oid_deleted->ref0)) == -1) {
+	if(lseek(fd,edbd_pid2off(&dfile, oid_deleted->ref0), SEEK_SET) == -1) {
 		test_error("lseek");
 		goto ret;
 	}

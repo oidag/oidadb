@@ -14,16 +14,23 @@ file(GLOB_RECURSE odbm_src c.src/odbm/*.c)
 add_executable(odbm ${odbm_src})
 target_link_libraries(odbm GL glfw drawtext freetype m)
 
-# tests
+# all tests
 set(stdtestlibs pthread rt)
 set(stdtestfiles c.src/errors.c c.src/odbspec.c)
 
-# t0001
-add_executable       (t0001_io ${stdtestfiles} c.src/tests/t0001_io.c c.src/edbh.c c.src/edbd.c c.src/edbd-init.c)
-target_link_libraries(t0001_io ${stdtestlibs})
+# edbd
+file(GLOB edbd_t c.src/edbd*.c)
+add_executable(edbd_00 ${stdtestfiles}
+        c.src/tests/10-edbd_00_t.c
+        ${edbd_t})
+target_link_libraries(edbd_00 ${stdtestlibs})
+
+
+#add_executable       (edbd_00 ${stdtestfiles} c.src/tests/20-edbx_00_t.c c.src/edbh.c c.src/edbd.c c.src/edbd-init.c)
+#target_link_libraries(t0091_io ${stdtestlibs})
 
 # t0005
-add_executable       (t0005_host ${liboidadb_src}
-        c.src/tests/t0005_host.c)
+#add_executable       (t0005_host ${liboidadb_src}
+#        c.src/tests/20-edbx_05_t.c)
 
-target_link_libraries(t0005_host ${stdtestlibs})
+#target_link_libraries(t0005_host ${stdtestlibs})

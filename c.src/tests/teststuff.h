@@ -1,5 +1,6 @@
 #ifndef teststuff
 #define teststuff
+#define EDB_FUCKUPS
 
 #include "oidadb.h"
 
