@@ -103,10 +103,12 @@ edb_err static lockfile(pid_t *o_curhost) {
 			// locked the entire first page
 			.l_pid = 0,
 	};
-	int err = fcntl(host.fdescriptor, F_SETLK, &dblock);
+	// note we use OFD locks becuase the host can be started in the same
+	// process as handlers, but just use different threads.
+	int err = fcntl(host.fdescriptor, F_OFD_SETLK, &dblock);
 	if(err == -1) {
 		if(errno == EACCES || errno == EAGAIN) {
-			fcntl(host.fdescriptor, F_GETLK, &dblock);
+			fcntl(host.fdescriptor, F_OFD_GETLK, &dblock);
 			*o_curhost = dblock.l_pid;
 			return EDB_EOPEN;
 		}
@@ -125,7 +127,7 @@ void static unlockfile() {
 			// locked the entire first page
 			.l_pid = 0,
 	};
-	int err = fcntl(host.fdescriptor, F_SETLK, &dblock);
+	int err = fcntl(host.fdescriptor, F_OFD_SETLK, &dblock);
 	if(err == -1) {
 		log_critf("failed to unlock file");
 	}
