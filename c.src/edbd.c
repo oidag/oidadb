@@ -1,5 +1,10 @@
-#define _LARGEFILE64_SOURCE 1
-#define _GNU_SOURCE 1
+#define _GNU_SOURCE
+
+#include "options.h"
+#include "include/oidadb.h"
+#include "edbd.h"
+#include "errors.h"
+#include "edbd_u.h"
 
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -13,12 +18,6 @@
 #include <error.h>
 #include <errno.h>
 #include <pthread.h>
-
-#include "options.h"
-#include "include/oidadb.h"
-#include "edbd.h"
-#include "errors.h"
-#include "edbd_u.h"
 
 // helper function to edb_open. returns 0 on success.
 // it is assumed that path does not exist.
@@ -356,6 +355,12 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path) {
 		return EDB_ECRIT;
 	}
 
+	// helper vars
+	odb_spec_index_entry *ents = o_file->edb_indexv + sizeof(odb_spec_index);
+	o_file->enteriesperpage = ents[EDBD_EIDINDEX].objectsperpage;
+	o_file->structsperpage = ents[EDBD_EIDSTRUCT].objectsperpage;
+
+
 	// file has been opened, validated, and edbd_t has been populated. we're
 	// done here.
 	return 0;
@@ -364,4 +369,19 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path) {
 edb_err edbd_index(const edbd_t *file, edb_eid eid
 				   , odb_spec_index_entry **o_entry) {
 
+	int pageoff = eid / file->enteriesperpage;
+
+	// check for EDB_EEOF
+	if(pageoff >= file->edb_indexc) {
+		return EDB_EEOF;
+	}
+
+	// go to the body section on that page
+	void *page = file->edb_indexv + pageoff * edbd_size(file)
+			+ ODB_SPEC_HEADSIZE;
+
+	// now do the intra-page offset
+	*o_entry = page + (eid % file->enteriesperpage)*sizeof
+			(odb_spec_index_entry);
+	return 0;
 }
