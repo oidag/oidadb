@@ -22,12 +22,6 @@
 typedef struct edb_file_st {
 	int descriptor;
 
-	// the path that was used to open the file.
-	const char *path;
-
-	// the stat it was opened with
-	struct stat openstat;
-
 	// points to head page
 	//
 	// total allocation of head will always be sysconf(_SC_PAGE_SIZE);
@@ -45,8 +39,9 @@ typedef struct edb_file_st {
 	// static deleted page window.
 	// delpages is an array of pointers to deleted pages.
 	// Each page in delpages is full of edb_deletedref_t after their head.
-	void **delpages; // the first page in the window will always be the (current) last page in the chapter.
-	int    delpagesc; // constant number of pages in window
+	void **delpagesv; // the first page in the window will always be the (current) last page in the chapter.
+	int    delpagesc; // current page amount that exist in delwindow
+	int    delpagesq; // max amount of pages tha exist in delwindow
 
 	// reserved entereis
 	// An array of pointers. Each pointer is pointed to the first page of
@@ -65,6 +60,14 @@ typedef struct edb_file_st {
 
 } edbd_t;
 
+typedef struct {
+	// the max amount of odb_deleted pages to keep int the "deleted page window"
+	// 8 should be good.
+	//
+	// must be at least 1.
+	int delpagewindowsize;
+} edbd_config;
+
 // simply returns the size of the pages found in this cache.
 // note: this can be replaced with a hardcoded macro in builds
 // that only support a single page multiplier
@@ -79,6 +82,7 @@ unsigned int edbd_size(const edbd_t *c);
 // child descriptors and log messages.
 //
 // edbd_open can return the following:
+//   EDB_EINVAL - invalid config
 //   EDB_ENOMEM - not enough memory.
 //   EDB_EERRNO - from stat(2) or open(2)
 //   EDB_EFILE  - path is not a regular file,
@@ -87,7 +91,7 @@ unsigned int edbd_size(const edbd_t *c);
 //
 // edb_fileclose will preserve errno.
 //
-edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path);
+edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config);
 void    edbd_close(edbd_t *file);
 
 // Gives you a pointer to edbd memory in the index and structure buffers.
