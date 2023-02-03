@@ -171,17 +171,11 @@ Meta information is the "sum" of the current status of the
 database. It provides a reasonable snapshot of the information for
 quick access to details vital for resource managment.
 
-| Name       | Clang representation (byte end) | Definition                                                              |
-|------------+---------------------------------+-------------------------------------------------------------------------|
-| rsvd       | uint16_t                        |                                                                         |
-| rsvd       | uint64_t                        | rsvd                                                                    |
-| Master PID | pid_t                           | The process ID of the attached host process, if 0 that means unattached |
-| Handlers   | uint64_t                        | The number of handlers currently handling this database                 |
-| rsvd       | uint8_t                         |                                                                         |
-| rsvd1      | uint8_t                         |                                                                         |
-| rsvd2      | uint32_t                        |                                                                         |
-| rsvd       | char[72]                        | Reserved for future use. Will be all 0 bytes.                           |
-
+| Name        | Clang representation (byte end) | Definition                                                              |
+|-------------+---------------------------------+-------------------------------------------------------------------------|
+| host pid    | pid_t                           | The process ID of the attached host process, if 0 that means unattached |
+| indexpagec  | uint16_t                        | the number of index pages                                               |
+| structpagec | uint16_t                        | the number of structure pages                                           |
 ** TODO Global MPS
 This is the minimum page strait for all items not including in the body.
 

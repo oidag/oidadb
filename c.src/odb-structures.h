@@ -101,8 +101,9 @@ typedef struct odb_spec_headintro odb_spec_headintro;
 typedef struct odb_spec_head {
 	// intro must be first in this structure.
 	const odb_spec_headintro intro;
-
 	uint64_t host;
+	uint16_t indexpagec;
+	uint16_t structpagec;
 } odb_spec_head;
 typedef struct _odb_stdhead {
 

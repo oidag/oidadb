@@ -65,6 +65,10 @@ static edb_err createfile(int fd, odb_createparams params) {
 		}
 	}
 
+	// set index/struct counts
+	newhead.indexpagec = params.indexpages;
+	newhead.structpagec = params.structurepages;
+
 	// write the head structure into the file
 	ssize_t n = write(fd, &newhead, sizeof(newhead));
 	if(n == -1) {
