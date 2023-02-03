@@ -24,8 +24,8 @@
 //
 // can return EDB_EERRNO from open(2)
 static edb_err createfile(int fd, odb_createparams params) {
-	int err = 0;
-	int syspagesize = sysconf(_SC_PAGE_SIZE);
+	int err;
+	int syspagesize = (int)sysconf(_SC_PAGE_SIZE);
 	unsigned int pagemul = params.page_multiplier;
 	int pagesneeded = 1 // for the head
 			+ params.indexpages // for index pages
@@ -183,6 +183,14 @@ void edbd_close(edbd_t *file) {
 	// destroy mutex
 	pthread_mutex_destroy(&file->adddelmutex);
 
+	// dealloc delwindow
+	if(file->delpagesv) {
+		for(int i = 0; i < file->delpagesc; i++) {
+			munmap(file->delpagesv[i], edbd_size(file));
+		}
+		free(file->delpagesv);
+	}
+
 	// dealloc head page
 	if(file->head_page) {
 		int err = munmap(file->head_page, edbd_size(file));
@@ -258,24 +266,25 @@ edb_err odb_createt(const char *path, odb_createparams params) {
 	return err;
 }
 
-edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path) {
+// returns EDB_EINVAL if params are invalid
+static edb_err openconfigparamsvalid(edbd_config config) {
+	if(config.delpagewindowsize < 1) {
+		return EDB_EINVAL;
+	}
+	return 0;
+}
+
+edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
+
+	if(openconfigparamsvalid(config)) {
+		return EDB_EINVAL;
+	}
 
 	// initialize memeory.
 	bzero(o_file, sizeof(edbd_t));
-	o_file->path = path;
 	o_file->descriptor = descriptor;
 
 	int err = 0;
-
-	// get the stat of the file, and/or create the file if params dicates it.
-	if(stat(path, &(o_file->openstat)) == -1) {
-		return EDB_EERRNO;
-	}
-
-	// make sure this is a file.
-	if((o_file->openstat.st_mode & S_IFMT) != S_IFREG) {
-		return EDB_EFILE;
-	}
 
 	// read in the intro the without mmaping just to quickly grab the page size
 	// and arch-validation
@@ -345,6 +354,41 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path) {
 		log_critf("failed to call mmap(2) due to unpredictable errno");
 		edbd_close(o_file);
 		return EDB_ECRIT;
+	}
+
+	// atp: edbd_index is working.
+
+	// deleted page window
+	o_file->delpagesq = config.delpagewindowsize;
+	o_file->delpagesv = malloc(o_file->delpagesq * sizeof(void *));
+	odb_spec_index_entry *ent;
+	edbd_index(o_file, EDBD_EIDDELTED, &ent);
+	edb_pid pid = ent->ref1; // see spec
+	for(; o_file->delpagesc < o_file->delpagesq; o_file->delpagesc++) {
+		if(!pid) {
+			// all pages loaded
+			break;
+		}
+		int i = o_file->delpagesc;
+		o_file->delpagesv[i] = mmap64(0,
+		                              edbd_size(o_file),
+		                              PROT_READ | PROT_WRITE,
+		                              MAP_SHARED,
+		                              o_file->descriptor,
+		                              edbd_pid2off(o_file, pid));
+		if(o_file->delpagesv[i] == MAP_FAILED) {
+			if(errno == ENOMEM) {
+				log_errorf("not enough memory to allocate database deletion "
+						   "page window (%d max pages)", o_file->delpagesq);
+				edbd_close(o_file);
+				return EDB_ENOMEM;
+			}
+			log_critf("failed to call mmap(2) due to unpredictable errno");
+			err = EDB_ECRIT;
+			edbd_close(o_file);
+		}
+		// next loop we fill it up with the page before this one.
+		pid = ((odb_spec_deleted *)o_file->delpagesv[i])->head.pleft;
 	}
 
 	// initialize the mutex.

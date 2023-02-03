@@ -337,7 +337,7 @@ which all pages in that collection are.
 | objectsperpage  | uint16_t | cached amount of objects per page. Or enteries if type is EDB_TENTS                          |
 | lookupsperpage  | uint16_t | cached amount of lookups per page                                                            |
 | ref0            | [[Page ID]]  | The starting page of the chapter (0 if none)                                                 |
-| ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup (will never be 0)                                            |
+| ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup (will never be 0). edb_delete: the last page in chapter      |
 | ref2            | [[Page ID]]  | if edbp_object: the edbp_dynamic (0 if none)                                                 |
 | ref0c           | uint64_t | Number of pages in the chapter (used to determain offset of new pages)                       |
 | lastlookup      | [[Page ID]]  | Right-most and deepest lookup page, this will always point to a lookup page with leaf nodes. |
