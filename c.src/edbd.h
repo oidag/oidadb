@@ -11,6 +11,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+// todo: move these to odb_spec
+#define EDBD_EIDINDEX  0
+#define EDBD_EIDDELTED 1
+#define EDBD_EIDSTRUCT 2
+#define EDBD_EIDRSVD3  3
+#define EDBD_EIDSTART  4 // start of the objects
+
+
 typedef struct edb_file_st {
 	int descriptor;
 
@@ -25,7 +33,7 @@ typedef struct edb_file_st {
 	// total allocation of head will always be sysconf(_SC_PAGE_SIZE);
 	// this page is allocated using MAP_SYNC.
 	//
-	odb_spec_head *head;
+	odb_spec_head *head_page;
 
 	// calculated by native page size by page mutliplier.
 	// doesn't change after init.
@@ -40,6 +48,17 @@ typedef struct edb_file_st {
 	void **delpages; // the first page in the window will always be the (current) last page in the chapter.
 	int    delpagesc; // constant number of pages in window
 
+	// reserved entereis
+	// An array of pointers. Each pointer is pointed to the first page of
+	// edb_indexv.
+	odb_spec_index_entry *rsvdents[EDBD_EIDSTART];
+
+	// All edb_index/edb_structv pages. Memory is persistant.
+	void *edb_indexv;
+	int   edb_indexc;
+	void *edb_structv;
+	int   edb_structc;
+
 } edbd_t;
 
 // simply returns the size of the pages found in this cache.
@@ -50,10 +69,13 @@ unsigned int edbd_size(const edbd_t *c);
 // open, create, and close valid edb files. does not edit
 // Head-Meta after loading.
 //
+// Does nothing with locks.
+//
 // The descriptor is the main master descriptor. path is used for opening
 // child descriptors and log messages.
 //
 // edbd_open can return the following:
+//   EDB_ENOMEM - not enough memory.
 //   EDB_EERRNO - from stat(2) or open(2)
 //   EDB_EFILE  - path is not a regular file,
 //   EDB_ENOTDB - if bad magic number (probably meaning not a edb file)
@@ -105,12 +127,6 @@ edb_err edbd_struct(const edbd_t *file, uint16_t structureid, const odb_spec_str
 //   Thread safe per file.
 edb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id);
 edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id);
-
-#define EDBD_EIDINDEX  0
-#define EDBD_EIDDELTED 1
-#define EDBD_EIDSTRUCT 2
-#define EDBD_EIDRSVD3  3
-#define EDBD_EIDSTART  4 // start of the objects
 
 // helper functions
 

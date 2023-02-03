@@ -139,7 +139,7 @@ static edb_err createfile(int fd, odb_createparams params) {
 // validates the headintro with the current system. returns
 // EDB_ENOTDB if bad magic number (probably meaning not a edb file)
 // EDB_EHW if invalid hardware.
-static edb_err validateheadintro(odb_spec_headintro head, int pagemul) {
+static edb_err validateheadintro(odb_spec_headintro head) {
 	if(head.magic[0] != 0xA6 || head.magic[1] != 0xF0) {
 		log_errorf("invalid magic number: got {0x%02X, 0x%02X} but expecting {0x%02X, 0x%02X}",
 				   head.magic[0], head.magic[1],
@@ -172,12 +172,6 @@ static edb_err validateheadintro(odb_spec_headintro head, int pagemul) {
 		           head.pagemul);
 		return EDB_EHW;
 	}
-	if(head.pagemul != pagemul) {
-		log_errorf("page multiplier of database does not match host: database is %d, host is %d",
-		           head.pagemul,
-				   pagemul);
-		return EDB_EHW;
-	}
 	return 0;
 }
 
@@ -190,14 +184,25 @@ void edbd_close(edbd_t *file) {
 	// destroy mutex
 	pthread_mutex_destroy(&file->adddelmutex);
 
-	// dealloc memeory
-	int err = munmap(file->head, sysconf(_SC_PAGE_SIZE));
-	if(err == -1) {
-		int errtmp = errno;
-		log_critf("failed to close file descriptor from nummap(2) errno: %d", errtmp);
-		errno = errtmp;
-		return;
+	// dealloc head page
+	if(file->head_page) {
+		int err = munmap(file->head_page, edbd_size(file));
+		if (err == -1) {
+			log_critf("mummap(2)");
+		}
 	}
+
+	// dealloc index/structure (they used the same map)
+	if(file->edb_indexv) {
+		int err = munmap(file->edb_indexv,
+						 edbd_size(file)
+						 * file->edb_indexc
+						 * file->edb_structc);
+		if (err == -1) {
+			log_critf("mummap(2)");
+		}
+	}
+
 }
 
 static int paramsvalid(odb_createparams params) {
@@ -264,9 +269,7 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path) {
 	int err = 0;
 
 	// get the stat of the file, and/or create the file if params dicates it.
-	restat:
-	err = stat(path, &(o_file->openstat));
-	if(err == -1) {
+	if(stat(path, &(o_file->openstat)) == -1) {
 		return EDB_EERRNO;
 	}
 
@@ -275,57 +278,74 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path) {
 		return EDB_EFILE;
 	}
 
-	int psize = sysconf(_SC_PAGE_SIZE);
-
-
-	// lock the first page of file so that only this process can use it.
-	// we enable noblock so we know if something else has it open.
-	struct flock64 dbflock = {
-		.l_type   = F_WRLCK,
-		.l_whence = SEEK_SET,
-		.l_start  = 0,
-		.l_len    = psize,
-		.l_pid    = 0,
-	};
-	// note we use OFD locks becuase the host can be started in the same
-	// process as handlers, but just use different threads.
-	err = fcntl64(o_file->descriptor, F_OFD_SETLK, &dbflock);
-	if(err == -1) {
-		int errnotmp = errno;
-		close(o_file->descriptor);
-		if(errno == EACCES || errno == EAGAIN)
-			return EDB_EOPEN; // another process has this open.
-		// no other error is possible here except for out of memory error.
-		log_critf("failed to call flock(2) due to unpredictable errno: %d", errnotmp);
-		errno = errnotmp;
-		return EDB_ECRIT;
-	}
-
-	// file open and locked. load in the head.
-	o_file->head = mmap64(0, psize, PROT_READ | PROT_WRITE,
-	                      MAP_SHARED_VALIDATE,
-	                      o_file->descriptor,
-	                      0);
-	if(o_file->head == MAP_FAILED) {
-		int errnotmp = errno;
-		log_critf("failed to call mmap(2) due to unpredictable errno: %d", errnotmp);
-		close(o_file->descriptor);
-		errno = errnotmp;
-		return EDB_ECRIT;
-	}
-
-	// past this point, if we fail and need to return an error,
-	// we must run only closefile(dbfile).
-
-	// validate the head intro on the system to make sure
-	// it can run on this architecture.
+	// read in the intro the without mmaping just to quickly grab the page size
+	// and arch-validation
 	{
-		edb_err valdationerr = validateheadintro(o_file->head->intro,
-												 o_file->head->intro.pagemul);
+		if (lseek(o_file->descriptor, 0, SEEK_SET) == -1) {
+			log_critf("lseek");
+			return EDB_ECRIT;
+		}
+		odb_spec_headintro intro;
+		if(read(o_file->descriptor, &intro, sizeof(intro)) == -1) {
+			log_critf("read");
+			return EDB_ECRIT;
+		}
+
+		// validate the head intro on the system to make sure
+		// it can run on this architecture.
+		edb_err valdationerr = validateheadintro(intro);
 		if(valdationerr != 0) {
-			edbd_close(o_file);
 			return valdationerr;
 		}
+		// calculate the page size
+		o_file->page_size    = intro.pagemul
+		                       * intro.pagesize; // same as sys_pszie.
+	}
+
+	// atp: we know this is a valid oidadb file and the achitecture can
+	//      support it.
+
+	// helper var
+	int psize = o_file->page_size;
+
+	// file open. load in the head_page.
+	o_file->head_page = mmap64(0, psize, PROT_READ | PROT_WRITE,
+	                           MAP_SHARED_VALIDATE,
+	                           o_file->descriptor,
+	                           0);
+	if(o_file->head_page == MAP_FAILED) {
+		int errnotmp = errno;
+		log_critf("failed to call mmap(2) due to unpredictable errno: %d", errnotmp);
+		errno = errnotmp;
+		return EDB_ECRIT;
+	}
+
+	// **defer-on-fail: edbd_close(o_file)
+
+	// load in all the index/structure pages.
+	// the counts
+	o_file->edb_indexc = o_file->head_page->indexpagec;
+	o_file->edb_structc = o_file->head_page->structpagec;
+	// the mmap itself.
+	ssize_t totalbytes = psize * o_file->edb_indexc * o_file->edb_structc;
+	o_file->edb_indexv = mmap64(0,
+	                            totalbytes,
+								PROT_READ | PROT_WRITE,
+								MAP_SHARED,
+								o_file->descriptor,
+								psize); // skip the first full page
+	o_file->edb_structv = o_file->edb_indexv + psize*o_file->edb_indexc;
+	if(o_file->edb_indexv == MAP_FAILED) {
+		if(errno == ENOMEM) {
+			log_errorf("not enough memory to allocate database index and "
+					   "structure "
+					   "pages: need a total of %ld KiB", totalbytes/1024);
+			edbd_close(o_file);
+			return EDB_ENOMEM;
+		}
+		log_critf("failed to call mmap(2) due to unpredictable errno");
+		edbd_close(o_file);
+		return EDB_ECRIT;
 	}
 
 	// initialize the mutex.
@@ -336,9 +356,12 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path) {
 		return EDB_ECRIT;
 	}
 
-	// calculate the page size
-	o_file->page_size    = o_file->head->intro.pagemul * o_file->head->intro.pagesize;
-
-	// file has been opened/created, locked, and validated. we're done here.
+	// file has been opened, validated, and edbd_t has been populated. we're
+	// done here.
 	return 0;
+}
+
+edb_err edbd_index(const edbd_t *file, edb_eid eid
+				   , odb_spec_index_entry **o_entry) {
+
 }
