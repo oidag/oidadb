@@ -59,6 +59,10 @@ typedef struct edb_file_st {
 	void *edb_structv;
 	int   edb_structc;
 
+	// helper vars (do not change after init)
+	int enteriesperpage;
+	int structsperpage;
+
 } edbd_t;
 
 // simply returns the size of the pages found in this cache.
@@ -86,27 +90,25 @@ unsigned int edbd_size(const edbd_t *c);
 edb_err edbd_open(edbd_t *o_file, int descriptor, const char *path);
 void    edbd_close(edbd_t *file);
 
-
-// see edb_index and edb_structs.
-// these do the exact same thing but only specifically needs the shm and
-// will return the pointer to the mmap'd region rather than copy the data.
+// Gives you a pointer to edbd memory in the index and structure buffers.
 //
 // This memory is mapped to the file. Changes are persistant (except for edbd_struct,
 // I put the const constraint on it. You must edit structure data via edba).
 //
-// These functions are dumb; does not check validitity of eid/structiid, thus no errors
-// can be returned. Doesn't check if said index is even initialized.
+// These functions are dumb; does not check validitity of eid/structiid.
+// Doesn't check if said index is even initialized.
 //
 // Note: does nothing with locks. Be sure to use edbl properly.
 //
 // ERRORS:
-//   - EDB_EEOF: returned by both when the submitted id is out of bounds. Note that if you submit
-//     an id that hasn't have itself initialized, then it will return errorless but the out pointer
-//     will point to a 0val.
-edb_err edbd_index(const edbd_t *file, edb_eid eid, odb_spec_index_entry
-**o_entry);
-edb_err edbd_struct(const edbd_t *file, uint16_t structureid, const odb_spec_struct_struct
-**o_struct);
+//   - EDB_EEOF: returned by both when the submitted id is out of bounds.
+//     Note that if you submit an id that hasn't have itself initialized,
+//     then it will return errorless and the out pointer
+//     will point to an unititalized entry.
+edb_err edbd_index(const edbd_t *file, edb_eid eid,
+				   odb_spec_index_entry **o_entry);
+edb_err edbd_struct(const edbd_t *file, uint16_t structureid,
+					const odb_spec_struct_struct **o_struct);
 
 // edbd_add
 //   is the most primative way to create. will create a page strait of length straitc and will return the
