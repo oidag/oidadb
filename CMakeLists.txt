@@ -16,7 +16,7 @@ target_link_libraries(odbm GL glfw drawtext freetype m)
 
 # all tests
 set(stdtestlibs pthread rt)
-set(stdtestfiles c.src/errors.c c.src/odbspec.c)
+set(stdtestfiles c.src/errors.c c.src/odbspec.c c.src/telemetry.c)
 
 # edbd
 file(GLOB edbd_t c.src/edbd*.c)
