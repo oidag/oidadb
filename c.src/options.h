@@ -11,5 +11,9 @@
 
 // Define to enable odbtelemtry at all
 #define EDBTELEM
+#ifdef EDBTELEM
+// log_debug message will be generated every telemetry message.
+#define EDBTELEM_DEBUG
+#endif
 
 #endif
