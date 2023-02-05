@@ -1,11 +1,16 @@
 
 #include "../edbd.h"
+#include "../include/telemetry.h"
 #include "../include/oidadb.h"
 #include "teststuff.h"
 
 
 #include <stdio.h>
+int newdeletedpages = 0;
 
+void newdel(odbtelem_data d) {
+	newdeletedpages++;
+};
 
 int main(int argc, const char **argv) {
 
@@ -26,8 +31,13 @@ int main(int argc, const char **argv) {
 		return 1;
 	}
 
+	odbtelem(1);
+	odbtelem_bind(ODBTELEM_PAGES_NEWDEL, newdel);
+
 	edbd_t dfile;
-	err = edbd_open(&dfile, fd, test_filenmae);
+	edbd_config config;
+	config.delpagewindowsize = 1;
+	err = edbd_open(&dfile, fd, config);
 	if(err) {
 		test_error("edbd_open failed");
 		return 1;
@@ -38,17 +48,6 @@ int main(int argc, const char **argv) {
 	const int page_strait = 1;
 	const int page2c = 4;
 	const int page2_strait = 4;
-
-	// calculated outputs to measure.
-	// pagetotal - the total amount of pages we just created.
-	const int pagetotal = pagec * page_strait + page2c * page2_strait;
-	const int pagetotal_including_header = pagetotal
-	                                       + 1 // (for header)
-										   + createparams.indexpages
-										   + createparams.structurepages;
-	const uint64_t bytetotal = pagetotal_including_header
-			* createparams.page_multiplier
-			* sysconf(_SC_PAGE_SIZE);
 
 	// working vars.
 	edb_pid pages[pagec];
@@ -91,22 +90,25 @@ int main(int argc, const char **argv) {
 	}
 
 	// check in the odb_deleted chapter to make sure all pages were deleted.
-	odb_spec_index_entry *oid_deleted;
-	edbd_index(&dfile, EDBD_EIDDELTED, &oid_deleted);
-	if(lseek(fd,edbd_pid2off(&dfile, oid_deleted->ref0), SEEK_SET) == -1) {
-		test_error("lseek");
-		goto ret;
-	}
-	// we'll just read the first edb_deleted page.
-	odb_spec_deleted header;
-	read(fd, &header, sizeof(odb_spec_deleted));
-	if(header.pagesc != pagetotal) {
-		test_error("first page of deleted chapter does not contain the "
-				   "expected amount of pages: expected %d, got %d (delta %d)"
-				   , pagetotal
-				   , header.pagesc
-				   , pagetotal - (int32_t)header.pagesc);
-		goto ret;
+	{
+		odb_spec_index_entry *oid_deleted;
+		edbd_index(&dfile, EDBD_EIDDELTED, &oid_deleted);
+		if (lseek(fd, edbd_pid2off(&dfile, oid_deleted->ref0), SEEK_SET) ==
+		    -1) {
+			test_error("lseek");
+			goto ret;
+		}
+		// we'll just read the first edb_deleted page.
+		const int pagetotal = pagec * page_strait + page2c * page2_strait;
+		odb_spec_deleted header;
+		read(fd, &header, sizeof(odb_spec_deleted));
+		if (header.pagesc != pagetotal) {
+			test_error("first page of deleted chapter does not contain the "
+			           "expected amount of pages: expected %d, got %d (delta %d)",
+			           pagetotal, header.pagesc,
+			           pagetotal - (int32_t) header.pagesc);
+			goto ret;
+		}
 	}
 
 
@@ -120,13 +122,28 @@ int main(int argc, const char **argv) {
 		test_error("failed to stat file");
 		goto ret;
 	}
-	if(fstat.st_size != bytetotal) {
-		test_error("byte total not expected size: expected %ld, got %ld (%ld "
-				   "delta)",
-				   bytetotal,
-				   fstat.st_size,
-				   (off_t)bytetotal - fstat.st_size);
-		goto ret;
+	// calculated outputs to measure.
+	// pagetotal - the total amount of pages we just created.
+	{
+		const int pagetotal =
+				pagec * page_strait + page2c * page2_strait + newdeletedpages;
+		const int pagetotal_including_header = pagetotal
+		                                       + 1 // (for header)
+		                                       + createparams.indexpages
+		                                       + createparams.structurepages;
+		const uint64_t bytetotal = pagetotal_including_header
+		                           * createparams.page_multiplier
+		                           * sysconf(_SC_PAGE_SIZE);
+
+		if (fstat.st_size != bytetotal) {
+			test_error(
+					"byte total not expected size: expected %ld, got %ld (%ld "
+					"delta)",
+					bytetotal,
+					fstat.st_size,
+					(off_t) bytetotal - fstat.st_size);
+			goto ret;
+		}
 	}
 
 	ret:

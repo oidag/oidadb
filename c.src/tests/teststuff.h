@@ -59,6 +59,7 @@ static int test_mkdir() {
 		test_error("failed to make build/tests");
 		return 1;
 	}
+	errno = 0; // clear out errno
 	err = chdir(dir);
 	if(err) {
 		test_error("failed to chdir into build/tests");
