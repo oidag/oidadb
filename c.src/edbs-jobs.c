@@ -1,5 +1,6 @@
 #include "edbs-jobs.h"
 #include "errors.h"
+#include "telemetry.h"
 
 #include <linux/futex.h>
 #include <sys/syscall.h>
@@ -231,11 +232,12 @@ edb_err edbs_jobselect(const edb_shm_t *shm, edbs_jobhandler *o_job, unsigned in
 
 	// we're done filing all the paperwork to have ownership over this job. thus no more need to have
 	// the ownership logic locked for other thread. We can continue to do this job.
+	telemetry_workr_accepted(ownerid, o_job->jobpos);
 	pthread_mutex_unlock(&head->jobaccept);
 
 	// if we're here that means we've accepted the job at jobv[self->jobpos] and we've
 	// claimed it so other workers won't bother this job.
-
+	return 0;
 }
 void    edbs_jobclose(edbs_jobhandler *job) {
 

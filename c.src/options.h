@@ -8,4 +8,8 @@
 // down a lot
 #define EDB_FUCKUPS
 
+
+// Define to enable odbtelemtry at all
+#define EDBTELEM
+
 #endif

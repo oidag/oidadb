@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include "options.h"
+#include "telemetry.h"
 #include "include/oidadb.h"
 #include "edbd.h"
 #include "errors.h"
@@ -411,6 +412,7 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 			// entry's perspective
 			ent->ref0c++;
 			ent->ref1 = newdeletedpage;
+			telemetry_pages_newdel(newdeletedpage);
 		}
 
 		// now that we've just created a fresh page at index 0. We'll go back to our original

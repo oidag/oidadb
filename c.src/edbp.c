@@ -15,6 +15,7 @@
 #include "options.h"
 #include "edbd.h"
 #include "edbp.h"
+#include "telemetry.h"
 
 // gets thee pages from either the cache or the file and returns an array of
 // pointers to those pages. Will try to get up to len (at least 1 is guarenteed)
@@ -97,6 +98,7 @@ static edb_err lockpages(edbpcache_t *cache,
 				log_critf("fail-cascading because waiting on swap to finish had failed");
 				return EDB_ECRIT;
 			default:
+				// was not undergoing a swap.
 				return 0;
 		}
 	}
@@ -153,6 +155,7 @@ static edb_err lockpages(edbpcache_t *cache,
 
 		// do the actual unmap
 		munmap(slot->page, pagesize);
+		telemetry_pages_decached(slot->id);
 	}
 
 	// load in the new page
@@ -189,6 +192,7 @@ static edb_err lockpages(edbpcache_t *cache,
 	// swap is complete. let the futex know the page is loaded in now
 	slot->futex_swap = 0;
 	syscall(SYS_futex, &slot->futex_swap, FUTEX_WAKE, INT_MAX, 0, 0, 0);
+	telemetry_pages_cached(slot->id);
 	return 0;
 }
 
@@ -314,11 +318,12 @@ void    edbp_decom(edbpcache_t *cache) {
 static unsigned int nexthandleid = 0;
 
 // create handles for the cache
-edb_err edbp_newhandle(edbpcache_t *cache, edbphandle_t *o_handle) {
-	if (!cache || !o_handle) return EDB_EINVAL;
+edb_err edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle,
+                       unsigned int name) {
+	if (!o_cache || !o_handle) return EDB_EINVAL;
 	bzero(o_handle, sizeof(edbphandle_t));
-	o_handle->parent = cache;
-	o_handle->id = ++nexthandleid;
+	o_handle->parent = o_cache;
+	o_handle->name = name;
 	o_handle->lockedslotv = -1;
 	return 0;
 }
@@ -360,6 +365,9 @@ edb_err edbp_start (edbphandle_t *handle, edb_pid id) {
 					&handle->lockedslotv);
 
 	// later: HIID stuff should go here.
+	if(!err) {
+		telemetry_workr_pload(handle->name, id);
+	}
 	return err;
 }
 
@@ -367,6 +375,8 @@ void    edbp_finish(edbphandle_t *handle) {
 	if(handle->lockedslotv != -1) {
 		unlockpage(handle->parent,
 		           handle->lockedslotv);
+		telemetry_workr_punload(handle->name,
+								handle->parent->slots[handle->lockedslotv].id);
 	}
 	handle->lockedslotv = -1;
 }
