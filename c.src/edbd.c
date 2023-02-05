@@ -356,6 +356,11 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 		return EDB_ECRIT;
 	}
 
+	// helper vars (needed to have edbd_index working)
+	odb_spec_index_entry *ents = o_file->edb_indexv + sizeof(odb_spec_index);
+	o_file->enteriesperpage = ents[EDBD_EIDINDEX].objectsperpage;
+	o_file->structsperpage = ents[EDBD_EIDSTRUCT].objectsperpage;
+
 	// atp: edbd_index is working.
 
 	// deleted page window
@@ -398,11 +403,6 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 		edbd_close(o_file);
 		return EDB_ECRIT;
 	}
-
-	// helper vars
-	odb_spec_index_entry *ents = o_file->edb_indexv + sizeof(odb_spec_index);
-	o_file->enteriesperpage = ents[EDBD_EIDINDEX].objectsperpage;
-	o_file->structsperpage = ents[EDBD_EIDSTRUCT].objectsperpage;
 
 
 	// file has been opened, validated, and edbd_t has been populated. we're

@@ -104,7 +104,9 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 
 	// However, we may have some bookkeeping to do in the fact that we may need to shift
 	// the deleted page window to the left (closer to the beginning)
-	{ //(scoped for clarity)
+	// But we have an edge case in the chance that there exist no deleted
+	// page in the chapter yet.
+	if(file->delpagesc) {
 		odb_spec_deleted *firstpage = file->delpagesv[file->delpagesc - 1];
 		odb_spec_deleted *lastpage = file->delpagesv[0];
 		if (firstpage->head.pleft != 0 && lastpage->refc == 0) {
