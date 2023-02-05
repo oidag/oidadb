@@ -191,6 +191,9 @@ typedef enum edb_err {
 
 	/// Something was wrong with the job description
 	EDB_EJOBDESC,
+
+	/// Invalid verison
+	EDB_EVERSION,
 } edb_err;
 
 /**

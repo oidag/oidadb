@@ -1,7 +1,7 @@
 #include "edba_u.h"
 #include "edba.h"
 #include "odb-structures.h"
-#include "analytics.h"
+#include "telemetry.h"
 
 #include <strings.h>
 
@@ -343,7 +343,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	// is to update ref0c and unlock it so other workers may create pages.
 	entry->lastlookup = lookuppid;
 	entry->ref0c += straitc;
-	analytics_newobjectpages(entryid, newobjectpid, straitc); // analytics
+	telemetry_pages_newobj(entryid, newobjectpid, straitc);
 	edbl_entryref0c(&handle->lockh, entryid, EDBL_TYPUNLOCK);
 
 	// and then let the trash collection know these pages are now in circulation.

@@ -167,7 +167,7 @@ typedef struct _edbphandle_t {
 	//        but just assume this is always an array lockedslotc in size.
 	edbp_slotid lockedslotv;
 
-	unsigned int id; // unique id for each handle assigned at newhandle time.
+	unsigned int name;
 } edbphandle_t;
 
 #define EDBP_HANDLE_MAXSLOTS 1
@@ -198,9 +198,12 @@ void    edbp_decom(edbpcache_t *cache);
 //
 // calling freehandle will unlock all slots.
 //
+// name should be the worker id (used explicitly for telemetry)
+//
 // ERRORS:
 //   EINVAL - o_cache / o_handle is null
-edb_err edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle);
+edb_err
+edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle, unsigned int name);
 void    edbp_freehandle(edbphandle_t *handle);
 
 typedef enum {
