@@ -120,6 +120,9 @@ typedef enum odbtelem_class {
 	/// A job was completed.
 	///  - jobslot - the job that was just completed.
 	ODBTELEM_JOBS_COMPLETED,
+
+	/// Do not use.
+	_ODBTELEM_LAST
 } odbtelem_class;
 
 typedef struct odbtelem_data {
@@ -127,21 +130,28 @@ typedef struct odbtelem_data {
 	/// The invoking class
 	odbtelem_class class;
 
-	edb_pid pageid;
+	union {
+		uint64_t arg0;
+		edb_pid pageid;
+	};
 
 	union {
+		unsigned int arg1;
 		edb_eid entryid;
 		unsigned int workerid;
 	};
 
 	union {
+		unsigned int arg2;
 		unsigned int pagec;
 		unsigned int jobslot;
 	};
 
 } odbtelem_data;
 
-edb_err odbtelem_bind(odbtelem_class class, void(*cb)(odbtelem_data data));
+typedef void(*odbtelem_cb)(odbtelem_data);
+
+edb_err odbtelem_bind(odbtelem_class class, odbtelem_cb cb);
 // odbtelem_bind
 /// \}
 
