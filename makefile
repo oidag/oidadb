@@ -18,6 +18,7 @@ doc: scripts/doxyfile
 
 
 PUBLISHDATE=$(shell date '+%F')
+BUILDVERSION := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
 COMMITS=$(shell git rev-list --all --count)
 LASTCOMMIT=$(shell git log -1 --format=%cI)
 REVISION=$(shell git log -1 --format=%H)
@@ -28,6 +29,7 @@ build/metrics.m4: .force
 	echo 'define(PUBLISHDATE, $(PUBLISHDATE))dnl' >> $@
 	echo 'define(COMMITS, $(COMMITS))dnl' >> $@
 	echo 'define(LASTCOMMIT, $(LASTCOMMIT))dnl' >> $@
+	echo 'define(BUILDVERSION, $(BUILDVERSION))dnl' >> $@
 	echo 'define(REVISION, $(REVISION))dnl' >> $@
 	echo 'define(LINECOUNT, $(LINECOUNT))dnl' >> $@
 
