@@ -117,7 +117,7 @@ int main(int argc, const char **argv) {
 		tr->pagev = pageidorder + (threads_tests*i);
 		tr->h = &handle[i];
 		tr->tests = threads_tests;
-		pthread_create(&threadv[i], 0, gothread, &t);
+		pthread_create(&threadv[i], 0, gothread, tr);
 	}
 
 	// join threads
