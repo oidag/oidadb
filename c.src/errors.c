@@ -13,7 +13,7 @@ vfprintf(stream, fmt, args); \
 fprintf(stream, "\n"); \
 if(terr) { \
 errno = terr; \
-perror(prefix "had errno"); \
+perror(prefix " (had errno)"); \
 } \
 va_end(args);\
 errno = terr;}
