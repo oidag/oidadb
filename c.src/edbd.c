@@ -286,28 +286,34 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 
 	int err = 0;
 
-	// read in the intro the without mmaping just to quickly grab the page size
-	// and arch-validation
+	// mmap the first page so we can look at the header.
+	// We cant use read(2) because the descriptor is likely open in O_DIRECT.
 	{
-		if (lseek(o_file->descriptor, 0, SEEK_SET) == -1) {
-			log_critf("lseek");
-			return EDB_ECRIT;
-		}
-		odb_spec_headintro intro;
-		if(read(o_file->descriptor, &intro, sizeof(intro)) == -1) {
-			log_critf("read");
+		o_file->head_page = mmap64(0, sysconf(_SC_PAGE_SIZE), PROT_READ | PROT_WRITE,
+		                           MAP_SHARED_VALIDATE,
+		                           o_file->descriptor,
+		                           0);
+		if(o_file->head_page == MAP_FAILED) {
+			log_critf("failed to call mmap(2) due to unpredictable errno");
 			return EDB_ECRIT;
 		}
 
 		// validate the head intro on the system to make sure
 		// it can run on this architecture.
-		edb_err valdationerr = validateheadintro(intro);
+		edb_err valdationerr = validateheadintro(o_file->head_page->intro);
 		if(valdationerr != 0) {
+			munmap(o_file->head_page, sysconf(_SC_PAGE_SIZE));
 			return valdationerr;
 		}
 		// calculate the page size
-		o_file->page_size    = intro.pagemul
-		                       * intro.pagesize; // same as sys_pszie.
+		o_file->page_size    = o_file->head_page->intro.pagemul
+		                       * o_file->head_page->intro.pagesize; // same as sys_pszie.
+
+		// sense we mmap'd the head in only the system page size, we must
+		// resize it so that we mmap the database page size. We'll unmap it
+		// in this block but if you see the next lines of code will remap it
+		// to the predictable size.
+		munmap(o_file->head_page, sysconf(_SC_PAGE_SIZE));
 	}
 
 	// atp: we know this is a valid oidadb file and the achitecture can
