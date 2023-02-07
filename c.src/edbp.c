@@ -88,6 +88,7 @@ static edb_err lockpages(edbpcache_t *cache,
 		// before we return: in the case that the page was currently undergoing a swap
 		// we'll wait for it here.
 		syscall(SYS_futex, &slot->futex_swap, FUTEX_WAIT, 1, 0, 0, 0);
+		errno = 0;
 
 		// if the swap failed for whatever reason, we'll casecade fail. Sure we can try
 		// to do the swap again, but frankly if we're out of memory then we're out of memory.
