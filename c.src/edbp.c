@@ -136,12 +136,17 @@ static edb_err lockpages(edbpcache_t *cache,
 		// as dirty.
 		// note w=1 because the first word of the page is the checksum itself.
 		if(slot->pra_hints & EDBP_HDIRTY) {
+			// even though its a no-op on linux. Lets be a good boy and
+			// explicitly call MS_ASYNC.
+			msync(slot->page, pagesize, MS_ASYNC);
+#ifdef EDB_OPT_CHECKSUMS
 			uint32_t sum = 0;
 			for (int w = 1; w < pagesize / sizeof(uint32_t); w++) {
 				sum += ((uint32_t *) (slot->page))[w];
 			}
 			_odb_stdhead *head = (_odb_stdhead *)(slot->page);
 			head->_checksum = sum;
+#endif
 		}
 
 		// later: encrypt the body if page is supposed to be encrypted.
@@ -301,7 +306,7 @@ void    edbp_decom(edbpcache_t *cache) {
 	// munmap all slots that have data in them.
 	for(int i = 0; i < cache->slot_count; i++) {
 		if(cache->slots[i].page != 0) {
-			msync(cache->slots[i].page, edbd_size(cache->fd), MS_SYNC);
+			msync(cache->slots[i].page, edbd_size(cache->fd), MS_ASYNC);
 			munmap(cache->slots[i].page, edbd_size(cache->fd));
 			cache->slots[i].page = 0;
 		}
