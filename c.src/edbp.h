@@ -125,6 +125,10 @@ typedef struct _edbpcache_t {
 	edbp_slot     *slots;
 	edbp_slotid    slot_count; // the total amount of slots regardless of width
 
+	// used explicitly for returning EDB_EINVAL in edbp_newhandle when this
+	// exceeds slot_count.
+	unsigned int handles;
+
 	// When starting up, or when all the slots have simular scores, the cache
 	// tends to stick on a single slot to perform all page swaps.
 	//
@@ -202,6 +206,10 @@ void    edbp_decom(edbpcache_t *cache);
 //
 // ERRORS:
 //   EINVAL - o_cache / o_handle is null
+//   EDB_ENOSPACE - cannot create another handle because not enough slots in
+//                  the cache.
+//
+// THREADING: Not MT safe.
 edb_err
 edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle, unsigned int name);
 void    edbp_freehandle(edbphandle_t *handle);

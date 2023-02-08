@@ -322,6 +322,9 @@ static unsigned int nexthandleid = 0;
 edb_err edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle,
                        unsigned int name) {
 	if (!o_cache || !o_handle) return EDB_EINVAL;
+	if (o_cache->slot_count < o_cache->handles + 1) return EDB_ENOSPACE;
+	o_cache->handles++;
+
 	bzero(o_handle, sizeof(edbphandle_t));
 	o_handle->parent = o_cache;
 	o_handle->name = name;
@@ -332,6 +335,7 @@ void    edbp_freehandle(edbphandle_t *handle) {
 	if(!handle) return;
 	if(!handle->parent) return;
 	edbp_finish(handle);
+	handle->parent->handles--;
 	handle->parent = 0;
 }
 
