@@ -1,6 +1,10 @@
 #ifndef _edf_options_
 #define _edf_options_ 1
 
+// if defined, pages that have been marked as dirty will have checksums
+// written to them.
+#define EDB_OPT_CHECKSUMS
+
 // Adds an a lot of extra code who's only purpose is to "triple check"
 // everything as it goes in and out. Theoretically this code is never used.
 // This code is only to check the integretty of the developer rather than
