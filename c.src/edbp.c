@@ -151,11 +151,6 @@ static edb_err lockpages(edbpcache_t *cache,
 
 		// later: encrypt the body if page is supposed to be encrypted.
 
-		// I invoke a explicit sync here.
-		// later: hmmm... is this needed with O_DIRECT? would this be faster without while still in our
-		//        risk tolerance?
-		//msync(slot->page.head, pagesize, MS_SYNC);
-
 		// reset the slot hints
 		slot->pra_hints = 0;
 
