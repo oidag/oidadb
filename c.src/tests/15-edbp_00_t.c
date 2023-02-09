@@ -1,3 +1,4 @@
+#include "../options.h"
 #include "../include/oidadb.h"
 #include "../include/telemetry.h"
 #include "teststuff.h"
@@ -8,7 +9,17 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #include <pthread.h>
+#include <stdatomic.h>
+
+atomic_int *page_loaded_amount;
+atomic_int *page_cached_amount;
+
+// total time inside of edbp_start (microseconds)
+unsigned long totalspent = 0;
+pthread_mutex_t what;
+
 
 typedef struct {
 	edbphandle_t *h;
@@ -17,23 +28,48 @@ typedef struct {
 	int tests;
 }threadstruct;
 
+void pload(odbtelem_data d) {
+	switch(d.class) {
+		case ODBTELEM_WORKR_PLOAD:
+			page_loaded_amount[d.pageid-65]++;
+			break;
+		case ODBTELEM_PAGES_CACHED:
+			page_cached_amount[d.pageid-65]++;
+			break;
+	}
+}
+
 // returns null on success.
 void *gothread(void *args) {
 	threadstruct *t = args;
 	edbphandle_t *h = t->h;
+	struct timeval start,end = {0};
 	for(int i = 0; i < t->pagec; i++) {
+		gettimeofday(&start, 0);
 		err = edbp_start(h, t->pagev[i]);
+		edb_pid pageid = t->pagev[i];
+		gettimeofday(&end, 0);
 		if (err) {
 			test_error("edbp_start");
 			continue;
 		}
+		// dirty the page for worst case-senario.
+		unsigned int *page = edbp_graw(h) + ODB_SPEC_HEADSIZE;
+		page[0x0]++;
+		page[0x1] = 0x69697777;
+		edbp_mod(h, EDBP_CACHEHINT, EDBP_HDIRTY);
+		unsigned long int startt, finisht;
+		startt = (uint64_t)start.tv_sec*1000000 + start.tv_usec;
+		finisht = (uint64_t)end.tv_sec*1000000 + end.tv_usec;
+		unsigned long diff = finisht - startt;
+		atomic_fetch_add(&totalspent, diff);
 		edbp_finish(h);
 	}
 	return (void *)test_waserror;
 }
 
 int main(int argc, const char **argv) {
-
+	pthread_mutex_init(&what, 0);
 	// create an empty file
 	test_mkdir();
 	test_mkfile(argv[0]);
@@ -44,13 +80,18 @@ int main(int argc, const char **argv) {
 		return 1;
 	}
 	// open the file
-	int fd = open(test_filenmae, O_RDWR);
+	int fd = open(test_filenmae, O_RDWR
+	                             | O_DIRECT
+								 | O_SYNC
+								 | O_LARGEFILE
+								 | O_NONBLOCK);
 	if(fd == -1) {
 		test_error("bad fd");
 		return 1;
 	}
 	odbtelem(1);
-	//odbtelem_bind(ODBTELEM_PAGES_NEWDEL, newdel);
+	odbtelem_bind(ODBTELEM_WORKR_PLOAD, pload);
+	odbtelem_bind(ODBTELEM_PAGES_CACHED, pload);
 	edbd_t dfile;
 	edbd_config config;
 	config.delpagewindowsize = 1;
@@ -60,16 +101,24 @@ int main(int argc, const char **argv) {
 		return 1;
 	}
 
-
-	// testing configs
-	const int pagec = 64; // pages to create
+	////////////////////////////////////////////////////////////////////////////
+	//
+	// testing configs. Play with these for science.
+	//
+	////////////////////////////////////////////////////////////////////////////
+	const int pagec = 15000; // pages to create
 	const int page_strait = 1; // strait of pages
-	const int cachesize = 8; // pra cache
-	const int threads = 1; // threads to start
-	const int threads_tests = 64; // page count each thread should test
-	// if a pageid is divisable by this, that means the edbp handles will
-	// avoid brining it into cache, thus testing the PRU algo.
-	const int avoiddivisor = 10;
+	const int cachesize = 256; // pra cache
+	const int threads = 16; // threads to start
+	const int threads_tests = 100; // page count each thread should test
+	// I'm not sure what this means. But I try to make this a percent.
+	//
+	// When I set it to 0.7 this makes 30% of the pages loaded 70% of the time.
+	// I think.... at least thats what I'm going for.
+	//
+	// Check my work.
+	const double algothingindexthing = 0.6;
+
 	int rand_seed = 4844; // use same random seed for static results.
 	/*time_t tv;
 	int rand_seed = (unsigned) time(&tv) + getpid();*/
@@ -77,9 +126,13 @@ int main(int argc, const char **argv) {
 	// working vars.
 	edb_pid pages[pagec];
 	pthread_t threadv[threads];
-	edbphandle_t handle[threads];
+	edbphandle_t *handle[threads];
 	threadstruct t[threads];
 	edb_pid pageidorder[threads_tests * threads];
+	page_loaded_amount = malloc(sizeof(atomic_int) * pagec);
+	page_cached_amount = malloc(sizeof(atomic_int) * pagec);
+	bzero(page_loaded_amount, sizeof(atomic_int) * pagec);
+	bzero(page_cached_amount, sizeof(atomic_int) * pagec);
 
 	// create pages
 	for(int i = 0; i < pagec; i++) {
@@ -91,31 +144,45 @@ int main(int argc, const char **argv) {
 	}
 
 	// init the cache
-	edbpcache_t cache;
-	err = edbp_init(&cache, &dfile, cachesize);
+	edbpcache_t *cache;
+	err = edbp_cache_init(&dfile, &cache);
 	if(err) {
-		test_error("edbp_init");
+		test_error("edbp_cache_init");
+		goto ret;
+	}
+	err = edbp_cache_config(cache, EDBP_CONFIG_CACHESIZE, cachesize);
+	if(err) {
+		test_error("edbp_cache_config");
 		goto ret;
 	}
 
-	// create thread list
+	// create page list: the full list of all pages that will be loaded in
+	// which order (save for multithreading). Here is where you apply
+	// preferences to pages.
 	srand(rand_seed);
-	for(int i =0; i < threads_tests * threads; i++) {
-		pageidorder[i] = (edb_pid) (rand() % (pagec-1))+1;
-	}
+	int maxindex = pagec;
+	int listsize = threads_tests * threads;
+	int listnval = 0;
+	for(int i =0; i < listsize; i++) {
+		if(listnval == i) {
+			maxindex = (int)((double)maxindex * (1-algothingindexthing))+1;
+			listnval = (int)((1-algothingindexthing) * (double)(listsize-i))+i;
+		}
+		pageidorder[i] = pages[rand() % maxindex];
 
+	}
 
 	// create handles
 	for(int i = 0;i  < threads; i++) {
-		err = edbp_newhandle(&cache, &handle[i], i);
+		err = edbp_handle_init(cache, i, &handle[i]);
 		if(err) {
 			test_error("new handle");
-			goto ret;
+			break;
 		}
 		threadstruct *tr = &t[i];
 		tr->pagec = threads_tests;
-		tr->pagev = pageidorder + (threads_tests*i);
-		tr->h = &handle[i];
+		tr->pagev = &pageidorder[threads_tests*i];
+		tr->h = handle[i];
 		tr->tests = threads_tests;
 		pthread_create(&threadv[i], 0, gothread, tr);
 	}
@@ -130,55 +197,43 @@ int main(int argc, const char **argv) {
 		}
 	}
 
-	// todo: print out results.
 
+	printf("results\n");
+	int sumloads = 0;
+	int sumfaults = 0;
+	printf("| PID     | LOADED  | FAULT   |\n");
+	printf("|---------|---------|---------|\n");
+	for(int i = 0; i < pagec; i++) {
+		printf("| %7ld | %7d | %7d |\n",
+			   pages[i],
+			   page_loaded_amount[i],
+			   page_cached_amount[i]);
+		sumloads += page_loaded_amount[i];
+		sumfaults += page_cached_amount[i];
+	}
+	printf("sum loads: %d\n", sumloads);
+	printf("sum faults: %d\n", sumfaults);
+	printf("PRA Inefficiency: %f\n", (float)sumfaults / (float)sumloads);
+	printf("PRA total time (seconds): %f\n", (double)totalspent/1000000);
+	printf("PRA avg time per thread (seconds): %f\n", (double)
+			(totalspent)/(double)threads/1000000);
+	printf("PRA avg total time per call (usec): %f\n",
+		   (double)(totalspent)/(double)sumloads);
+	if(sumloads != threads * threads_tests) {
+		test_error("total loads: %d (%d expected)", sumloads, threads *
+		threads_tests);
+	}
 
-
+	free(page_loaded_amount);
+	free(page_cached_amount);
 	for(int i = 0;i  < threads; i++) {
-		edbp_freehandle(&handle[i]);
+		edbp_handle_free(handle[i]);
 	}
 
 
-	edbp_decom(&cache);
+	edbp_cache_free(cache);
 	edbd_close(&dfile);
 
 	ret:
 	return test_waserror;
-
-	/*
-	edbd_t file;
-	edbpcache_t cache;
-	edb_err err = 0;
-	unlink(".tests/page_test");
-	err = edbd_open(&file, ".tests/page_test", 1, EDB_HCREAT);
-	if(err) {
-		goto ret;
-	}
-	err = edbp_init(&cache, &file, 16);
-	if(err) {
-		goto fclose;
-	}
-
-	pthread_t threads[8];
-	for(int i = 0; i < 8; i++) {
-		pthread_create(&threads[i], 0, gothread, &cache);
-	}
-
-	for(int i = 0; i < 8; i++) {
-		pthread_join(threads[i], 0);
-	}
-
-	decom:
-	edbp_decom(&cache);
-	fclose:
-	edbd_close(&file);
-	ret:
-	if(err) {
-		if(err == EDB_EERRNO) {
-			perror("edbp errorno");
-		}
-		printf("edb error: %d (errno: %d)\n", err, errno);
-		return 1;
-	}
-	return 0;*/
 }
