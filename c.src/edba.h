@@ -34,7 +34,7 @@ typedef struct{
 typedef struct edba_handle_st {
 	edba_host_t *parent;
 	edbl_handle_t lockh;
-	edbphandle_t  edbphandle;
+	edbphandle_t  *edbphandle;
 
 	// internal stuff, don't touch outside of edba namespace:
 

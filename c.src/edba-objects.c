@@ -142,7 +142,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// check for trashfault
 	edbp_start(&h->edbphandle, pageid);
-	odb_spec_object *o = edbp_gobject(&h->edbphandle);
+	odb_spec_object *o = edbp_graw(&h->edbphandle);
 	if(o->trashstart_off == (uint16_t)-1) {
 
 		// if we're in here then what has happened is a trash fault.
@@ -157,10 +157,10 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 		// it needs to know if its in the entry-page-trash linked list to avoid
 		// adding itself twice (which will break the linked list)
 		o->trashvor = 0;
-		edbp_mod(&h->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
+		edbp_mod(h->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
 
 		// close this page because there's no trash on it.
-		edbp_finish(&h->edbphandle);
+		edbp_finish(h->edbphandle);
 		// unlock the trashoff of this page.
 		edba_u_locktransstartoff_release(h);
 		// retry the updated trashlast
@@ -229,7 +229,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	*objflags = *objflags & ~EDB_FDELETED; // set deleted flag as 0.
 
 	// sense we just updated that object flag, set the page to be dirty.
-	edbp_mod(&h->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
+	edbp_mod(h->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
 	return 0;
 }
 
@@ -483,6 +483,22 @@ typedef enum obj_searchflags_em {
 
 } obj_searchflags;
 
+
+// returns the amount of bytes into the object page until the start of the given row.
+static unsigned int intraoffset(uint64_t rowid, uint64_t pageoffset, uint16_t
+objectsperpage, uint16_t fixedlen)
+{
+	unsigned int ret = ODB_SPEC_HEADSIZE + (unsigned int)(rowid - pageoffset * (uint64_t)objectsperpage) * (unsigned int)fixedlen;
+#ifdef EDB_FUCKUPS
+	if(ret > (ODB_SPEC_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen)) {
+		log_critf("intraoffset calculation corruption: calculated byte offset (%d) exceeds that of theoretical maximum (%d)",
+		          ret, ODB_SPEC_HEADSIZE + (unsigned int)objectsperpage * (unsigned int)fixedlen);
+	}
+#endif
+	return ret;
+
+}
+
 void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entrydat, edb_rid rowid,
                              edb_pid *o_chapter_pageoff,
                              uint16_t *o_page_byteoff) {
@@ -493,8 +509,8 @@ void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entryd
 	// So we calculate all the offset stuff.
 	// get the intrapage byte offset
 	// use math to get the byte offset of the start of the row data
-	*o_page_byteoff = edbp_object_intraoffset(rowid,
-	                                          *o_chapter_pageoff,
-	                                          entrydat->objectsperpage,
-	                                          structdata->fixedc);
+	*o_page_byteoff = intraoffset(rowid,
+	                              *o_chapter_pageoff,
+	                              entrydat->objectsperpage,
+	                              structdata->fixedc);
 }

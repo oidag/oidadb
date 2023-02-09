@@ -47,7 +47,7 @@ typedef struct edb_host_st {
 
 	// page IO, see pages.h
 	edba_host_t ahost;
-	edbpcache_t pcache;
+	edbpcache_t *pcache;
 
 
 } edb_host_t;
@@ -208,14 +208,19 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 	host.state = HOST_OPENING_PAGEBUFF;
 
 	// page buffers & edba
-	eerr = edbp_init(&host.pcache, &host.file, host.config.slot_count);
+	eerr = edbp_cache_init(&host.file, &host.pcache);
 	if(eerr) {
 		goto ret;
 	}
 	// **defer: edbp_decom(&host.pcache);
 	host.state = HOST_OPENING_ARTICULATOR;
+	eerr = edbp_cache_config(host.pcache,
+	                  EDBP_CONFIG_CACHESIZE, host.config.slot_count);
+	if(eerr) {
+		goto ret;
+	}
 
-	eerr = edba_host_init(&host.ahost, &host.pcache, &host.file);
+	eerr = edba_host_init(&host.ahost, host.pcache, &host.file);
 	if(eerr) {
 		goto ret;
 	}
@@ -307,7 +312,7 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 			// fallthrough
 		case HOST_OPENING_ARTICULATOR:
 			log_infof("decommissioning page buffer...");
-			edbp_decom(&host.pcache);
+			edbp_cache_free(host.pcache);
 			// fallthrough
 		case HOST_OPENING_PAGEBUFF:
 			log_infof("closing shared memory...");
