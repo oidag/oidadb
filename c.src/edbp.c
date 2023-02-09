@@ -103,8 +103,7 @@ static edb_err lockpages(edbpcache_t *cache,
 
 	// At this point: Page fault.
 
-	// increment the next start to decrease the chance of having page faults
-	// happening on the same slot with equal scores.
+	// see slot_nextstart doc.
 	cache->slot_nextstart = (cache->slot_nextstart + 1) % cache->slot_count;
 
 	// At this point, however we have which slot we can swap stored in slotswap.

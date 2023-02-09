@@ -51,15 +51,11 @@ typedef struct edbpcache_t {
 	// exceeds slot_count.
 	unsigned int handles;
 
-	// When starting up, or when all the slots have simular scores, the cache
-	// tends to stick on a single slot to perform all page swaps.
-	//
-	// This is bad because its not allowing the other pages that were
-	// previously loaded to get a history developed.
-	//
-	// So every time there's a page fualt, we increment next start and modulus it
+	// Every time there's a page fault, we increment next start and modulus it
 	// against slot count. This will make the iterator start not at the
-	// same spot everytime.
+	// same spot everytime. Adding a bit of randomness to the mix, which is
+	// helpful, the more spread out the workers are in the slots the more
+	// evenly slots will be used.
 	edbp_slotid    slot_nextstart;
 
 	// slotboostCc is a number from 0 to 1 that is multipled by
