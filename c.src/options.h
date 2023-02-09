@@ -12,12 +12,16 @@
 // down a lot
 #define EDB_FUCKUPS
 
+// If EDB_OPT_PRA_OS is defined, then it will use the operating system's
+// native page replace algo. Otherwise, it will use a proprietary oidadb one.
+//#define EDB_OPT_PRA_OS
+
 
 // Define to enable odbtelemtry at all
 #define EDBTELEM
 #ifdef EDBTELEM
 // log_debug message will be generated every telemetry message.
-#define EDBTELEM_DEBUG
+//#define EDBTELEM_DEBUG
 #endif
 
 #endif
