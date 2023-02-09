@@ -12,7 +12,7 @@ static edb_err xlloadlookup(edba_handle_t *handle,
                             odb_spec_lookup **lookuphead,
                             odb_spec_lookup_lref **lookuprefs) {
 	edb_err err;
-	edbphandle_t *edbp = &handle->edbphandle;
+	edbphandle_t *edbp = handle->edbphandle;
 
 	// as per locking spec, we must place an XL lock on the second
 	// byte on the page before we open it.
@@ -72,7 +72,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 #endif
 
 	// easy ptrs
-	edbphandle_t *edbp = &handle->edbphandle;
+	edbphandle_t *edbp = handle->edbphandle;
 	odb_spec_index_entry *entry = handle->clutchedentry;
 	unsigned int entryid = handle->clutchedentryeid;
 	int depth = entry->memory >> 0xC;
@@ -409,7 +409,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
                                  odb_spec_lookup_lref ref) {
 
 	// easy ptrs
-	edbphandle_t *edbp = &handle->edbphandle;
+	edbphandle_t *edbp = handle->edbphandle;
 	edbd_t *descriptor = handle->parent->descriptor;
 	edb_err err;
 
@@ -471,7 +471,7 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
                                   const odb_spec_struct_struct *strct,
                                   uint8_t straitc, edb_pid *o_pid) {
 	// easy ptrs
-	edbphandle_t *edbp = &handle->edbphandle;
+	edbphandle_t *edbp = handle->edbphandle;
 	edb_err err;
 	edbd_t *descriptor = handle->parent->descriptor;
 	unsigned int objectsperpage = (edbd_size(handle->edbphandle.parent->fd) - ODB_SPEC_HEADSIZE) / strct->fixedc;

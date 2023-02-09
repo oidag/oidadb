@@ -1,6 +1,7 @@
-
 #define _LARGEFILE64_SOURCE     /* See feature_test_macros(7) */
-#include <sys/types.h>
+
+#include "edbp_u.h"
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -11,11 +12,6 @@
 #include <limits.h>
 #include <errno.h>
 #include <stdarg.h>
-
-#include "options.h"
-#include "edbd.h"
-#include "edbp.h"
-#include "telemetry.h"
 
 // gets thee pages from either the cache or the file and returns an array of
 // pointers to those pages. Will try to get up to len (at least 1 is guarenteed)
@@ -29,8 +25,9 @@
 // todo: update documentation to reflect signature
 static edb_err lockpages(edbpcache_t *cache,
                          edb_pid starting,
-                         edbp_slotid *o_pageslots) {
+                         edbphandle_t *h) {
 	// quick vars
+	edbp_slotid *o_pageslots = &h->lockedslotv;
 	int fd = cache->fd->descriptor;
 	unsigned int pagesize = edbd_size(cache->fd);
 
@@ -249,51 +246,79 @@ void static unlockpage(edbpcache_t *cache, edbp_slotid slotid) {
 	// clean up
 	unlock:
 	pthread_mutex_unlock(&cache->mutexpagelock);
-	return;
+}
+
+edb_err edbp_cache_config(edbpcache_t *pcache, edbp_config_opts opts, ...) {
+
+	if(!pcache) return EDB_EINVAL;
+	if(pcache->handles != 0) return EDB_EOPEN;
+
+	va_list args;
+	va_start(args, opts);
+	switch (opts) {
+		case EDBP_CONFIG_CACHESIZE:
+			break;
+		default:
+			return EDB_EINVAL;
+	}
+	unsigned int slotcount = va_arg(args, unsigned int);
+	va_end(args);
+
+	// (re)allocate slots
+	void *slots = realloc(pcache->slots,
+							sizeof(edbp_slot) * slotcount);
+	if (slots == 0) {
+		if(errno == ENOMEM)
+			return EDB_ENOMEM;
+		log_critf("realloc");
+		return EDB_ECRIT;
+	}
+	bzero(slots, sizeof(edbp_slot) * slotcount); // 0-out
+
+	// assignments
+	pcache->slots = slots;
+	pcache->slot_count = slotcount;
+	pcache->slotboostCc = EDBP_SLOTBOOSTPER;
+	pcache->slotboost = (unsigned int) (pcache->slotboostCc *
+	                                    (float) pcache->slot_count);
+	return 0;
 }
 
 // see conf->pra_algo
-edb_err edbp_init(edbpcache_t *o_cache, const edbd_t *file, edbp_slotid slotcount) {
+edb_err edbp_cache_init(const edbd_t *file, edbpcache_t **o_cache) {
 
 	// invals
-	if(!o_cache) return EDB_EINVAL;
+	if(!file || !o_cache) return EDB_EINVAL;
 
-	// initialize
-	bzero(o_cache, sizeof(edbpcache_t)); // initilize 0
-	int err = 0;
-
-	// parent file
-	o_cache->fd = file;
-
-	// page cache metrics
-	o_cache->slot_count    = slotcount;
-
-	// buffers
-	// individual slots
-	o_cache->slots = malloc(sizeof(edbp_slot) * o_cache->slot_count);
-	if(o_cache->slots == 0) {
-		log_critf("cannot allocate page buffer");
-		edbp_decom(o_cache);
-		return EDB_ENOMEM;
-	}
-	bzero(o_cache->slots, sizeof(edbp_slot) * o_cache->slot_count); // 0-out
-
-	// mutexes
-	err = pthread_mutex_init(&o_cache->mutexpagelock, 0);
-	if(err) {
-		log_critf("failed to initialize pagelock mutex: %d", err);
-		edbp_decom(o_cache);
+	// malloc the actual handle
+	*o_cache = malloc(sizeof(edbpcache_t));
+	if(*o_cache == 0) {
+		if(errno == ENOMEM)
+			return EDB_ENOMEM;
+		log_critf("malloc failed");
 		return EDB_ECRIT;
 	}
+	edbpcache_t *pcache = *o_cache;
 
-	// calculations
-	o_cache->slotboostCc = EDBP_SLOTBOOSTPER;
-	o_cache->slotboost = (unsigned int)(o_cache->slotboostCc * (float)o_cache->slot_count);
-	o_cache->initialized = 1;
+	// initialize
+	bzero(pcache, sizeof(edbpcache_t));
+	edb_err err = 0;
+
+	// parent file
+	pcache->fd = file;
+
+	// mutexes
+	err = pthread_mutex_init(&pcache->mutexpagelock, 0);
+	if (err) {
+		log_critf("failed to initialize pagelock mutex: %d", err);
+		edbp_cache_free(pcache);
+		return EDB_ECRIT;
+	}
+	pcache->initialized = 1;
 	return 0;
 }
-void    edbp_decom(edbpcache_t *cache) {
-	if(!cache || !cache->initialized) return;
+void    edbp_cache_free(edbpcache_t *cache) {
+	if(!cache) return;
 
 	// kill mutexes
 	pthread_mutex_destroy(&cache->mutexpagelock);
@@ -307,40 +332,50 @@ void    edbp_decom(edbpcache_t *cache) {
 		}
 	}
 
-	// free memory
+	// free slot memory
 	if(cache->slots) free(cache->slots);
 
 	// null out pointers
-	cache->slots = 0;
-	cache->slot_count = 0;
-	cache->initialized = 0;
+	free(cache);
 }
-
-static unsigned int nexthandleid = 0;
 
 // create handles for the cache
-edb_err edbp_newhandle(edbpcache_t *o_cache, edbphandle_t *o_handle,
-                       unsigned int name) {
-	if (!o_cache || !o_handle) return EDB_EINVAL;
-	if (o_cache->slot_count < o_cache->handles + 1) return EDB_ENOSPACE;
-	o_cache->handles++;
+edb_err edbp_handle_init(edbpcache_t *cache,
+						 unsigned int name,
+						 edbphandle_t **o_handle) {
+	if (!cache || !o_handle) return EDB_EINVAL;
+	if (cache->slot_count < cache->handles + 1) return EDB_ENOSPACE;
+	cache->handles++;
 
-	bzero(o_handle, sizeof(edbphandle_t));
-	o_handle->parent = o_cache;
-	o_handle->name = name;
-	o_handle->lockedslotv = -1;
+	// malloc the actual handle
+	*o_handle = malloc(sizeof(edbphandle_t));
+	if(*o_handle == 0) {
+		if(errno == ENOMEM)
+			return EDB_ENOMEM;
+		log_critf("malloc failed");
+		return EDB_ECRIT;
+	}
+	edbphandle_t *phandle = *o_handle;
+
+	// initialize
+	bzero(phandle, sizeof(edbphandle_t));
+	phandle->parent = cache;
+	phandle->name = name;
+	phandle->lockedslotv = -1;
+
 	return 0;
 }
-void    edbp_freehandle(edbphandle_t *handle) {
+void    edbp_handle_free(edbphandle_t *handle) {
 	if(!handle) return;
 	if(!handle->parent) return;
 	edbp_finish(handle);
 	handle->parent->handles--;
 	handle->parent = 0;
+	free(handle);
 }
 
 edb_err edbp_start (edbphandle_t *handle, edb_pid id) {
-#ifdef EDB_FUCKUPS
+
 	// invals
 	if(id == 0) {
 		log_critf("attempting to start id 0");
@@ -350,7 +385,7 @@ edb_err edbp_start (edbphandle_t *handle, edb_pid id) {
 		log_errorf("cache handle attempt to double-lock");
 		return EDB_EINVAL;
 	}
-#endif
+
 
 	// easy vars
 	edbpcache_t *parent = handle->parent;
@@ -366,8 +401,7 @@ edb_err edbp_start (edbphandle_t *handle, edb_pid id) {
 #endif
 
 	// lock in the pages
-	err = lockpages(parent, id,
-					&handle->lockedslotv);
+	err = lockpages(parent, id, handle);
 
 	// later: HIID stuff should go here.
 	if(!err) {
@@ -390,7 +424,7 @@ edb_pid edbp_gpid(const edbphandle_t *handle) {
 	return handle->parent->slots[handle->lockedslotv].id;
 }
 
-edbp_t *edbp_graw(const edbphandle_t *handle) {
+void *edbp_graw(const edbphandle_t *handle) {
 	if (handle->lockedslotv == -1) {
 		log_errorf("call attempted to edbp_graw without having one locked");
 		return 0;
@@ -416,13 +450,10 @@ edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...) {
 			err = 0;
 			break;
 		case EDBP_ECRYPT:
-		case EDBP_XLOCK:
-		case EDBP_ULOCK:
 		default:
 			err = EDB_EINVAL;
 			break;
 	}
 	va_end(args);
 	return err;
-
 }

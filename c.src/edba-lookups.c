@@ -28,9 +28,9 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 	// set the lookup hint now
 	// generate the proper EDBP_HINDEX... value
 	edbp_hint h = EDBP_HINDEX0 - depth * 0x10;
-	edbp_mod(&handle->edbphandle, EDBP_CACHEHINT, h);
-	odb_spec_lookup *l = edbp_glookup(&handle->edbphandle);
-	odb_spec_lookup_lref *refs = edbp_lookup_refs(l);
+	edbp_mod(handle->edbphandle, EDBP_CACHEHINT, h);
+	odb_spec_lookup *l = edbp_graw(handle->edbphandle);
+	odb_spec_lookup_lref *refs = (void*)l + ODB_SPEC_HEADSIZE;
 
 	if(depth == 0) {
 		// if depth is 0 that means this page is full of leaf node references.
