@@ -6,7 +6,7 @@
 edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 
 	// easy ptrs
-	edbl_handle_t *lockh = &h->lockh;
+	edbl_handle_t *lockh = h->lockh;
 	const edb_eid eid = EDBD_EIDSTRUCT;
 	edbd_t *file = h->parent->descriptor;
 	edb_err err;
@@ -49,7 +49,7 @@ edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_struct strct) {
 
 	// easy ptrs
-	edbl_handle_t *lockh = &h->lockh;
+	edbl_handle_t *lockh = h->lockh;
 	const edb_eid eid = EDBD_EIDSTRUCT;
 	edbd_t *file = h->parent->descriptor;
 	edb_err err;
@@ -155,7 +155,7 @@ const void *edba_structconf(edba_handle_t *h) {
 }
 edb_err edba_structdelete(edba_handle_t *h) {
 	// easy ptrs
-	edbl_handle_t *lockh = &h->lockh;
+	edbl_handle_t *lockh = h->lockh;
 	edbd_t *file = h->parent->descriptor;
 	edb_err err;
 

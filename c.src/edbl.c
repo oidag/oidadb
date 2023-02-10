@@ -8,13 +8,27 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <malloc.h>
 
 #include "edbl.h"
 #include "errors.h"
 #include "pthread.h"
 
+
+typedef struct edbl_host_st {
+	const edbd_t *fd;
+	pthread_mutex_t mutex_index;
+	pthread_mutex_t mutex_struct;
+} edbl_host_t;
+
+typedef struct edbl_handle_st {
+	edbl_host_t *parent;
+	int fd_d;
+} edbl_handle_t;
+
 edb_err edbl_init(edbl_host_t *o_lockdir, const edbd_t *filedesc) {
 	// todo: invals
+	// todo: mallocs
 	o_lockdir->fd = filedesc;
 	int err = pthread_mutex_init(&o_lockdir->mutex_struct,0);
 	if(err) {
@@ -29,13 +43,15 @@ edb_err edbl_init(edbl_host_t *o_lockdir, const edbd_t *filedesc) {
 	return 0;
 }
 
-void    edbl_decom(edbl_host_t *lockdir) {
+void    edbl_host_free(edbl_host_t *lockdir) {
 	pthread_mutex_destroy(&lockdir->mutex_struct);
 	pthread_mutex_destroy(&lockdir->mutex_index);
 	lockdir->fd = 0;
+	free(lockdir);
 }
 
-edb_err edbl_newhandle(edbl_host_t *host, edbl_handle_t *o_handle) {
+edb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **o_handle) {
+	//todo: mallocs and open fd's
 
 	o_handle->parent = host;
 
@@ -51,7 +67,7 @@ edb_err edbl_newhandle(edbl_host_t *host, edbl_handle_t *o_handle) {
 	}
 	return 0;
 }
-void edbl_destroyhandle(edbl_handle_t *handle) {
+void edbl_handle_free(edbl_handle_t *handle) {
 	if(handle == 0 || handle->parent == 0) {
 		return;
 	}
@@ -65,7 +81,7 @@ void edbl_destroyhandle(edbl_handle_t *handle) {
 	};
 	fcntl64(handle->fd_d, F_OFD_SETLK, &f);
 	close(handle->fd_d);
-	handle->parent = 0;
+	free(handle);
 }
 
 // below are some attempts of basically re-implementing fcntl advisory locks manually.

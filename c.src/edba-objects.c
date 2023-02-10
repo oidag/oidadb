@@ -185,7 +185,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 		.l_len = structdat->fixedc,
 		.l_start = edbd_pid2off(h->parent->pagecache->fd, pageid) + intrapagebyteoff,
 	};
-	edbl_set(&h->lockh, h->lock);
+	edbl_set(h->lockh, h->lock);
 
 	// at this point, we have the deleted record locked as well as the
 	// trashlast. So as per spec we must update trashstart and unlock
@@ -194,7 +194,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// get some pointers to the object data, we'll need these these
 	// now to get the next item on the trash list to set to trashstartoff
 	// before we can release it
-	edbp_t *page = edbp_graw(&h->edbphandle);
+	edbp_t *page = edbp_graw(h->edbphandle);
 	assignobject(h, page, intrapagebyteoff, structdat);
 
 
@@ -450,29 +450,29 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 		h->lock.l_type = EDBL_EXCLUSIVE;
 	}
 	// todo: ** defer: edbl_set(&self->lockdir, lock);
-	edbl_set(&h->lockh, h->lock);
+	edbl_set(h->lockh, h->lock);
 
 	// lock the page in cache
-	edb_err err = edbp_start(&h->edbphandle, pid);
+	edb_err err = edbp_start(h->edbphandle, pid);
 	if(err) {
 		h->lock.l_type = EDBL_TYPUNLOCK;
-		edbl_set(&h->lockh, h->lock);
+		edbl_set(h->lockh, h->lock);
 		return err;
 	}
 
 	// set the pointer
-	void *page = edbp_graw(&h->edbphandle);
+	void *page = edbp_graw(h->edbphandle);
 	assignobject(h, page, page_byteoff, structdat);
 	return 0;
 }
 
 void edba_u_pagedeload(edba_handle_t *h) {
 	// finish the page
-	edbp_finish(&h->edbphandle);
+	edbp_finish(h->edbphandle);
 
 	// release whatever lock we saved when we loaded the page
 	h->lock.l_type = EDBL_TYPUNLOCK;
-	edbl_set(&h->lockh, h->lock);
+	edbl_set(h->lockh, h->lock);
 }
 
 
