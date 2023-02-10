@@ -16,13 +16,13 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 	};
 
 	// ** defer: edbl_set(&self->lockdir, lock);
-	edbl_set(&handle->lockh, lock);
+	edbl_set(handle->lockh, lock);
 	lock.l_type = EDBL_TYPUNLOCK; // doing this in advance
 
 	// ** defer: edbp_finish(&self->edbphandle);
-	edb_err err = edbp_start(&handle->edbphandle, lookuproot);
+	edb_err err = edbp_start(handle->edbphandle, lookuproot);
 	if(err) {
-		edbl_set(&handle->lockh, lock);
+		edbl_set(handle->lockh, lock);
 		return err;
 	}
 	// set the lookup hint now
@@ -59,9 +59,9 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 		*o_pid = refs[i].ref - (refs[i].startoff_strait - chapter_pageoff);
 
 		// So lets finish out of this page...
-		edbp_finish(&handle->edbphandle);
+		edbp_finish(handle->edbphandle);
 		// and release the lock
-		edbl_set(&handle->lockh, lock);
+		edbl_set(handle->lockh, lock);
 		return 0;
 	}
 
@@ -85,9 +85,9 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 	edb_pid nextstep = refs[i].ref;
 
 	// So lets finish out of this page...
-	edbp_finish(&handle->edbphandle);
+	edbp_finish(handle->edbphandle);
 	// and release the lock
-	edbl_set(&handle->lockh, lock);
+	edbl_set(handle->lockh, lock);
 
 	// now we can recurse down to the next lookup page.
 	return edba_u_lookup_rec(handle, lookuproot,

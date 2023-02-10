@@ -25,7 +25,7 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 
 	// easy pointers
 	edbd_t *descriptor = h->parent->descriptor;
-	edbl_handle_t *lockh = &h->lockh;
+	edbl_handle_t *lockh = h->lockh;
 	edb_err err;
 
 	// as per spec, lock the mutex and obtain a XL clutch lock
@@ -53,7 +53,7 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	// at this point we know that h->clutchedentry and o_eid is pointing to valid
 	// EDB_TINIT and we are inside the creation mutex.
 	// As per spec, now we get an XL mutex.
-	edbl_entry(&h->lockh, h->clutchedentryeid, EDBL_EXCLUSIVE);
+	edbl_entry(h->lockh, h->clutchedentryeid, EDBL_EXCLUSIVE);
 	h->clutchedentry->type = EDB_TPEND;
 	// as per spec, release the creaiton mutex
 	edbl_entrycreaiton_release(lockh);
@@ -196,7 +196,7 @@ edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
 
 	// easy pointers
 	edbd_t *descriptor = h->parent->descriptor;
-	edbl_handle_t *lockh = &h->lockh;
+	edbl_handle_t *lockh = h->lockh;
 	edb_err err;
 
 	edba_u_clutchentry(h, eid, 1);
@@ -224,13 +224,13 @@ edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl) {
 #endif
 	// SH lock the entry
 	if(xl) {
-		edbl_entry(&handle->lockh, eid, EDBL_EXCLUSIVE);
+		edbl_entry(handle->lockh, eid, EDBL_EXCLUSIVE);
 	} else {
-		edbl_entry(&handle->lockh, eid, EDBL_TYPSHARED);
+		edbl_entry(handle->lockh, eid, EDBL_TYPSHARED);
 	}
 	edb_err err = edbd_index(handle->parent->descriptor, eid, &handle->clutchedentry);
 	if(err) {
-		edbl_entry(&handle->lockh, eid, EDBL_TYPUNLOCK);
+		edbl_entry(handle->lockh, eid, EDBL_TYPUNLOCK);
 		return err;
 	}
 	handle->clutchedentryeid = eid;
@@ -242,7 +242,7 @@ void edba_u_clutchentry_release(edba_handle_t *handle) {
 		log_critf("attempting to realse a clutch entry when nothing is there.");
 	}
 #endif
-	edbl_entry(&handle->lockh, handle->clutchedentryeid, EDBL_TYPUNLOCK);
+	edbl_entry(handle->lockh, handle->clutchedentryeid, EDBL_TYPUNLOCK);
 	handle->clutchedentry = 0;
 	handle->clutchedentryeid = 0;
 }

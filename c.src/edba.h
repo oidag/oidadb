@@ -17,7 +17,7 @@ typedef enum {
 // edba_host_init - initialize a host
 // edba_host_decom - deallocate said host
 typedef struct edba_host_st {
-	edbl_host_t  lockhost;
+	edbl_host_t *lockhost;
 	edbpcache_t *pagecache;
 	edbd_t      *descriptor;
 } edba_host_t;
@@ -33,7 +33,7 @@ typedef struct{
 
 typedef struct edba_handle_st {
 	edba_host_t *parent;
-	edbl_handle_t lockh;
+	edbl_handle_t *lockh;
 	edbphandle_t  *edbphandle;
 
 	// internal stuff, don't touch outside of edba namespace:
