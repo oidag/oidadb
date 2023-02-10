@@ -25,6 +25,13 @@ add_executable(edbd_00 ${stdtestfiles}
         ${edbd_t})
 target_link_libraries(edbd_00 ${stdtestlibs})
 
+#edbl
+file(GLOB edbl_t c.src/edbl*.c)
+add_executable(edbl_00 ${stdtestfiles}
+        c.src/tests/10-edbl_00_t.c
+        ${edbl_t})
+target_link_libraries(edbl_00 ${stdtestlibs})
+
 # edbp
 file(GLOB edbp_t c.src/edbp*.c)
 add_executable(edbp_00 ${stdtestfiles}
