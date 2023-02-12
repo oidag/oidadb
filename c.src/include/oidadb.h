@@ -851,85 +851,62 @@ typedef enum odb_usrlk {
 	_EDB_FUSRLALL = 0x000F,
 } odb_usrlk;
 
-// todo: need to look in edbw and reverse the definitions for that.
-// todo: probably can consolidate a lot of these odbh_ funcs into a single one
-//       like odbh_jobinstall
-/// todo... consolidate all job installs into this function.
+
+
+// todo: I would like to this function to always return immediately. Need to
+//  find a clever way of doing returns. Maybe like a "poll return"... perhaps
+//  you can submite 40 jobs all at once and then poll all the returns?
 /***
- * \brief Install a job.
- * \param jobclass This is a XOR'd value between one \ref odb_type and one \ref
- *                 odb_cmd
- * \param ...
- * \return
- */
-edb_err edbh_job(odbh *, unsigned int jobclass, ... /* arg */);
+\brief Install a job.
 
-/**
-\brief Installs a job into the queue that is regarding 1 or more objects.
+Here be the most important function of this entire library: the ability to
+install a job. The host maintains a buffer of jobs and workers in the host
+will scan that buffer and execute said jobs.
 
- This leaves dynamic data untouched.
+This function's signature is analogous to `fcntl(2)`: in which the first
+argument (`handle`) is the handle, second argument (`jobclass`) is the
+'command' and depending on the command dictates `args`.
 
-This function will block the calling thread in the following
-circumstances:
+ - The job buffer is full and thus this function must wait until
+   other jobs complete for a chance of getting into the buffer.
 
-- The job buffer is full and thus this function must wait until
-  other jobs complete for a chance of getting into the buffer.
-- (EDB_CCOPY, EDB_CWRITE) binc is larger than the database's
-  configured job transfer buffer (see
-  edb_hostconfig_t.job_transfersize). And thus the function must
-  wait until the job is accepted by a worker and that worker is
-  able to execute the oposite side of the transfer buffer so the
-  transfer can be complete.
+`jobclass` is an XOR'd together integer with the following combinations:
 
+## `EDB_TOBJ | EDB_CCOPY` (odb_oid id, voido_bufv, int bufc, int offset)
+    Read the contents of the object with `id` into `o_bufv` up to `bufc`
+    bytes.
+    todo: see above comment
 
-note to self: for binv, mmap binv as shared memory using mmaps first
-argument, and use binc as mmaps 2nd. map it using MAP_SHARED.
+## `EDB_TOBJ | EDB_CWRITE` (odb_oid id, voidbufv, int bufc, int offset)
+    Write bytes stored at `bufv` up to `bufc` into the object with `id`.
 
-What this function does and its arguments depend on arg.
+## `EDB_TOBJ | EDB_CCREATE` (odb_oid *o_id, void *bufv, int bufc, int offset)
+   Create a new object
 
+   During creation, the new object is written starting at `offset` and
+   writes `bufc` bytes and all other bytes are initializes as 0.
 
-## EDB_CCOPY (edb_data_t *)
-
- Copy the contents of the object into binv up too binc bytes
- starting at binoff.
-
- Note that to properly get the exact binc needed to copy the whole
- object (given binoff is 0) you must look at the object's
- structure. Setting binc to a higher value that it needs to be will
- result in undefined behaviour.
-
-
-## EDB_CWRITE (edb_data_t *)
-
- Create, update, or delete an object. Creation takes place when id
- is 0 but binv is not null. Updates take place when id is not 0 and
- binv is not null. Deletion takes place when id is not 0 and binv
- is null.
-
- During creation, the new object is written starting at binoff and
- writes binc bytes and all other bytes are initializes as 0. During
- updating, only the range from binoff to binoff+binc is modified.
- binoff and binc are ignored for deletion.
-
- Upon successful creation, id is set.
-
- During writes, the object is placed under a write lock, preventing
- any read operations from taking place on this same id.
 
 ## EDB_CUSRLK
- Install a persisting user lock. These locks will affect future
- calls to odbh_obj
+   Install a persisting user lock. These locks will affect future calls to
+   odbh_obj
+
+\param jobclass This is a XOR'd value between one \ref odb_type and one \ref
+                odb_cmd
 
 ## ERRORS
 
-  - EDB_EINVAL - handle is null or uninitialized
-  - EDB_EINVAL - cmd is not recongized
-  - EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null
+- EDB_EINVAL - handle is null or uninitialized
+- EDB_EINVAL - cmd is not recognized/listed
+
+## VOLATILITY
+Fuck.
 
 
-\see elements for a description of an "object" and "job".
+
+\see odbh_structs
  */
-edb_err odbh_obj (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
+edb_err edbh_job(odbh *handle, unsigned int jobclass, ... /* args */);
 
 
 /**
@@ -957,25 +934,11 @@ EDB_CWRITE (edb_struct_t *)
  lock, preventing any read operations from taking place on this
  same id.
 
-ERRORS:
-
- EDB_EINVAL - handle is null or uninitialized
- EDB_EINVAL - cmd is not recongized
- EDB_EINVAL - EDB_CWRITE: id is 0 and binv is null.
-
 
  \see odbh_structs For reading structures
  \see elements to find out what an "structure" is.
 */
 edb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
-
-
-/**
-\brief Install a job regarding 1 entry.
-
- \see elements to find out what an "entry" is.
- */
-edb_err odbh_entry (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
 
 
 //
