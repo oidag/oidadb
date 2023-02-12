@@ -29,7 +29,7 @@ target_link_libraries(edbd_00 ${stdtestlibs})
 file(GLOB edbl_t c.src/edbl*.c)
 add_executable(edbl_00 ${stdtestfiles}
         c.src/tests/10-edbl_00_t.c
-        ${edbl_t})
+        ${edbl_t} ${edbd_t})
 target_link_libraries(edbl_00 ${stdtestlibs})
 
 # edbp
