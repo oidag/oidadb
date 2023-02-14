@@ -1,18 +1,13 @@
-* DOCUMENTATION:
+* Introduction
 
 The most important things bout the edbl.h namespace is the content of
-this comment you're reading now. It is imporant you read this comment
-and undestand it before you start fucking with the below functions in
-anyway.
-
-Firstly, these functions are just wrappers of fcntl(2)... so read up
-on that regarding advisory locks. And note that these functions are
-just kinda stupid.  The functions don't help you do your work, this
-comment does. So enough with the introduction, lets begin.
+this document you're reading now. It is imporant you read this
+document and undestand it before you start fucking with the edbl
+functions in anyway.
 
 It is VITAL that you lock the right things in the right order. Not
 locking things in the right order WILL result in deadlocks and
-headaches.
+shitty headaches.
 
 So, to get the proper order of which to lock things require to know
 what job you're trying to do. The first variable to this is the
@@ -30,21 +25,141 @@ Next, what cateogyr of operations are you trying to perform?
  - Delete
  - (defragging will be discussed below)
 
-|          | *Entry*     | *Structure*                  | *Object*             |
-| *Create* | entry mutex | structure mutex              | same as update       |
-| *Read*   | /no action/ | /no action/                  | clutch off, sh locks |
-| *Update* | clutch on   | /not possible/               | clutch off, xl locks |
-| *Delete* | clutch on   | clutches on, structure mutex | clutch off, xl locks |
-
-* Files
+* Lock Types
+** LFILE
 When it comes to odb_host, it must be sure not to try to host a file
 that is already hosted. We must prevent other threads and other
 processes from trying to open the file.
 
- - Always check for the lock. Never block the thread if an XL lock is
-   already there. This is for the user's convinence.
- - Upon an attempt to start hosting a file, place a XL OFD lock on the
-   first byte.
+This lock should be aquired before any thing happens. All locks listed
+herein will implicitly be under this lock.
+** LENTRY
+(aka clutch lock). This lock dictates general activity in the chapter,
+but it does not designate if this activity is read/write only. Only
+that there is currently work being performed. This should almost
+alwasy be an SH lock. The only purpose of XL locks here are for pmaint
+jobs, or any job that has an 'unpredictable' approach to pages in the
+chapter.
+
+** LENTTRASH
+An XL lock on this entry means a job has a likely hood that it will be
+changing the =trashlast= field in the structure.This lock is also
+needed to read any page's =trashvor=.
+
+ - Directly under LENTRY(sh)
+
+** LREF0C
+Nothing shall add/reference any object (or nessacary lookup) pages
+without having an LREF0C. Incrementing ref0c should be the last step
+in all processes, only after that has been incremeneted can you
+release this lock.
+
+You must have a LREF0C before you follow =deepright=. This will prevent
+two workers from both trying to update deepright in the chance of a
+lookup fault.
+
+You must wait to unlock =ref0c= until only after deepright and ref0c
+has been fully updated.
+
+Lock this if your job will be increasing the amount of object and/or
+lookup pages.
+
+ - Directly under LENTRY(sh) or directly under LENTTRASH.
+
+** LLOOKUP_EXISTING
+This shared lock on a lookup page showing that your job is accessing
+this lookup page trying to find a reference that you know already
+exists (and thus can coexist with LLOOKUP_NEW)
+
+ - Under LENTRY(sh)
+
+** LLOOKUP_NEW
+This lock means you are installing new references on this lookup page.
+
+ - Under LENTRY(sh)
+
+** LROW
+Putting a SH or XL lock on an object allows you to read/write to that
+object respectively.
+
+ - Under LENTRY(sh)
+
+** LTRASHOFF
+Lock this on an object page with the intention of changing the trash
+offset, such as adding or removing trash.
+
+ - Under LENTRY(sh)
+ - If removing trash: cannot be under LROW(xl)
+ - If adding to trash: must be under LROW(xl)
+
+** LENTCREAT
+Place an [[LREF0C]](xl) lock on the index chapter entry.
+** LSTRUCTCREAT
+Place an [[LREF0C]](xl) lock on the structure chapter entry.
+** Arbitrary Locks
+The need for additional locks in future versions is
+unpredictable. They shall come as they are needed, and thus their
+specification will come as its needed.
+
+Anytime a new type of lock is needed, use the function of an
+=arbitrary_lock= which will allow you to lock any bytes you may
+need. Use this function as only a temporary measure until the
+confidence for a new type of lock is realized.
+
+* fcntl SETLKW backend
+When developing how locks should work in the backend, =fcntl= advisory
+locks are the most intuitive. Though you should use mutexes where you
+can. In this section we'll define each lock in terms of byte regions
+set by =fcntl=.
+
+I'll do these in short hand, but here's the key:
+
+ - =+XL=, =+SH= Add a =F_WRLCK= or =F_RDLCK= to the region respectively.
+ - =-XL=, =-SH= Remove the existing =F_WRLCK= or =F_RDLCK= from the
+   region respectively.
+ - =+XL/SH=, =-XL/SH= remove the =F_WRLCK= or =F_RDLCK= depending on
+   the desired variation of the lock (if applicabl)
+
+Any locks that were left 'dangling' are the locks that should be
+removed to release the locks. You must release such locks in reverse
+order that they were applied (first in last out) unless specified
+otherwise.
+** fcntl-LFILE
+ 1. +XL on first byte of file
+** fcntl-LENTRY
+For entrys we do something cheeky that is "clutch locks" to optimize
+for the fact that these locks are going to be put on and off A LOT.
+
+For XL locks, we use the first byte to activate the 'clutch' to which
+all new locks will have to wait before they can be apply
+themselves. While the 'clutch' is active any existing locks can finish
+their work.
+
+If we didn't do this, then SH locks will contiously apply themselves
+ahead of the pending XL locks. And thus XL locks will never have the
+ability to engage.
+
+
+ 1. +XL/SH first byte of the entry
+ 2. +XL/SH the second byte.
+ 3. -XL/SH from the first byte
+** fcntl-LENTTRASH
+ 1. +XL/SH on all bytes of the =trashlast= field of the entry.
+** fcntl-LREF0C
+ 1. +XL on all bytes of the =ref0c= field of the entry.
+** fcntl-LLOOKUP_EXISTING
+ 1. +SH on the first byte of the lookup page
+** fcntl-LLOOKUP_NEW
+ 1. +XL on the second byte of the lookup page
+** fcntl-LROW
+ 1. +XL/SH lock on the entire object row's bytes
+** fcntl-LTRASHOFF
+ 1. +XL on all the bytes in the object page's =trashstart_off= field
+** fcntl-LENTCREAT
+See [[fcntl-LREF0C]] but with the index entry.
+** fcntl-LSTRUCTCREAT
+See [[fcntl-LREF0C]] but with the structure entry.
+
 
 
 ** shm
@@ -67,70 +182,42 @@ a deadlock:
 
  Op1 (ok): Locks ABC -> creates pages -> operation fails -> Locks Deletion -> Deletes -> unlocks deletion -> unlocks ABC
  Op2 (bad): Locks Deletion -> Locks ABC -> does stuff -> Unlocks ABC -> Unlocks Deletion
-* Note on adding object/lookup pages
-Nothing shall add/reference any object (or nessacary lookup) pages
-without having =ref0c= XL locked. Incrementing ref0c should be the
-last step in all processes.
-
-You must lock =ref0c= before you follow =deepright=. This will prevent
-two workers from both trying to update deepright in the chance of a
-lookup fault.
-
-You must wait to unlock =ref0c= until only after deepright and ref0c
-has been fully updated.
 * Entry
-** XL Clutch Lock
- 1. put a XL lock on the first byte (clutch lock)
- 2. put a XL lock on the second byte.
- 3. remove XL lock from the first byte
- 4. Do whatever you need to do with the lock
- 5. release the lock from the second byte.
-** SH Clutch Lock
- 1. put a SH lock on the first byte (clutch lock)
- 2. put a SH lock on the second byte.
- 3. remove SH lock from the first byte
- 4. Do whatever you need to do with the lock
- 5. release the lock from the second byte.
 ** Entry-Creating
-  1. Lock the entry-creation mutex
+  1. Aquire [[LENTCREAT]]
   2. Surf the index for an EDB_TINIT entry.
-  3. Place an XL clutch lock on that entry.
+  3. Aquire an [[LENTRY]](xl) for that entry.
   4. Set the type to EDB_TPEND to deter other creation attemps.
-  5. Unlock the entry-creation mutex
-  6. Whiest retaining the XL clutch lock, make whatever edits are
-     needed to the entry and chapter.
+  5. Release [[LENTCREAT]].
+  6. Make whatever edits are needed to the entry and chapter.
   7. Set the type to whatever it needs to be. This is the final
      marker to indicate a non-corrupted entry. if there's a crash
-  8. Release the XL clutch lock.
+  8. Release LENTRY.
 ** Entry-Deleting
-  1. Place an XL clutch lock on that entry.
+  1. Aquire [[LENTRY]](xl) on the entry you wish to delete.
   2. Set the chapter type to EDB_TPEND just incase of crash we can
      sniff out corruptions.
-  3. Whiest retaining the XL clutch lock, make whatever edits are
-     needed to the entry and chapter.
-  4. Lock the entry-creation mutex
+  3. Make whatever edits are needed to the entry and chapter.
+  4. Aquire [[LENTCREAT]].
   5. Set the type to EDB_TINIT
-  7. Release the XL clutch lock.
-  8. Unlock the entry-creation mutex
+  7. Release [[LENTRY]]
+  8. Release [[LENTCREAT]]
 ** Entry-Updating
 Note: for structures, you must lock the structure creation mutex first
 to prevent the sturcture (your updating to) from being deleted.
 ** Entry-Reading
-  1. Make sure the entry doesn't have a clutch lock
-  2. At this point, if you'd like to confidently pull in structure
-     information, you can do it here.
-
+[[LENTRY]](sh).
 * Structure
 ** Structure-Creation
-Put a XL clutch lock on the structure chapter entry
+Simply have a [[LSTRUCTCREAT]](xl).
 
 ** Structure-Deleting
-Lock the structure creation mutex.
+First, aquire a [[LSTRUCTCREAT]](xl).
 
-You must lock the entry creation mutex so nothing can be created
-with the structure you're trying to delete.
+Then you must get a [[LENTCREAT]](xl) so nothing can be created with the
+structure you're trying to delete.
 
-You must go through all indexes from top to bottom, placing sh clutch
+You must go through all indexes from top to bottom, placing [[LENTRY]](sh)
 locks on all of them, then make sure it doesn't posses that
 structure. If it does, then that's an error, you cannot delete the
 structure, roll back the locks and quit.
@@ -138,79 +225,61 @@ structure, roll back the locks and quit.
 * Object
 ** Object-Reading
 
-  1. Read the relevant entry, make sure it exist ([[Entry-Reading]]), keep
-     the SH lock on the entry.
-  2. With the lookup root page id in hand:
-     - SH Lock on the first byte of page
-     - Load the page
-     - Get the ID of the next page
-     - deload page
-     - Remove SH lock on first byte
-     - Do this recusively until you get the leaf ID
-  3. With the leaf ID:
-     - Place a SH lock on the object
-     - load the page, copy the data
-     - Remove SH lock
-  4. Finally, remove the SH lock on the entry.
+Get a [[LENTRY]](sh) for the entry.
+
+Then perform the b-tree lookup using valid [[LLOOKUP_EXISTING]](sh)
+lookups. Apply these locks before you load each lookup page. And once
+you get the next reference, place the [[LLOOKUP_EXISTING]](sh) on the next
+lookup page, then you can safely remove and deload the parent
+lookup (Weave Lock).
+
+On the final lookup, with the leaf node page id aquired, place a
+[[LROW]](sh) on the row you need and load that page.
+
+You should end up with only a LROW(sh) and LENTRY(sh) to unlock.
 
 ** Object-Updating
+First, [[LENTRY]](sh), of course.
 
-  1. For the look up, do the same process as writting as
-     [[Object-Reading]] steps 1-2.
-     - (todo: Object-Creating) *However*, if a new node of the B-tree must be created, upgrade
-       the lock from an SH to an XL lock on the first byte of the node
-       that needs to be modified. Then check again to see if it hasn't
-       been modified already, thenm modify it if it hasent, then
-       remove the lock and continue as normally. This is to remove the
-       possiblity of 2 jobs accidentally adding the same new page
-       twice.
-     - (note to self: upgrading locks is bad, however sense its
-       1-lock-per-operation in terms of pages, we arn't dealing with
-       multiple recursive locks thus leads to it being impossible to
-       dead lock from upgrades)
-  2. With the leaf ID:
-     - Place an XL lock on the object
-     - load the page, edit the data
-     - remove the XL lock.
-  3. Remove SH lock from entry.
+Then perform the b-tree lookup using valid [[LLOOKUP_EXISTING]](sh)
+lookups. Apply these locks before you load each lookup page. And once
+you get the next reference, place the [[LLOOKUP_EXISTING]](sh) on the next
+lookup page, then you can safely remove and deload the parent
+lookup (Weave Lock).
+
+On the final lookup, with the leaf node page id aquired, place a
+[[LROW]](xl) on the row you need and load that page.
+
+You should end up with only a LROW(xl) and LENTRY(sh) to unlock when
+you're finished editing.
 
 ** Object-Creating
 *** Static ID Creation (aka Object-Undelete)
- 1. Follow the exact same process as [[Object-Deleting]] except instead of
-    adding the object from the trash linked list: remove it.
+Follow the exact same process as [[Object-Deleting]] except instead of
+adding the object from the trash linked list: remove it.
 *** Auto ID Creation
-  1. Place an SH clutch lock on the entry (thus same as [[Object-Reading]]
-     step 1)
-
-  2. Place an XL lock on the entry's trashlast field.
+ 1. Aquire [[LENTRY]](sh)
+ 2. Aquire [[LENTTRASH]](xl).
      - This will prevent 2 workers trying to handle 2 seperate
        trashfaults at the same time, which can inadvertantnly remove
        pages out of the trash cycle.
-
-  3. If the trashlast page is 0. Tne this means more pages are needed
-     to be created. See [[Object-Creating-Lookup]].
-
-  4. With the trashlast page id, before you load that page, you must
-     place a XL lock on the 'trashstart_off' field in the page's
-     header.
+ 3. If the =trashlast= is 0. Then this means more pages are needed to
+    be created. goto steps [[Object-Creating-Lookup]].
+ 4. With the trashlast page id, before you load that page, you must
+    aquire a [[LTRASHOFF]](xl) on that object page.
 	 - This will prevent 1 worker from trying tup read trashstart_off
        while another tries to update it at the same time. See
        [[Object-Deletion]].
+ 5. With the trashlast page loaded, handle all trash faults by:
+     1. Updating =trashlast= with the loaded page's =trashvor=.
+     2. Unloading the page. Releasing its [[LTRASHOFF]].
+     3. Repeat step 4-5 until there's no more trash faults or,
+        trashlast ends up being 0. In the latter case, go to step 3.
+  6. Release [[LENTTRASH]].
 
-  5. With the trashlast page loaded, handle all trash faults by:
-     - Updating trashlast with the page loaded's trashvor.
-     - unloading the page loaded. then releasing trashstart_off lock.
-     - repeat step 4-5 until there's no more trash faults or,
-       trashlast ends up being 0. In the latter case, go to step 3.
-
-  6. Release the XL lock on the entry's trashlast field.
-
-  4. Place an XL lock on the trash record you wish to modify, then
-     update trashstart_off with the next step in the linked list.
-
-  5. Once trashstart_off is updated, release the XL lock on it but
-     keep the XL lock on the record.
-
+  7. Aquire [[LROW]](xl) on the trashed record you wish to modify, then update
+     =trashstart_off= with the next step in the linked list.
+  5. Release [[LTRASHOFF]].
   6. Do the creating of the record and what not. (If a user flag
      prevents its creation, simply skip this step. Note how what we've
      just done is taken out this record from the trash yet not
@@ -218,59 +287,68 @@ structure, roll back the locks and quit.
      records must be able to be untrashed that would me this record is
      unfit to be trash. The user would have to manually create this
      with proper flags.)
-  7. Release the XL lock from the record.
-  8. Release the SH clutch lock on the entry.
+  7. Release [[LROW]].
+  8. Release [[LENTRY]].
 
 *** Object-Creating-Lookup
-See [[Note on adding object/lookup pages]]
-Note the only time you should be here is from auto-id creation. Thus,
-their should be an SH clutch lock on the entry and an XL lock on the
-trashlast field. However, trashlast is 0 which means we need more
-pages. Let's continue on:
+Note the only time you should be here is from [[Auto ID Creation]]. Thus,
+their should be an [[LENTRY]](sh) and [[LENTTRASH]](xl). However, =trashlast=
+is 0 which means we need more pages. Let's continue on:
 
-
- 1. Place an XL lock on the ref0c field. This will prevent any other
-    job from creating any new pages what so ever.
-    - It should be noted that this mechnism is mostly redundant as we
-      have an XL lock on the trashlast field. But locking the
-      trashlast field - by definition - doesn't prevent other jobs
-      from adding pages, only from other jobs from adding pages to be
-      used as blank space. We must lock this for means of having
-      consistent offsetids for the object pages.
-    - Also it should be noted that, at this time, there is no need to
-      place any SH locks on ref0c. ref0c should only ever be updated
-      at the very end of this process so any reads of refc will be
-      truthful.
+ 1. Aquire [[LREF0C]](xl).
+   - This will prevent any other job from creating any new pages what
+     so ever.
+   - It should be noted that this mechnism is mostly redundant as we
+     have an XL lock on the trashlast field. But locking the trashlast
+     field - by definition - doesn't prevent other jobs from adding
+     pages, only from other jobs from adding pages to be used as blank
+     space. We must lock this for means of having consistent offsetids
+     for the object pages.
+   - Also it should be noted that, at this time, there is no need to
+     place any SH locks on ref0c. ref0c should only ever be updated at
+     the very end of this process so any reads of refc will be
+     truthful.
  2. Create the (currently unreferenced) object pages
- 3. Look at the entry's =lastlookup=, place an XL lock on second byte
-    of that page then load it.
-    - The reason why we don't put an XL lock on the first byte is
+ 3. Look at the entry's =lastlookup=, aquire an [[LLOOKUP_NEW]](xl) on
+    that lookup page.
+    - The reason why we don't aquire an [[LLOOKUP_EXISTING]](xl) is
       because lookups should still be able to happen (via
       Object-Reading/Object-Writing). But with this XL lock the only
       thing we seek to block are other attempts to modify the lookup
       pages.
- 4.1. If this lookup is full: unlock and unload this lookup. Then:
-    a. Create a sibling for the lookup we just unloaded.
+ 4. If this lookup is not full: refernece the object pages and the
+    increment the =ref0c=. If the this lookup is full:
+    1. release the [[LLOOKUP_NEW]] and unload this lookup.
+	2. Create a sibling for the lookup we just unloaded.
        - While creating this sibling, you should set the first
          reference of that sibling. This first reference will either
          be the object pages if this sibling is leaf bearing, or will
          be the child lookup page created in a previous iteration.
-    b. follow up to this lookup's parent (be sure to put an XL lock on its parent).
-    c. If this parent is also full:
-       - If full: go back to step 4.
-       - If not full: update and unlock =lastlookup= then go to step 5.
- 4.2. If this lookup is not full: refernece the object pages and the
-      increment its =refc=.
- 5. You can then update and unlock =ref0c=.
- 6. Update =trashlast= and go back to the parent instrunctions
+    3. follow up to this lookup's parent by aquiring a [[LLOOKUP_NEW]](xl)
+       on it.
+    4. If this parent is also full: go back to step 4.1 and
+       repeat. You will do this recurisvely until the parent is not
+       full: to which you reference the created sibling in the parent
+       and continue to the next step.
+ 5. Release [[LREF0C]].
+ 6. Update =trashlast=.
+ 7. Go back and continue to follow instrunctions in [[Auto ID Creation]].
   
 ** Object-Deleting
 "Object-Deleting" will be defined as marking the row as deleted,
 meaning putting it into trash circulaiton.
 
- 1. Follow the exact same process as [[Object-Updating]] but once the
-    object is loaded into memory (and XL locked).
- 2. /While the page is loaded/ lock the page's =trashstart_off= field.
+
+ 1. Aquire [[LENTRY]](sh).
+ 2. Then perform the b-tree lookup using valid [[LLOOKUP_EXISTING]](sh)
+    lookups. Apply these locks before you load each lookup page. And
+    once you get the next reference, place the [[LLOOKUP_EXISTING]](sh) on
+    the next lookup page, then you can safely remove and deload the
+    parent lookup (Weave Lock).
+ 3. On the final lookup, with the leaf node page id aquired, place a
+    [[LROW]](xl) on the row you need and load that page.
+
+ 2. /While the page is loaded/ aquire a [[LTRASHOFF]](xl).
     - This will prevent Object-Creation workers as well as other
       Object-Deleting workers from corrupting the cycle.
     - I emphasize "/while the page is loaded/" because its contrary to
@@ -283,17 +361,17 @@ meaning putting it into trash circulaiton.
       all (versus Object-Creation where we know it already exists).
  3. Put the object in the page's trash management linked list (See
     Deleting in the Object trash managmement spec).
- 4. Optionally, if the page's =trashc= has reached a critical value
-    (see discussion in Deleting in object trash managmenet) then you
-    can continue on to step 5 and beyond. otherwise, you're good to
-    stop at step 5.
- 5. Unlock =trashstart_off=.
- 6. (If the page is valid for entry-trash-list) Place an XL Lock the
-    entry's =trashlast=.
-    - This SH lock will prevent anyone from touching our page's
-      =trashvor= and the entry's =trashlast= needed for the next step.
- 7. Update the page's =trashvor= to be the previous =trashlast= and
-    set the =trashlast= to be the page's =trashvor=.
+ 5. Release [[LTRASHOFF]]
+ 6. Release [[LROW]]
+ 7. if the page's =trashc= has reached a critical value (see
+    discussion in Deleting in object trash managmenet) then:
+   1. aquire a [[LENTTRASH]]
+      - This XL lock will prevent anyone from touching our page's
+        =trashvor= and the entry's =trashlast= needed for the next
+        step.
+   2. Update the page's =trashvor= to be the previous =trashlast= and
+      set the =trashlast= to be the page's =trashvor=.
+ 8. Release [[LENTRY]].
 * Defraging
 
 Notes: PAGE-BASED CLUTCH LOCKS DONT WORK, a dead lock can happen
