@@ -26,45 +26,101 @@ typedef struct edbl_handle_st {
 	int fd_d;
 } edbl_handle_t;
 
-edb_err edbl_init(edbl_host_t *o_lockdir, const edbd_t *filedesc) {
-	// todo: invals
-	// todo: mallocs
-	o_lockdir->fd = filedesc;
-	int err = pthread_mutex_init(&o_lockdir->mutex_struct,0);
+edb_err edbl_host_init(edbl_host_t **o_lockdir, const edbd_t *file) {
+
+	// invals
+	if(!o_lockdir) {
+		return EDB_EINVAL;
+	}
+
+	// ret
+	edbl_host_t *ret = malloc(sizeof(edbl_host_t));
+	if(ret == 0) {
+		if (errno == ENOMEM) {
+			return EDB_ENOMEM;
+		}
+		log_critf("malloc");
+		return EDB_ECRIT;
+	}
+	bzero(ret, sizeof(edbl_host_t));
+	*o_lockdir = ret;
+	// **defer-on-error: free(ret);
+
+	// lock array
+	// todo: this needs to be configurable.
+	ret->lockc = EDBL_LOCK_BUFFV;
+	ret->lockv = malloc(sizeof(edbl_lockref_full) * ret->lockc);
+	if(ret->lockv == 0) {
+		free(ret);
+		if (errno == ENOMEM) {
+			return EDB_ENOMEM;
+		}
+		log_critf("malloc");
+		return EDB_ECRIT;
+	}
+	bzero(ret->lockv, sizeof(edbl_lockref_full) * ret->lockc);
+	// **defer-on-error: free(ret->lockv);
+
+	// mutexes.
+	int err = pthread_mutex_init(&ret->mutex_struct,0);
 	if(err) {
+		log_critf("failed to initialize pthread");
+		free(ret->lockv);
+		free(ret);
+		return EDB_ECRIT;
+	}
+	err = pthread_mutex_init(&ret->mutex_index,0);
+	if(err) {
+		pthread_mutex_destroy(&ret->mutex_struct);
+		free(ret->lockv);
+		free(ret);
 		log_critf("failed to initialize pthread");
 		return EDB_ECRIT;
 	}
-	err = pthread_mutex_init(&o_lockdir->mutex_index,0);
+	err = pthread_mutex_init(&ret->mutex_index,0);
 	if(err) {
+		pthread_mutex_destroy(&ret->mutex_struct);
+		free(ret->lockv);
+		free(ret);
+		log_critf("failed to initialize pthread");
+		return EDB_ECRIT;
+	}
+	err = pthread_mutex_init(&ret->lock_mutex,0);
+	if(err) {
+		pthread_mutex_destroy(&ret->mutex_struct);
+		pthread_mutex_destroy(&ret->mutex_struct);
+		free(ret->lockv);
+		free(ret);
 		log_critf("failed to initialize pthread");
 		return EDB_ECRIT;
 	}
 	return 0;
 }
 
-void    edbl_host_free(edbl_host_t *lockdir) {
-	pthread_mutex_destroy(&lockdir->mutex_struct);
-	pthread_mutex_destroy(&lockdir->mutex_index);
-	lockdir->fd = 0;
-	free(lockdir);
+void    edbl_host_free(edbl_host_t *h) {
+	pthread_mutex_destroy(&h->mutex_struct);
+	pthread_mutex_destroy(&h->mutex_struct);
+	free(h->lockv);
+	free(h);
 }
 
-edb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **o_handle) {
-	//todo: mallocs and open fd's
+edb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **oo_handle) {
+	if(!host || !oo_handle) {
+		return EDB_EINVAL;
+	}
 
-	o_handle->parent = host;
-
-	// we have to open new file discriptors per handle per the documentation
-	// of ODF advisory locks in fcntl(2)
-	o_handle->fd_d = open64(host->fd->path, O_RDWR, O_DIRECT
-	                                                | O_SYNC
-	                                                | O_LARGEFILE
-	                                                | O_NONBLOCK);
-	if(o_handle->fd_d == -1) {
-		log_critf("failed to open locking file descriptor");
+	// malloc the return value
+	edbl_handle_t *h = malloc(sizeof(edbl_handle_t));
+	if(h == 0) {
+		if (errno == ENOMEM) {
+			return EDB_ENOMEM;
+		}
+		log_critf("malloc");
 		return EDB_ECRIT;
 	}
+	bzero(h, sizeof(edbl_handle_t));
+	*oo_handle = h;
+	h->parent = host;
 	return 0;
 }
 void edbl_handle_free(edbl_handle_t *handle) {
@@ -339,8 +395,8 @@ int edbl_get(edbl_handle_t *lockdir, edbl_lockref lock) {
 edb_err edbl_set(edbl_handle_t *lockdir, edbl_lockref lock) {
 #ifdef EDB_FUCKUPS
 	if(lock.l_len == 0) {
-		log_critf("bad lock params");
-		return EDB_ECRIT;
+		log_critf("edbl_set: EDB_EINVAL");
+		return EDB_EINVAL;
 	}
 	switch (lock.l_type) {
 		case EDBL_TYPUNLOCK:
