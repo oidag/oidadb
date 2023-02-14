@@ -30,9 +30,16 @@ typedef enum {
 } edbl_type;
 
 // Initialize and deinitialize a host of edbl.
+//
+// ERRORS:
+//  - EDB_EINVAL - file,o_lockdir was null
+//  - EDB_ENOMEM - not enough memory
 edb_err edbl_host_init(edbl_host_t **o_lockdir, const edbd_t *file);
-void    edbl_host_free(edbl_host_t *lockdir);
+void    edbl_host_free(edbl_host_t *h);
 
+// ERRORS:
+//  - EDB_EINVAL - file,o_lockdir was null
+//  - EDB_ENOMEM - not enough memory
 edb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **o_handle);
 void    edbl_handle_free(edbl_handle_t *handle);
 
@@ -62,7 +69,7 @@ typedef struct {
 // RETURNS:
 //   All of these functions return only critical errors which
 //   occour in unexpected hardware problems, or, the lack of properly
-//   using them. If you're getting critical errors, then read the
+//   using them (EDB_EINVAL). If you're getting errors, then read the
 //   documentation better. Otherwise, you can ignore the error in
 //   nominal operation.
 //
