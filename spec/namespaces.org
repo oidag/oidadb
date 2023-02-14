@@ -74,7 +74,13 @@ space.
 * edbl.h
 This is a smaller namespace but deals only with (l)ocking
 functions. This is used extensively for traffic control for edb's
-insanle asyncrouns enviroment. See locking.org.
+insane async enviroment. See locking.org.
+
+ - edbd - special relationship - edbl has access to symbols needed for
+   fcntl(2) abilities. However, the fcntl(2) backend is not a
+   hard-spec, so these symbols (found exclusively in edbd-edbl.c) can
+   and will be removed as edbl advances. Thus, don't use these symbols
+   outside of edbl.
 
 * edbp.h
 (P)age management for the file.

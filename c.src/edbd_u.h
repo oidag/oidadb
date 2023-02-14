@@ -1,6 +1,7 @@
 #ifndef _edbd_u_h
 #define _edbd_u_h
 
+#include "edbd.h"
 #include "odb-structures.h"
 
 // note: at this time these functions only work on database creation.

@@ -10,12 +10,17 @@
 #include <errno.h>
 #include <malloc.h>
 
-#include "edbl.h"
-#include "errors.h"
-#include "pthread.h"
 
+// edbd special-functions. See namespaces.org, see edbd-edbl.c.
 
-typedef struct edbl_host_st {
+//analgous to open(2). Will reopen the file used by edbd with flags and mode.
+// Needed for fcntl(2) open file descriptors (OFD)
+extern int edbl_reopen(const edbd_t *file, int flags, mode_t mode);
+
+// returns the byte-offset to the given eid in the file.
+unsigned int edbl_pageoffset(const edbd_t *file, edb_eid eid);
+
+typedef struct edbl_host_t {
 	const edbd_t *fd;
 	pthread_mutex_t mutex_index;
 	pthread_mutex_t mutex_struct;
