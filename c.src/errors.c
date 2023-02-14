@@ -49,3 +49,7 @@ void log_info(const char *log) {
 void log_infof(const char *fmt, ...) {
 	stdlogthing(stdout, "info");
 }
+
+void log_warnf(const char *fmt, ...) {
+	stdlogthing(stdout, "warn");
+}

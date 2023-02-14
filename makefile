@@ -22,6 +22,7 @@ BUILDVERSION := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.0
 COMMITS=$(shell git rev-list --all --count)
 LASTCOMMIT=$(shell git log -1 --format=%cI)
 REVISION=$(shell git log -1 --format=%H)
+TODOCOUNT=$(shell grep -rne 'todo:' | wc -l)
 LINECOUNT=$(shell ( find ./spec ./c.src -type f -print0 | xargs -0 cat ) | wc -l)
 build/metrics.m4: .force
 	@mkdir -p build
@@ -32,6 +33,7 @@ build/metrics.m4: .force
 	echo 'define(BUILDVERSION, $(BUILDVERSION))dnl' >> $@
 	echo 'define(REVISION, $(REVISION))dnl' >> $@
 	echo 'define(LINECOUNT, $(LINECOUNT))dnl' >> $@
+	echo 'define(TODOCOUNT, $(TODOCOUNT))dnl' >> $@
 
 
 clean:
