@@ -47,6 +47,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle);
 
 // places a XL lock on the =trashstart_off= as per
 // locking spec for autoid creation.
+// todo: EDBL_LTRASHOFF
 void edba_u_locktrashstartoff(edba_handle_t *handle, edb_pid pageid);
 void edba_u_locktransstartoff_release(edba_handle_t *handle);
 

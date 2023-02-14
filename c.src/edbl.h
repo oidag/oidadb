@@ -68,6 +68,8 @@ typedef enum edbl_type {
 	// lookup_pid
 	EDBL_LLOOKUP_EXISTING,
 	EDBL_LLOOKUP_NEW,
+
+	// object_pid
 	EDBL_LTRASHOFF,
 
 	// object_pid, page_ioffset
