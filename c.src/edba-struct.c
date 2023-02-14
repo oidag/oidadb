@@ -168,7 +168,9 @@ edb_err edba_structdelete(edba_handle_t *h) {
 	// atp: we have the structure-creation mutex locked
 
 	// as per spec we lock the entry creation mutex.
-	edbl_entrycreaiton_release(lockh);
+	edbl_set(lockh, EDBL_ARELEASE, (edbl_lock){
+			.type = EDBL_LENTCREAT,
+	});
 	// **defer edbl_entrycreation_release
 
 	// search the entire index and make sure nothing has our structure.
