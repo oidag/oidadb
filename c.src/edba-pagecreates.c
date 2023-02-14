@@ -8,7 +8,7 @@
 // helper function
 static edb_err xlloadlookup(edba_handle_t *handle,
                             edb_pid lookuppid,
-                            edbl_lockref *lock,
+                            edbl_lock *lock,
                             odb_spec_lookup **lookuphead,
                             odb_spec_lookup_lref **lookuprefs) {
 	edb_err err;
@@ -16,16 +16,15 @@ static edb_err xlloadlookup(edba_handle_t *handle,
 
 	// as per locking spec, we must place an XL lock on the second
 	// byte on the page before we open it.
-	lock->l_type = EDBL_EXCLUSIVE;
-	lock->l_start = edbd_pid2off(edbp->parent->fd, lookuppid) + 1;
-	lock->l_len = 1;
-	edbl_set(handle->lockh, *lock);
+	lock->type = EDBL_LLOOKUP_NEW;
+	lock->lookup_pid = lookuppid;
+	edbl_set(handle->lockh, EDBL_AXL, *lock);
 	// **defer: edbl_set(&handle->lockh, lock);
 
 	// load the page now that we have an XL lock
 	err = edbp_start(edbp, lookuppid);
 	if (err) {
-		edbl_set(handle->lockh, *lock);
+		edbl_set(handle->lockh, EDBL_ARELEASE, *lock);
 		return err;
 	}
 	// **defer: edbp_finish
@@ -45,10 +44,9 @@ static edb_err xlloadlookup(edba_handle_t *handle,
 // It will set a log message or few, so only use the call-twice in
 // returning critical errors.
 static void deloadlookup(edba_handle_t *handle,
-                         edbl_lockref *lock) {
-	lock->l_len = EDBL_TYPUNLOCK;
+                         edbl_lock *lock) {
 	edbp_finish(handle->edbphandle);
-	edbl_set(handle->lockh, *lock);
+	edbl_set(handle->lockh, EDBL_ARELEASE, *lock);
 }
 
 // Okay now listen here, sunny. We must now create a bunch of new
@@ -113,7 +111,10 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	// be created by other workers that would otherwise use the ref0c we just
 	// used. So we have to lookuppagelock it.
 	// (note to self: we lookuppagelock ref0c first sense it'll be the busier of the two)
-	edbl_entryref0c(handle->lockh, entryid, EDBL_EXCLUSIVE);
+	edbl_set(handle->lockh, EDBL_AXL, (edbl_lock){
+			.type = EDBL_LREF0C,
+			.eid = entryid,
+	});
 	// newobjectpage_offsetid - the (proposed) page offset of the first page of the strait.
 	edb_pid newobjectpage_offsetid = entry->ref0c;
 	// **defer: edbl_entryref0c(&handle->lockh, entryid, EDBL_UNLOCK;
@@ -134,7 +135,10 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	if(err) {
 		// This is an early error in here. We don't have to do too much...
 		// ... nothing to roll back sense we never created any pages.
-		edbl_entryref0c(handle->lockh, entryid, EDBL_TYPUNLOCK);
+		edbl_set(handle->lockh, EDBL_ARELEASE, (edbl_lock){
+				.type = EDBL_LREF0C,
+				.eid = entryid,
+		});
 		return err;
 	}
 	// **defer on error: edbd_del(handle, staitc, newobjectpid);
@@ -171,7 +175,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	odb_spec_lookup *lookuphead; // will be null when unloaded.
 	edb_pid        createdlookups[depth];
 	int            createdlookupsc = 0;
-	edbl_lockref   lookuppagelock;
+	edbl_lock  lookuppagelock;
 	odb_spec_lookup_lref     newreference;
 	err = xlloadlookup(handle,
 	             lookuppid,
@@ -344,7 +348,10 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	entry->lastlookup = lookuppid;
 	entry->ref0c += straitc;
 	telemetry_pages_newobj(entryid, newobjectpid, straitc);
-	edbl_entryref0c(handle->lockh, entryid, EDBL_TYPUNLOCK);
+	edbl_set(handle->lockh, EDBL_ARELEASE, (edbl_lock){
+			.type = EDBL_LREF0C,
+			.eid = entryid,
+	});
 
 	// and then let the trash collection know these pages are now in circulation.
 	entry->trashlast = newobjectpid + straitc;
@@ -385,7 +392,10 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 
 	// unlock entryref0c sense we know none of these pages are referenced.
 	// thus we can allow other workers to go in there and try to do the same function.
-	edbl_entryref0c(handle->lockh, entryid, EDBL_TYPUNLOCK);
+	edbl_set(handle->lockh, EDBL_ARELEASE, (edbl_lock){
+			.type = EDBL_LREF0C,
+			.eid = entryid,
+	});
 
 	// delete the lookup pages
 	for(int d = 0; d < createdlookupsc; d++) {

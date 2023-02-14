@@ -9,20 +9,18 @@
 edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
                           edb_pid chapter_pageoff, edb_pid *o_pid, int depth) {
 	// install sh lock on first byte of page per Object-Reading spec
-	edbl_lockref lock = (edbl_lockref){
-			.l_type = EDBL_TYPSHARED,
-			.l_len = 1,
-			.l_start = edbd_pid2off(handle->edbphandle.parent->fd, lookuproot),
+	edbl_lock lock = {
+			.type = EDBL_LLOOKUP_EXISTING,
+			.lookup_pid = lookuproot,
 	};
 
 	// ** defer: edbl_set(&self->lockdir, lock);
-	edbl_set(handle->lockh, lock);
-	lock.l_type = EDBL_TYPUNLOCK; // doing this in advance
+	edbl_set(handle->lockh, EDBL_ASH, lock);
 
 	// ** defer: edbp_finish(&self->edbphandle);
 	edb_err err = edbp_start(handle->edbphandle, lookuproot);
 	if(err) {
-		edbl_set(handle->lockh, lock);
+		edbl_set(handle->lockh, EDBL_ARELEASE, lock);
 		return err;
 	}
 	// set the lookup hint now
@@ -61,7 +59,7 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 		// So lets finish out of this page...
 		edbp_finish(handle->edbphandle);
 		// and release the lock
-		edbl_set(handle->lockh, lock);
+		edbl_set(handle->lockh, EDBL_ARELEASE, lock);
 		return 0;
 	}
 
@@ -87,7 +85,7 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 	// So lets finish out of this page...
 	edbp_finish(handle->edbphandle);
 	// and release the lock
-	edbl_set(handle->lockh, lock);
+	edbl_set(handle->lockh, EDBL_ARELEASE, lock);
 
 	// now we can recurse down to the next lookup page.
 	return edba_u_lookup_rec(handle, lookuproot,

@@ -30,7 +30,9 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 
 	// as per spec, lock the mutex and obtain a XL clutch lock
 	// **defer: edbl_entrycreaiton_release
-	edbl_entrycreaiton_lock(lockh);
+	edbl_set(lockh, EDBL_AXL, (edbl_lock){
+			.type = EDBL_LENTCREAT,
+	});
 
 	// note the absence of edba_u_clutchentry. We manually clutch it here because
 	// we need to surf through the index.
@@ -39,7 +41,9 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 		err = edbd_index(descriptor, h->clutchedentryeid, &h->clutchedentry);
 	}
 	if(err) {
-		edbl_entrycreaiton_release(lockh);
+		edbl_set(lockh, EDBL_ARELEASE, (edbl_lock){
+				.type = EDBL_LENTCREAT,
+		});
 		if(err == EDB_EEOF) {
 			// well this sucks. No more entries availabe in our database. that sucks
 			log_warnf("index is maxed out");
@@ -53,10 +57,15 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	// at this point we know that h->clutchedentry and o_eid is pointing to valid
 	// EDB_TINIT and we are inside the creation mutex.
 	// As per spec, now we get an XL mutex.
-	edbl_entry(h->lockh, h->clutchedentryeid, EDBL_EXCLUSIVE);
+	edbl_set(h->lockh, EDBL_AXL, (edbl_lock){
+		.type = EDBL_LENTRY,
+		.eid = h->clutchedentryeid,
+	});
 	h->clutchedentry->type = EDB_TPEND;
 	// as per spec, release the creaiton mutex
-	edbl_entrycreaiton_release(lockh);
+	edbl_set(lockh, EDBL_ARELEASE, (edbl_lock){
+			.type = EDBL_LENTCREAT,
+	});
 
 	// Now we leave this function with only the XL clutch lock on the entry to be
 	// released in the closed statement
@@ -209,10 +218,14 @@ edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
 	// todo: delete everythign
 	implementme();
 
-	edbl_entrycreaiton_lock(lockh);
+	edbl_set(lockh, EDBL_AXL, (edbl_lock){
+		.type = EDBL_LENTCREAT,
+	});
 	h->clutchedentry->type  = EDB_TINIT;
 	edba_u_clutchentry_release(h);
-	edbl_entrycreaiton_release(lockh);
+	edbl_set(lockh, EDBL_ARELEASE, (edbl_lock){
+			.type = EDBL_LENTCREAT,
+	});
 	return 0;
 }
 
@@ -223,14 +236,20 @@ edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl) {
 	}
 #endif
 	// SH lock the entry
+	edbl_act act = EDBL_ASH;
 	if(xl) {
-		edbl_entry(handle->lockh, eid, EDBL_EXCLUSIVE);
-	} else {
-		edbl_entry(handle->lockh, eid, EDBL_TYPSHARED);
+		act = EDBL_AXL;
 	}
+	edbl_set(handle->lockh, act, (edbl_lock){
+		.type = EDBL_LENTRY,
+		.eid = eid,
+	});
 	edb_err err = edbd_index(handle->parent->descriptor, eid, &handle->clutchedentry);
 	if(err) {
-		edbl_entry(handle->lockh, eid, EDBL_TYPUNLOCK);
+		edbl_set(handle->lockh, EDBL_ARELEASE, (edbl_lock){
+				.type = EDBL_LENTRY,
+				.eid = eid,
+		});
 		return err;
 	}
 	handle->clutchedentryeid = eid;
@@ -242,7 +261,10 @@ void edba_u_clutchentry_release(edba_handle_t *handle) {
 		log_critf("attempting to realse a clutch entry when nothing is there.");
 	}
 #endif
-	edbl_entry(handle->lockh, handle->clutchedentryeid, EDBL_TYPUNLOCK);
+	edbl_set(handle->lockh, EDBL_ARELEASE, (edbl_lock){
+			.type = EDBL_LENTRY,
+			.eid = handle->clutchedentryeid,
+	});
 	handle->clutchedentry = 0;
 	handle->clutchedentryeid = 0;
 }

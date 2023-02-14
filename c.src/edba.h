@@ -57,7 +57,7 @@ typedef struct edba_handle_st {
 	edb_struct_full_t *strct;
 	edb_sid            strctid;
 
-	edbl_lockref lock;
+	edbl_lock lock;
 	odb_type opened; // what type of operation was opened
 	edbf_flags openflags;
 

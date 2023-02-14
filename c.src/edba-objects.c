@@ -105,7 +105,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// xl lock on the trashlast.
 	// **defer: edba_u_entrytrashunlk
-	edba_u_entrytrashlk(h, EDBL_EXCLUSIVE);
+	edba_u_entrytrashlk(h, EDBL_AXL);
 
 #ifdef EDB_FUCKUPS
 	int create_trashlast_check = 0;
@@ -119,7 +119,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 		// Otherwise we call edba_u_lookupdeepright which will create pages
 		// and update trashlast.
 		if(!(flags & EDBA_FCREATE) || edba_u_lookupdeepright(h)) {
-			edba_u_entrytrashlk(h, EDBL_TYPUNLOCK);
+			edba_u_entrytrashlk(h, EDBL_ARELEASE);
 			edba_u_clutchentry_release(h);
 			return EDB_ENOSPACE;
 		}
@@ -172,7 +172,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// sense we have no reason to update it anymore. (as per spec)
 	// (note to self: we still have the XL lock on trashstart_off at this time)
 	// (note to self: we know that opage is not -1 because trash faults have been handled)
-	edba_u_entrytrashlk(h, EDBL_TYPUNLOCK);
+	edba_u_entrytrashlk(h, EDBL_ARELEASE);
 
 	// at this point, we have a lock on the trashstart_off and need
 	// to place another lock on the actual trash record.
@@ -180,12 +180,12 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	const odb_spec_struct_struct *structdat;
 	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &structdat);
 	uint16_t intrapagebyteoff = ODB_SPEC_HEADSIZE + structdat->fixedc * o->trashstart_off;
-	h->lock = (edbl_lockref) {
-		.l_type = EDBL_EXCLUSIVE,
-		.l_len = structdat->fixedc,
-		.l_start = edbd_pid2off(h->parent->pagecache->fd, pageid) + intrapagebyteoff,
+	h->lock = (edbl_lock){
+		.type = EDBL_LROW,
+		.object_pid = pageid,
+		.page_ioffset = intrapagebyteoff,
 	};
-	edbl_set(h->lockh, h->lock);
+	edbl_set(h->lockh, EDBL_ARELEASE, h->lock);
 
 	// at this point, we have the deleted record locked as well as the
 	// trashlast. So as per spec we must update trashstart and unlock
@@ -363,7 +363,7 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 
 	// if this page MUST be added to trash list. We'll have to use strict locking as to
 	// make sure no one touches this pages =trashvor= nor the entry's trashlast
-	edba_u_entrytrashlk(h, EDBL_EXCLUSIVE);
+	edba_u_entrytrashlk(h, EDBL_AXL);
 #ifdef EDB_FUCKUPS
 	if(objheader->trashvor != 0 ||
 	   h->clutchedentry->trashlast == edbp_gpid(&h->edbphandle)) {
@@ -374,7 +374,7 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 #endif
 	objheader->trashvor = h->clutchedentry->trashlast;
 	h->clutchedentry->trashlast = edbp_gpid(&h->edbphandle);
-	edba_u_entrytrashlk(h, EDBL_TYPUNLOCK);
+	edba_u_entrytrashlk(h, EDBL_ARELEASE);
 	return 0;
 }
 
@@ -441,22 +441,21 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 	// as per locking spec, need to place the lock on the data before we load the page.
 	// install the SH lock as per Object-Reading
 	// or install an XL lock as per Object-Writing
-	h->lock = (edbl_lockref) {
-			.l_type  = EDBL_TYPSHARED,
-			.l_start = edbd_pid2off(h->parent->pagecache->fd, pid) + page_byteoff,
-			.l_len   = structdat->fixedc,
+	edbl_act lockaction = EDBL_ASH;
+	h->lock = (edbl_lock) {
+			.type = EDBL_LROW,
+			.object_pid = pid,
+			.page_ioffset = page_byteoff,
 	};
 	if(flags & EDBA_FWRITE) {
-		h->lock.l_type = EDBL_EXCLUSIVE;
+		lockaction = EDBL_AXL;
 	}
-	// todo: ** defer: edbl_set(&self->lockdir, lock);
-	edbl_set(h->lockh, h->lock);
+	edbl_set(h->lockh, lockaction, h->lock);
 
 	// lock the page in cache
 	edb_err err = edbp_start(h->edbphandle, pid);
 	if(err) {
-		h->lock.l_type = EDBL_TYPUNLOCK;
-		edbl_set(h->lockh, h->lock);
+		edbl_set(h->lockh, EDBL_ARELEASE, h->lock);
 		return err;
 	}
 
@@ -471,8 +470,7 @@ void edba_u_pagedeload(edba_handle_t *h) {
 	edbp_finish(h->edbphandle);
 
 	// release whatever lock we saved when we loaded the page
-	h->lock.l_type = EDBL_TYPUNLOCK;
-	edbl_set(h->lockh, h->lock);
+	edbl_set(h->lockh, EDBL_ARELEASE, h->lock);
 }
 
 
