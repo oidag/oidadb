@@ -13,6 +13,12 @@
 #include <sys/mman.h>
 #include <sys/file.h>
 
+typedef enum {
+	LOCKTYPE_EDBL,
+	LOCKTYPE_FCNTL,
+	LOCKTYPE_MUTEX,
+} locktype;
+
 struct threadpayload {
 	pthread_t pthread;
 	const char *file;
@@ -21,6 +27,8 @@ struct threadpayload {
 	int testc;
 	unsigned long timespent;
 	pthread_mutex_t *mutex;
+	edbl_handle_t *edbl;
+	locktype type;
 };
 
 struct shmobj {
@@ -49,7 +57,7 @@ static void *gothread(void *a) {
 
 	struct timeval start,end = {0};
 	for(int i = 0; i < payload->testc; i++) {
-		int bytetolock = 0;//rand() % payload->bytes;
+		int bytetolock = rand() % payload->bytes;
 		int bytelen = 1;
 		struct flock64 flk = {0};
 		flk.l_len = bytelen;
@@ -57,28 +65,59 @@ static void *gothread(void *a) {
 		flk.l_whence = SEEK_SET;
 		flk.l_type = F_WRLCK;
 		flk.l_pid = 0;
+		edbl_lock ref;
+		ref.type = EDBL_LARBITRARY;
+		ref.l_len = 1;
+		ref.l_start = bytetolock;
 
 		gettimeofday(&start,0);
-		int r = fcntl_lock(fd, flk);
-		//pthread_mutex_lock(payload->mutex);
-		//flock(fd, LOCK_EX);
+		switch (payload->type) {
+			case LOCKTYPE_EDBL:
+				edbl_set(payload->edbl, EDBL_AXL, ref);
+				break;
+			case LOCKTYPE_FCNTL:
+				fcntl_lock(fd, flk);
+				break;
+			case LOCKTYPE_MUTEX:
+				pthread_mutex_lock(payload->mutex);
+				break;
+		}
 		gettimeofday(&end,0);
-		int w = shmobj->www;
-		shmobj->www++;
+		uint8_t w, w2;
+		lseek(fd, bytetolock, SEEK_SET);
+		ssize_t ret = read(fd, &w, 1);
+		if(ret == -1) {
+			test_error("failed to read byte");
+		}
+		lseek(fd, bytetolock, SEEK_SET);
+		w++;
+		ret = write(fd, &w, 1);
+		if(ret == -1) {
+			test_error("failed to write byte");
+		}
 
 		uint64_t startt = (uint64_t)start.tv_sec*1000000 + start.tv_usec;
 		uint64_t finisht = (uint64_t)end.tv_sec*1000000 + end.tv_usec;
 		unsigned long diff = finisht - startt;
 		payload->timespent += diff;
-		usleep(10);
-		if(w+1 != shmobj->www) {
-			test_error("nope");
+		lseek(fd, bytetolock, SEEK_SET);
+		read(fd, &w2, 1);
+		if(w != w2) {
+			test_error("lock failed.");
 		}
 
-		flk.l_type = F_UNLCK;
-		fcntl_unlock(fd, flk);
-		//pthread_mutex_unlock(payload->mutex);
-		//flock(fd, LOCK_UN);
+		switch (payload->type) {
+			case LOCKTYPE_EDBL:
+				edbl_set(payload->edbl, EDBL_ARELEASE, ref);
+				break;
+			case LOCKTYPE_FCNTL:
+				flk.l_type = F_UNLCK;
+				fcntl_unlock(fd, flk);
+				break;
+			case LOCKTYPE_MUTEX:
+				pthread_mutex_unlock(payload->mutex);
+				break;
+		}
 	}
 
 	close(fd);
@@ -90,6 +129,7 @@ static void *gothread(void *a) {
 }
 
 int main(int argc, const char **argv) {
+
 	test_mkdir();
 	test_mkfile(argv[0]);
 
@@ -97,9 +137,10 @@ int main(int argc, const char **argv) {
 
 	////////////////////////////////////////////////////////////////////////////
 	//gunna need multi threads
-	const int extrathreads = 3;
-	const int extraprocesses = 2;
-	const int bytes = 1;
+	const int extrathreads = 11;
+	const int extraprocesses = 0;
+	const int bytes = 100;
+	const locktype locktypetouse = LOCKTYPE_EDBL;
 	const int testc = 50000;
 
 	// working vars
@@ -115,7 +156,7 @@ int main(int argc, const char **argv) {
 
 	// initialize shm object.
 	const char *shmname = "/10EDBL_00_00_c";
-	int shmfd = shm_open(shmname, O_RDWR | O_CREAT | O_EXCL, 0666);
+	int shmfd = shm_open(shmname, O_RDWR | O_CREAT | O_TRUNC, 0666);
 	if(shmfd == -1) {
 		test_error("shm open");
 		goto ret;
@@ -169,13 +210,34 @@ int main(int argc, const char **argv) {
 	}
 
 	// initialize paylaods
+	edbl_host_t *handle;
+	// cheese host_init a little bit by only supplying the only thing that
+	// matters: the file descriptor.
+	edbd_t f;
+	f.descriptor = open(test_filenmae, O_RDWR);
+	if(f.descriptor == -1) {
+		test_error("open(2)");
+		return -1;
+	}
+	err = edbl_host_init(&handle, &f);
+	if(err) {
+		test_error("edbl_host_init");
+		goto procfail;
+	}
 	for(int i = 0;i < extrathreads+1; i++) {
+		err = edbl_handle_init(handle, &threads[i].edbl);
+		if(err) {
+			test_error("edbl_handle_init");
+			goto procfail;
+		}
 		threads[i].file = test_filenmae;
 		threads[i].bytes = bytes;
 		threads[i].testc = testc;
 		threads[i].timespent = 0;
 		threads[i].mutex = &shmobj->shmmutex;
+		threads[i].type = locktypetouse;
 	}
+	close(f.descriptor);
 
 
 
@@ -190,13 +252,17 @@ int main(int argc, const char **argv) {
 	for(int i = 0; i < extrathreads; i++) {
 		pthread_join(threads[i].pthread, 0);
 		shmobj->totaltime += threads[i].timespent;
+		edbl_handle_free(threads[i].edbl);
 		printf("process%d thread %d: %ld\n", getpid(), i,
 		       threads[i].timespent);
 	}
+	edbl_handle_free(threads[extrathreads].edbl);
 	shmobj->totaltime += threads[extrathreads].timespent;
 	printf("process%d thread %d: %ld\n", getpid(), extrathreads,
 		   threads[extrathreads].timespent);
 
+	procfail:
+	edbl_host_free(handle);
 	if(ischild) {
 		shm_unlink(shmname);
 		return test_waserror;
