@@ -95,6 +95,10 @@ typedef struct edbl_lock {
 
 // see locking.org.
 //
+// edbl_test will not place any lock but only return EDB_EAGAIN if such a
+// lock described will result in blocking. Or will return 0 if such a lock
+// would have been successful placed. (May also return CRIT, see RETURNS)
+//
 // RETURNS:
 //   This function will only return critical errors which
 //   occour in unexpected hardware problems, or, the lack of properly
@@ -104,5 +108,6 @@ typedef struct edbl_lock {
 // THREADING:
 //    Thread safe per-handle.
 edb_err edbl_set(edbl_handle_t *, edbl_act action, edbl_lock lock);
+edb_err edbl_test(edbl_handle_t *, edbl_act action, edbl_lock lock);
 
 #endif

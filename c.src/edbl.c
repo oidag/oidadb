@@ -129,19 +129,36 @@ void    edbl_handle_free(edbl_handle_t *handle) {
 	close(handle->fd_d);
 	free(handle);
 }
-edb_err edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
-	struct flock64 flock;
-	flock.l_whence = SEEK_SET;
-	flock.l_pid = 0;
+
+// extracted so can be used between edbl_set and edbl_test functions.
+// if test is non-null then will run fcntl(fd, F_OFD_GETLK, test), otherwise
+// F_OFD_SETLKW will be used and nothing outputted.
+static edb_err _edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock,
+				  struct flock64 *test) {
+	struct flock64 *flock;
+	struct flock64 flock_noptr;
+	int cmd;
+	if(!test) {
+		flock = &flock_noptr;
+		cmd = F_OFD_SETLKW;
+	} else {
+		flock = test;
+		cmd = F_OFD_GETLK;
+	}
+	flock->l_whence = SEEK_SET;
+	flock->l_pid = 0;
+	if(test) {
+		cmd = F_OFD_GETLK;
+	}
 	switch (action) {
 		case EDBL_ARELEASE:
-			flock.l_type = F_UNLCK;
+			flock->l_type = F_UNLCK;
 			break;
 		case EDBL_AXL:
-			flock.l_type = F_WRLCK;
+			flock->l_type = F_WRLCK;
 			break;
 		case EDBL_ASH:
-			flock.l_type = F_RDLCK;
+			flock->l_type = F_RDLCK;
 			break;
 		default:
 			log_critf("edbl_set INVAL");
@@ -153,81 +170,81 @@ edb_err edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
 	const unsigned int pagesize = edbd_size(h->parent->fd);
 
 	// set l_len and l_start
-	flock.l_len = 1;
+	flock->l_len = 1;
 	switch (lock.type) {
 		case EDBL_LFILE:
-			flock.l_start = 0;
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			flock->l_start = 0;
+			if(fcntl64(fd, F_OFD_SETLKW, flock) == -1) break;
 			return 0;
 
 		case EDBL_LENTCREAT:
-			flock.l_start = 0;
+			flock->l_start = 0;
 			lock.eid = EDBD_EIDINDEX;
 			goto lock_entry_byte;
 		case EDBL_LSTRUCTCREAT:
-			flock.l_start = 0;
+			flock->l_start = 0;
 			lock.eid = EDBD_EIDSTRUCT;
 			goto lock_entry_byte;
 		case EDBL_LENTTRASH:
 			// lets get cheeky.
-			flock.l_start = offsetof(odb_spec_index_entry, trashlast);
+			flock->l_start = offsetof(odb_spec_index_entry, trashlast);
 			goto lock_entry_byte; // very cheeky.
 		case EDBL_LREF0C:
 			// ... keep it cheeky.
-			flock.l_start += offsetof(odb_spec_index_entry, ref0c);
+			flock->l_start = offsetof(odb_spec_index_entry, ref0c);
 			goto lock_entry_byte;
 
 		lock_entry_byte:
-			flock.l_start += edbl_pageoffset(h->parent->fd, lock.eid);
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			flock->l_start += edbl_pageoffset(h->parent->fd, lock.eid);
+			if(fcntl64(fd, cmd, flock) == -1) break;
 			return 0;
 
 		case EDBL_LENTRY:
 			// clutch lock.
-			flock.l_start = edbl_pageoffset(h->parent->fd, lock.eid);
-			if(flock.l_type == F_UNLCK) {
+			flock->l_start = edbl_pageoffset(h->parent->fd, lock.eid);
+			if(flock->l_type == F_UNLCK) {
 				// simply release the second-byte lock.
-				flock.l_start++;
-				if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+				flock->l_start++;
+				if(fcntl64(fd, cmd, flock) == -1) break;
 				return 0;
 			}
 			// Engage the first-byte lock
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			if(fcntl64(fd, cmd, flock) == -1) break;
 			// engage the second-byte lock
-			flock.l_start++;
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			flock->l_start++;
+			if(fcntl64(fd, cmd, flock) == -1) break;
 			// release the first-byte lock.
-			flock.l_start--;
-			flock.l_type = F_UNLCK;
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			flock->l_start--;
+			flock->l_type = F_UNLCK;
+			if(fcntl64(fd, cmd, flock) == -1) break;
 			return 0;
 
 		case EDBL_LLOOKUP_EXISTING:
-			flock.l_start = pagesize * (off64_t)lock.lookup_pid;
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			flock->l_start = pagesize * (off64_t)lock.lookup_pid;
+			if(fcntl64(fd, cmd, flock) == -1) break;
 			return 0;
 
 		case EDBL_LLOOKUP_NEW:
-			flock.l_start = pagesize * (off64_t)lock.lookup_pid + 1;
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			flock->l_start = pagesize * (off64_t)lock.lookup_pid + 1;
+			if(fcntl64(fd, cmd, flock) == -1) break;
 			return 0;
 
 		case EDBL_LTRASHOFF:
-			flock.l_start = pagesize * (off64_t)lock.object_pid;
-			flock.l_start += offsetof(odb_spec_object, trashstart_off);
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			flock->l_start = pagesize * (off64_t)lock.object_pid;
+			flock->l_start += offsetof(odb_spec_object, trashstart_off);
+			if(fcntl64(fd, cmd, flock) == -1) break;
 			return 0;
 
 		case EDBL_LROW:
-			flock.l_start = pagesize * (off64_t)lock.object_pid;
-			flock.l_start += lock.page_ioffset;
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			flock->l_start = pagesize * (off64_t)lock.object_pid;
+			flock->l_start += lock.page_ioffset;
+			if(fcntl64(fd, cmd, flock) == -1) break;
 			return 0;
 
 		case EDBL_LARBITRARY:
-			flock.l_start = lock.l_start;
-			flock.l_len   = lock.l_len;
-			if(fcntl64(fd, F_OFD_SETLKW, &flock) == -1) break;
+			flock->l_start = lock.l_start;
+			flock->l_len   = lock.l_len;
+			if(fcntl64(fd, cmd, flock) == -1) break;
 			return 0;
 
 		default:
@@ -237,4 +254,21 @@ edb_err edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
 	// if we're here then the above switch statement had an error.
 	log_critf("critical error in edbl_set lock-phase switch");
 	return EDB_ECRIT;
+}
+
+edb_err edbl_test(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
+	struct flock64 test;
+	edb_err err = _edbl_set(h, action, lock, &test);
+	if(err) {
+		return err;
+	}
+	if(test.l_type == F_UNLCK) {
+		return 0;
+	} else {
+		return EDB_EAGAIN;
+	}
+
+}
+edb_err edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
+	return _edbl_set(h, action, lock, 0);
 }
