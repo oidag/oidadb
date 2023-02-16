@@ -144,17 +144,17 @@ ability to engage.
  2. +XL/SH the second byte.
  3. -XL/SH from the first byte
 ** fcntl-LENTTRASH
- 1. +XL/SH on all bytes of the =trashlast= field of the entry.
+ 1. +XL/SH on first byte of the =trashlast= field of the entry.
 ** fcntl-LREF0C
- 1. +XL on all bytes of the =ref0c= field of the entry.
+ 1. +XL on first byte of the =ref0c= field of the entry.
 ** fcntl-LLOOKUP_EXISTING
  1. +SH on the first byte of the lookup page
 ** fcntl-LLOOKUP_NEW
  1. +XL on the second byte of the lookup page
 ** fcntl-LROW
- 1. +XL/SH lock on the entire object row's bytes
+ 1. +XL/SH first byte of the object row's bytes
 ** fcntl-LTRASHOFF
- 1. +XL on all the bytes in the object page's =trashstart_off= field
+ 1. +XL on first  bytes in the object page's =trashstart_off= field
 ** fcntl-LENTCREAT
 See [[fcntl-LREF0C]] but with the index entry.
 ** fcntl-LSTRUCTCREAT
