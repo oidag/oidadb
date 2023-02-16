@@ -139,8 +139,10 @@ edb_err edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
 			break;
 		case EDBL_AXL:
 			flock.l_type = F_WRLCK;
+			break;
 		case EDBL_ASH:
 			flock.l_type = F_RDLCK;
+			break;
 		default:
 			log_critf("edbl_set INVAL");
 			return EDB_ECRIT;
