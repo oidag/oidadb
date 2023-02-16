@@ -39,7 +39,7 @@ typedef struct edb_host_st {
 	odb_hostconfig_t config;
 
 	// shared memory with handles
-	edb_shm_t shm;
+	edb_shm_t *shm;
 
 	// worker buffer, see worker.h
 	unsigned int  workerc;
@@ -200,7 +200,7 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 	// **defer: edbd_fileclose(host.file)
 	host.state = HOST_OPENING_SHM;
 
-	eerr = edbs_host(&host.shm, hostops);
+	eerr = edbs_host_init(&host.shm, hostops);
 	if(eerr) {
 		goto ret;
 	}
@@ -243,7 +243,7 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 
 
 	for(int i = 0; i < host.config.worker_poolsize; i++) {
-		eerr = edbw_init(&(host.workerv[i]), &host.ahost, &host.shm);
+		eerr = edbw_init(&(host.workerv[i]), &host.ahost, host.shm);
 		if(eerr) {
 			goto ret;
 		}
@@ -316,7 +316,7 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 			// fallthrough
 		case HOST_OPENING_PAGEBUFF:
 			log_infof("closing shared memory...");
-			edbs_dehost(&host.shm);
+			edbs_host_free(host.shm);
 			//fallthrough
 		case HOST_OPENING_SHM:
 			log_infof("closing meta controller...");
