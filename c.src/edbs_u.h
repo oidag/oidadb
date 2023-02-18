@@ -30,6 +30,7 @@ typedef struct edbs_shmhead_t {
 
 	// the next jobid. It is not strict that jobs need to have sequencial jobids
 	// they just need to be unique.
+	// requires jobinstall.lock to increment
 	unsigned long int nextjobid;
 
 	// job accept mutex for workers (process shared)
@@ -88,6 +89,10 @@ typedef struct edbs_shmjob_t {
 	// this is reassigned by the handles everytime they
 	// install it. uses edb_shmhead_st.nextjobid.
 	unsigned long int jobid;
+
+	// see edbs_jobinstall.
+	unsigned int name;
+
 
 	// the use of data depends on the class and command.
 	//edb_data_t data;
