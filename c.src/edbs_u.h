@@ -1,5 +1,10 @@
 #include "edbs.h"
 
+#include <linux/futex.h>
+#include <stdint.h>
+#include <syscall.h>
+#include <sys/time.h>
+#include <errno.h>
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22
 
@@ -9,6 +14,9 @@ typedef struct edbs_shmhead_t {
 
 	uint64_t joboff;    // offset from shm until the the start of jobv.
 	uint64_t jobc;      // total count of jobs in jobv.
+
+	uint32_t jobinst_next; // next-index-to-start: requires jobinstall.lock
+	uint32_t jobacpt_next; // next-index-to-start: requires jobaccept.lock
 
 	uint64_t eventoff;  // offset from shm until the start of eventv
 	uint64_t eventc;    // total count of events in eventv.
@@ -58,7 +66,7 @@ typedef struct edbs_shmjob_t {
 
 	// Job desc is a xor'd value between 1 edb_jobclass, 1 edb_cmd.
 	// if 0 then empty job.
-	int jobdesc;
+	unsigned int jobdesc;
 
 	// the transfer buffer for this job.
 	// the offset from shm->transferbuff and how many bytes are there.
@@ -134,3 +142,25 @@ typedef struct edbs_handle_t {
 	char shm_name[32];
 
 } edbs_handle_t;
+
+
+// wrappers. See futex(2)
+//
+// futex_wait returns -1 if EAGAIN was returned (which is not really an error)
+static int futex_wait(uint32_t *uaddr, uint32_t val) {
+	int err = (int)syscall(SYS_futex, uaddr, FUTEX_WAIT, val, 0, 0, 0);
+	if (err == -1 && errno != EAGAIN) {
+		log_critf("critical futex_wait: %d", errno);
+		return 0;
+	}
+	// reset errno to keep it clean.
+	if(err == -1) {
+		errno = 0;
+	}
+	return err;
+}
+// returns the count of waiters that were woken
+static int futex_wake(uint32_t *uaddr, uint32_t count) {
+	int ret = (int)syscall(SYS_futex, uaddr, FUTEX_WAKE, count, 0, 0, 0);
+	return ret;
+}
