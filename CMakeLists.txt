@@ -35,6 +35,12 @@ add_executable(edbl_01 ${stdtestfiles}
         c.src/tests/10-edbl_01_t.c
         ${edbl_t} ${edbd_t})
 
+#edbs
+file(GLOB edbs_t c.src/edbs*.c)
+add_executable(edbs_00 ${stdtestfiles}
+        c.src/tests/15-edbs_00_t.c
+        ${edbs_t} ${edbd_t})
+
 # edbp
 file(GLOB edbp_t c.src/edbp*.c)
 add_executable(edbp_00 ${stdtestfiles}

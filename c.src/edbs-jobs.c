@@ -284,11 +284,15 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 
 	// install the job
 	job->jobdesc = jobclass;
+	job->jobid = h->head->nextjobid++;
 	head->futex_emptyjobs--; // 1 less empty job slot
 	head->futex_newjobs++;   // 1 more job for workers to adopt
 
 	// sense we set the jobclass, we can unlock. We now have installed our job.
 	pthread_mutex_unlock(&head->jobinstall);
+
+	// other politics that don't need the mutex.
+	job->name = name;
 
 	// send a futex signal that a job was just installed.
 	futex_wake(&head->futex_newjobs, 1);
