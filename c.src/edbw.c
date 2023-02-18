@@ -22,8 +22,8 @@ log_debugf("worker#%d executing job#%ld: " fmt, workerp->workerid, workerp->curj
 static edb_err execjob(edb_worker_t *self) {
 
 	// easy pointers
-	edbs_jobhandler *job = &self->curjob;
-	int jobdesc = job->job->jobdesc;
+	edbs_job_t *job = &self->curjob;
+	int jobdesc = edbs_jobdesc(*job);
 	edb_err err = 0;
 	edba_handle_t *handle = &self->edbahandle;
 
@@ -43,7 +43,7 @@ static edb_err execjob(edb_worker_t *self) {
 
 	// FRH
 	// Cannot take jobs with a closed buffer
-	if(edbs_jobisclosed(job)) {
+	if(edbs_jobisclosed(*job)) {
 		err = EDB_ECRIT;
 		log_critf("job accepted by worker but the handle did not open job buffer");
 		goto closejob;
@@ -69,7 +69,7 @@ static edb_err execjob(edb_worker_t *self) {
 	}
 
 	closejob:
-	edbs_jobclose(&self->curjob);
+	edbs_jobclose(self->curjob);
 	return err;
 }
 
@@ -83,14 +83,14 @@ void static *workermain(void *_selfv) {
 			log_critf("worker %d: failed to select job: %d", self->workerid, err);
 		} else {
 			execjob(self);
-			edbs_jobclose(&self->curjob);
+			edbs_jobclose(self->curjob);
 		}
 	}
 	return 0;
 }
 
 unsigned int nextworkerid = 1;
-edb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_shm_t *shm) {
+edb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edbs_handle_t *shm) {
 	edb_err eerr;
 	//initialize
 	bzero(o_worker, sizeof (edb_worker_t));

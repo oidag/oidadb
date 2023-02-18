@@ -14,7 +14,7 @@ typedef enum _edb_workerstate {
 } edb_workerstate;
 
 typedef struct edb_worker_st {
-	const edb_shm_t *shm;
+	const edbs_handle_t *shm;
 
 	edb_workerstate state;
 
@@ -30,14 +30,14 @@ typedef struct edb_worker_st {
 
 	// filled in the second the worker is operating on a job.
 	// if curjob.job is null that means no job currently.
-	edbs_jobhandler curjob;
+	edbs_job_t curjob;
 }edb_worker_t;
 
 // _init initializs a new worker and _decom decommissions it.
 //
 // edb_workerdecom will only crit out.
 // edb_workerdecom will implicitly call edb_workerstop
-edb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edb_shm_t *shm);
+edb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edbs_handle_t *shm);
 void edbw_decom(edb_worker_t *worker);
 
 // once initialized, a worker can be started with either of these functions.

@@ -23,8 +23,8 @@ static void edbw_logverbose(edb_worker_t *self, const char *fmt, edb_oid oid) {
 edb_err edbw_u_objjob(edb_worker_t *self) {
 
 	// easy pointers
-	edbs_jobhandler *job = &self->curjob;
-	int jobdesc = job->job->jobdesc;
+	edbs_job_t job = self->curjob;
+	int jobdesc = edbs_jobdesc(job);
 	edb_err err = 0;
 	edba_handle_t *handle = &self->edbahandle;
 
@@ -78,7 +78,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			return EDB_EJOBDESC;
 	}
 	if(err) {
-		edbs_jobwrite(&self->curjob, &err, sizeof(err));
+		edbs_jobwrite(self->curjob, &err, sizeof(err));
 		return err;
 	}
 
@@ -90,7 +90,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			// make sure this oid isn't already deleted
 			if(!edba_objectdeleted(handle)) {
 				err = EDB_EEXIST;
-				edbs_jobwrite(&self->curjob, &err, sizeof(err));
+				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
 
@@ -98,24 +98,24 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			usrlocks = edba_objectlocks_get(handle);
 			if(usrlocks & EDB_FUSRLCREAT) {
 				err = EDB_EULOCK;
-				edbs_jobwrite(&self->curjob, &err, sizeof(err));
+				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
 
 			// err 0
 			err = 0;
-			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+			edbs_jobwrite(self->curjob, &err, sizeof(err));
 
 			// write to the created object
 			strt = edba_objectstruct(handle);
 			data  = edba_objectfixed(handle);
-			edbs_jobread(&self->curjob, data, strt->fixedc);
+			edbs_jobread(self->curjob, data, strt->fixedc);
 
 			// mark this object as undeleted
 			edba_objectundelete(handle);
 
 			// return the oid of the created object
-			edbs_jobwrite(&self->curjob, &oid, sizeof(oid));
+			edbs_jobwrite(self->curjob, &oid, sizeof(oid));
 			break;
 
 		case EDB_OBJ | EDB_CCOPY:
@@ -124,7 +124,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			// is it deleted?
 			if(edba_objectdeleted(handle)) {
 				err = EDB_ENOENT;
-				edbs_jobwrite(&self->curjob, &err, sizeof(err));
+				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
 
@@ -132,18 +132,18 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			usrlocks = edba_objectlocks_get(handle);
 			if(usrlocks & EDB_FUSRLRD) {
 				err = EDB_EULOCK;
-				edbs_jobwrite(&self->curjob, &err, sizeof(err));
+				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
 
 			// err 0
 			err = 0;
-			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+			edbs_jobwrite(self->curjob, &err, sizeof(err));
 
 			// write out the object.
 			strt = edba_objectstruct(handle);
 			data  = edba_objectfixed(handle);
-			edbs_jobwrite(&self->curjob, data, strt->fixedc);
+			edbs_jobwrite(self->curjob, data, strt->fixedc);
 			break;
 
 		case EDB_OBJ | EDB_CWRITE:
@@ -152,7 +152,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			// is it deleted?
 			if(edba_objectdeleted(handle)) {
 				err = EDB_ENOENT;
-				edbs_jobwrite(&self->curjob, &err, sizeof(err));
+				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
 
@@ -160,18 +160,18 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			usrlocks = edba_objectlocks_get(handle);
 			if(usrlocks & EDB_FUSRLWR) {
 				err = EDB_EULOCK;
-				edbs_jobwrite(&self->curjob, &err, sizeof(err));
+				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
 
 			// err 0
 			err = 0;
-			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+			edbs_jobwrite(self->curjob, &err, sizeof(err));
 
 			// update the record
 			strt = edba_objectstruct(handle);
 			data  = edba_objectfixed(handle);
-			edbs_jobread(&self->curjob, data, strt->fixedc);
+			edbs_jobread(self->curjob, data, strt->fixedc);
 
 			break;
 		case EDB_OBJ | EDB_CDEL:
@@ -182,7 +182,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			usrlocks = edba_objectlocks_get(handle);
 			if(usrlocks & EDB_FUSRLWR) {
 				err = EDB_EULOCK;
-				edbs_jobwrite(&self->curjob, &err, sizeof(err));
+				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
 
@@ -190,7 +190,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 			// perform the delete
 			err = edba_objectdelete(handle);
-			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+			edbs_jobwrite(self->curjob, &err, sizeof(err));
 			break;
 
 		case EDB_OBJ | EDB_CUSRLKR:
@@ -198,11 +198,11 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 			// err 0
 			err = 0;
-			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+			edbs_jobwrite(self->curjob, &err, sizeof(err));
 
 			// read-out locks
 			usrlocks = edba_objectlocks_get(handle);
-			edbs_jobwrite(&self->curjob, &usrlocks, sizeof(odb_usrlk));
+			edbs_jobwrite(self->curjob, &usrlocks, sizeof(odb_usrlk));
 			break;
 
 		case EDB_OBJ | EDB_CUSRLKW:
@@ -210,10 +210,10 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 			// err 0
 			err = 0;
-			edbs_jobwrite(&self->curjob, &err, sizeof(err));
+			edbs_jobwrite(self->curjob, &err, sizeof(err));
 
 			// update locks
-			edbs_jobread(&self->curjob, &usrlocks, sizeof(odb_usrlk));
+			edbs_jobread(self->curjob, &usrlocks, sizeof(odb_usrlk));
 			edba_objectlocks_set(handle, usrlocks & _EDB_FUSRLALL);
 			break;
 		default:break;

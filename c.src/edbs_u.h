@@ -3,7 +3,7 @@
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22
 
-typedef struct edb_shmhead_t {
+typedef struct edbs_shmhead_t {
 	uint64_t magnum;    // magicnumber (EDB_SHM_MAGIC_NUM)
 	uint64_t shmc;      // total bytes in the shm
 
@@ -36,7 +36,7 @@ typedef struct edb_shmhead_t {
 	// 0 for starting...
 	// 1 for started (will signal)
 	uint32_t futex_status;
-} edb_shmhead_t;
+} edbs_shmhead_t;
 
 // job slot structures are met to be stored in shared memory
 // and be accessed by multiple processes.
@@ -54,7 +54,7 @@ typedef struct edb_shmhead_t {
 // eventually point to the same spot in physical memory.
 //
 // So we must stick to offsets for guidance (transferbuffoff)
-typedef struct edb_job_st {
+typedef struct edbs_shmjob_t {
 
 	// Job desc is a xor'd value between 1 edb_jobclass, 1 edb_cmd.
 	// if 0 then empty job.
@@ -84,14 +84,14 @@ typedef struct edb_job_st {
 	// the use of data depends on the class and command.
 	//edb_data_t data;
 
-} edb_job_t;
+} edbs_shmjob_t;
 
 // This structure is used to help you navigate the shared memory between
 // host and handles. This structure itself is not stored in the
 // shm, but the pointers within are pointing to parts of the shm.
 //
 // This is because you'll never find pointers inside of shared memory.
-typedef struct edb_shm_t {
+typedef struct edbs_handle_t {
 
 	// the shared memory itself.
 	// This shared memoeyr stores the following in this order:
@@ -105,10 +105,10 @@ typedef struct edb_shm_t {
 	void *shm; // if 0, that means the shm is unlinked.
 
 	// sizes of the buffers
-	edb_shmhead_t *head; // head will be == shm.
+	edbs_shmhead_t *head; // head will be == shm.
 
 	// helper pointers
-	edb_job_t   *jobv;    // job buffer.
+	edbs_shmjob_t   *jobv;    // job buffer.
 	edb_event_t *eventv;  // events buffer.
 	void        *transbuffer; // start of transfer buffer
 
@@ -133,4 +133,4 @@ typedef struct edb_shm_t {
 	// shared memory file name. not stored in the shm itself.
 	char shm_name[32];
 
-} edb_shm_t;
+} edbs_handle_t;

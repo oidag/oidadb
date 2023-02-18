@@ -4,8 +4,8 @@
 edb_err edbw_u_entjob(edb_worker_t *self) {
 
 	// easy pointers
-	edbs_jobhandler *job = &self->curjob;
-	int jobdesc = job->job->jobdesc;
+	edbs_job_t job = self->curjob;
+	int jobdesc = edbs_jobdesc(job);
 	edb_err err = 0;
 	edba_handle_t *handle = &self->edbahandle;
 

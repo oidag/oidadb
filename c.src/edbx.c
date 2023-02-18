@@ -39,7 +39,7 @@ typedef struct edb_host_st {
 	odb_hostconfig_t config;
 
 	// shared memory with handles
-	edb_shm_t *shm;
+	edbs_handle_t *shm;
 
 	// worker buffer, see worker.h
 	unsigned int  workerc;
