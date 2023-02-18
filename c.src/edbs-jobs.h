@@ -132,8 +132,17 @@ edb_err edbs_jobselect(const edbs_handle_t *shm,
 void    edbs_jobclose(edbs_job_t job);
 int     edbs_jobisclosed(edbs_job_t job);
 
-// todo
-edb_err edbs_jobinstall(const edbs_handle_t *shm, unsigned int jobc);
+// Installs a job with given jobclass and outputs a handle to said job.
+//
+// name is used specifically for analytics, debugging purposes. Should be the
+// handle id.
+//
+// ERRORS
+//  - EDB_ECRIT
+edb_err edbs_jobinstall(const edbs_handle_t *shm,
+						unsigned int jobclass,
+						unsigned int name,
+						edbs_job_t *o_job);
 
 // analogous to read(2) and write(2).
 // Write will block if the buffer becomes full.

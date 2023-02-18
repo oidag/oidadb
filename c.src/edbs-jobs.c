@@ -197,31 +197,21 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	// if there's no new jobs then we must wait. We do this by running futext_wait
 	// on the case that newjobs is 0. In which case a handle will eventually wake us after it increments
 	// newjobs.
-	err = syscall(SYS_futex, &head->futex_newjobs, FUTEX_WAIT, 0, 0, 0, 0);
-	if (err == -1 && errno != EAGAIN) {
-		pthread_mutex_unlock(&head->jobaccept);
-		log_critf("critical error while waiting on new jobs: %d", errno);
-		return EDB_ECRIT;
-	}
+	futex_wait(&head->futex_newjobs, 0);
 
 	// if we're here that means we know that there's at least 1 new job. lets find it.
+	edbs_shmjob_t *job;
 	{
-		int i;
+		unsigned int i;
 		for (i = 0; i < jobc; i++) {
-
-			if (jobv[o_job->jobpos].owner != 0 || jobv[o_job->jobpos].jobdesc != 0) {
-				// this job is already owned.
-				// so this job is not owned however there's no job installed.
-				goto next;
+			o_job->jobpos = head->jobacpt_next;
+			job = &jobv[head->jobacpt_next];
+			head->jobacpt_next = (head->jobacpt_next + 1) % jobc;
+			if (job->owner == 0 && job->jobdesc != 0)  {
+				// if we're here then we know this job is not owned
+				// and has a job. We'll break out of the for loop.
+				break;
 			}
-
-			// if we're here then we know this job is not owned
-			// and has a job. We'll break out of the for loop.
-			break;
-
-			next:
-			// increment the worker's position.
-			o_job->jobpos = (o_job->jobpos + 1) % jobc;
 		}
 		if (i == jobc) {
 			// this is a critical error. If we're here that meas we went through
@@ -236,10 +226,10 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 		}
 	}
 
-	// at this point, jobv[self->jobpos] is pointing to an open job.
+	// at this point, job is pointing to an open job.
 	// so lets go ahead and set the job ownership to us.
-	jobv[o_job->jobpos].owner = ownerid;
-	head->futex_newjobs--;
+	job->owner = ownerid;
+	head->futex_newjobs--; // 1 less job that is without an owner.
 
 	// we're done filing all the paperwork to have ownership over this job. thus no more need to have
 	// the ownership logic locked for other thread. We can continue to do this job.
@@ -250,6 +240,61 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	// claimed it so other workers won't bother this job.
 	return 0;
 }
+
+edb_err edbs_jobinstall(const edbs_handle_t *h,
+                        unsigned int jobclass,
+                        unsigned int name,
+                        edbs_job_t *o_job) {
+	// easy ptrs
+	edb_err err;
+	edbs_shmjob_t *jobv = h->jobv;
+	edbs_shmhead_t *const head = h->head;
+	const uint64_t jobc = head->jobc;
+	o_job->shm = h;
+
+	// lock the job install mutex. So we don't try to install a job into a slot
+	// that's currently being cleared out as completed.
+	pthread_mutex_lock(&head->jobinstall);
+	//**defer: pthread_mutex_unlock(&head->jobinstall);
+
+	// if there's no open spots in the job buffer we wait. Yes, we are
+	// clogging up the mutex, but those threads will also have to wait.
+	futex_wait(&head->futex_emptyjobs, 0);
+
+	// if we're here we know there's at least 1 empty job slot.
+	int i;
+	edbs_shmjob_t *job;
+	for(i = 0; i < jobc; i++) {
+		o_job->jobpos = head->jobinst_next;
+		job = &jobv[head->jobinst_next];
+		head->jobinst_next = (head->jobinst_next + 1) % jobc;
+		if (job->owner == 0 && job->jobdesc == 0) {
+			// here we have an empty job with no owner, we can install it here.
+			break;
+		}
+		if (i == jobc) {
+			// this is a critical error. We should always have found an open
+			// job because the futex let us through.
+			pthread_mutex_unlock(&head->jobinstall);
+			log_critf("although empty was at least 1, an open job was not "
+					  "found in the stack.");
+			return EDB_ECRIT;
+		}
+	}
+
+	// install the job
+	job->jobdesc = jobclass;
+	head->futex_emptyjobs--; // 1 less empty job slot
+	head->futex_newjobs++;   // 1 more job for workers to adopt
+
+	// sense we set the jobclass, we can unlock. We now have installed our job.
+	pthread_mutex_unlock(&head->jobinstall);
+
+	// send a futex signal that a job was just installed.
+	futex_wake(&head->futex_newjobs, 1);
+	return 0;
+}
+
 void    edbs_jobclose(edbs_job_t job) {
 
 	// save some pointers to the stack for easier access.
@@ -282,8 +327,5 @@ void    edbs_jobclose(edbs_job_t job) {
 	pthread_mutex_unlock(&head->jobinstall);
 
 	// send out a broadcast letting at least 1 waiting handler know theres another empty job
-	int err = syscall(SYS_futex, &head->futex_emptyjobs, FUTEX_WAKE, 1, 0, 0, 0);
-	if(err == -1) {
-		log_critf("failed to wake futex_emptyjobs: %d", errno);
-	}
+	futex_wake(&head->futex_emptyjobs, 1);
 }
