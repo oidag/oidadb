@@ -34,7 +34,6 @@ typedef uint64_t edb_pid;
 ///\}
 
 typedef struct odbh odbh;
-typedef struct edb_job_st edb_job_t;
 
 /********************************************************************
  *

@@ -1,5 +1,7 @@
 #include "edbs-jobs.h"
+#include "edbs_u.h"
 #include "errors.h"
+#include "options.h"
 #include "telemetry.h"
 
 #include <linux/futex.h>
@@ -8,7 +10,22 @@
 #include <errno.h>
 #include <pthread.h>
 
-void edb_jobclose(edb_job_t *job) {
+
+// jobclose will force all calls to jobread and jobwrite, waiting or not. stop and imediately return -2.
+// All subsequent calls to jobread and jobwrite will also return -2.
+//
+// jobreset will reopen the streams and allow for jobread and jobwrite to work as inteneded on a fresh buffer.
+//
+// By default, a 0'd out job starts in the closed state, so jobreset must be called beforehand. Multiple calls to
+// edb_jobclose is ok. Multiple calls to edb_jobreset is ok.
+//
+// THREADING
+//   At no point should jobclose and jobopen be called at the sametime with the same job. One
+//   must return before the other can be called.
+//
+//   However, simultainous calls to the same function on the same job is okay (multiple threads calling
+//   edb_jobclose is ok, multiple threads calling edb_jobreset is okay.)
+void edb_jobclose(edbs_shmjob_t *job) {
 	pthread_mutex_lock(&job->bufmutex);
 
 	if (job->state == 0) {
@@ -23,7 +40,7 @@ void edb_jobclose(edb_job_t *job) {
 	pthread_mutex_unlock(&job->bufmutex);
 	return;
 }
-int edb_jobreset(edb_job_t *job) {
+int edb_jobreset(edbs_shmjob_t *job) {
 	pthread_mutex_lock(&job->bufmutex);
 
 	if (job->state == 1) {
@@ -41,9 +58,9 @@ int edb_jobreset(edb_job_t *job) {
 }
 
 // todo: really need to test this function.
-int edbs_jobread(edbs_jobhandler *jh, void *buff, int count) {
-	edb_job_t *job = jh->job;
-	void *transferbuf = jh->shm->transbuffer;
+int edbs_jobread(edbs_job_t jh, void *buff, int count) {
+	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
+	void *transferbuf = jh.shm->transbuffer;
 	int err;
 	{
 		// we must block until we know we have room. So block if we are capacity.
@@ -97,11 +114,9 @@ int edbs_jobread(edbs_jobhandler *jh, void *buff, int count) {
 	return i;
 
 }
-
-
-int edbs_jobwrite(edbs_jobhandler *jh, const void *buff, int count) {
-	edb_job_t *job = jh->job;
-	void *transferbuf = jh->shm->transbuffer;
+int edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
+	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
+	void *transferbuf = jh.shm->transbuffer;
 	int err;
 	{
 		// we must wait if there nothing in the buffer.
@@ -154,19 +169,15 @@ int edbs_jobwrite(edbs_jobhandler *jh, const void *buff, int count) {
 
 }
 
-// helper func to workermain
-//
-// return an error if you need the thread to restart.
-//
-// EDB_ESTOPPING: the host has closed the futex.
-edb_err edbs_jobselect(const edb_shm_t *shm, edbs_jobhandler *o_job, unsigned int ownerid) {
+edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
+                       unsigned int ownerid) {
 	int err;
 
 	// save some pointers to the stack for easier access.
 	o_job->shm = shm;
-	edb_shmhead_t *const head = shm->head;
+	edbs_shmhead_t *const head = shm->head;
 	const uint64_t jobc = head->jobc;
-	edb_job_t *const jobv = shm->jobv;
+	edbs_shmjob_t *const jobv = shm->jobv;
 
 
 	// now we need to find a new job.
@@ -239,16 +250,13 @@ edb_err edbs_jobselect(const edb_shm_t *shm, edbs_jobhandler *o_job, unsigned in
 	// claimed it so other workers won't bother this job.
 	return 0;
 }
-void    edbs_jobclose(edbs_jobhandler *job) {
+void    edbs_jobclose(edbs_job_t job) {
 
 	// save some pointers to the stack for easier access.
-	edb_shm_t *shm = job->shm;
-	edb_shmhead_t *const head = shm->head;
+	const edbs_handle_t *shm = job.shm;
+	edbs_shmhead_t *const head = shm->head;
 	const uint64_t jobc = head->jobc;
-	edb_job_t *const jobv = shm->jobv;
-
-
-	job->job = 0; // null out curjob.
+	edbs_shmjob_t *const jobv = &shm->jobv[job.jobpos];
 
 	// job has been completed. relinquish ownership.
 	//
@@ -262,14 +270,14 @@ void    edbs_jobclose(edbs_jobhandler *job) {
 	// exact order. This is because handles look exclusively at the class to determine
 	// its ability to load in another job and we don't want it loading another job into
 	// this position while its still owned.
-	jobv[job->jobpos].jobdesc = 0;
-	jobv[job->jobpos].owner   = 0;
+	jobv->jobdesc = 0;
+	jobv->owner   = 0;
 	head->futex_emptyjobs++;
 
 	// close the transfer if it hasn't already.
 	// note that per edb_jobclose's documentation on threading, edb_jobclose and edb_jobopen must
 	// only be called inside the comfort of the jobinstall mutex.
-	edb_jobclose(&jobv[job->jobpos]);
+	edb_jobclose(jobv);
 
 	pthread_mutex_unlock(&head->jobinstall);
 

@@ -25,7 +25,7 @@ void static inline shmname(pid_t pid, char *buff) {
 //
 // when calling from host: only works after createshm returned successfully.
 // this must be called before edb_fileclose(&(host->file))
-void deleteshm(edb_shm_t *host, int destroymutex) {
+void deleteshm(edbs_handle_t *host, int destroymutex) {
 	if(host->shm == 0) {
 		log_critf("attempting to delete shared memory that is not linked / initialized. prepare for errors.");
 	}
@@ -42,7 +42,7 @@ void deleteshm(edb_shm_t *host, int destroymutex) {
 	free(host);
 }
 
-void edbs_host_free(edb_shm_t *shm) {
+void edbs_host_free(edbs_handle_t *shm) {
 	// todo: when the host closes the shm it should signal all other procsses
 	//       that it has closed.
 	return deleteshm(shm, 1);
@@ -52,12 +52,12 @@ void edbs_host_free(edb_shm_t *shm) {
 // builds, allocates, and initializes the static shared memory region.
 //
 //
-edb_err edbs_host_init(edb_shm_t **o_shm, odb_hostconfig_t config) {
+edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 
 	edb_err eerr;
 
 	// initialize a head on the stack to be later copied into the shared memeory
-	edb_shmhead_t stackhead = {0};
+	edbs_shmhead_t stackhead = {0};
 	stackhead.magnum = EDB_SHM_MAGIC_NUM;
 
 	// initialize the head with counts and offsets.
@@ -68,20 +68,20 @@ edb_err edbs_host_init(edb_shm_t **o_shm, odb_hostconfig_t config) {
 
 		// we need to make sure that the transfer buffer gets place on a fresh page.
 		// so lets start by getting the size of the first page(s) and round up.
-		uint64_t p1 = sizeof (edb_shmhead_t)
-		              + config.job_buffq * sizeof (edb_job_t);
+		uint64_t p1 = sizeof (edbs_shmhead_t)
+		              + config.job_buffq * sizeof (edbs_shmjob_t);
 		              + config.event_bufferq * sizeof (edb_event_t);
 		unsigned int p1padding = p1 % sysconf(_SC_PAGE_SIZE);
 		stackhead.shmc = p1 + p1padding + stackhead.jobtransc;
 
 		// offsets
-		stackhead.joboff      = sizeof(edb_shmhead_t);
-		stackhead.eventoff    = sizeof (edb_shmhead_t) + config.job_buffq * sizeof (edb_job_t);
+		stackhead.joboff      = sizeof(edbs_shmhead_t);
+		stackhead.eventoff    = sizeof (edbs_shmhead_t) + config.job_buffq * sizeof (edbs_shmjob_t);
 		stackhead.jobtransoff = p1 + p1padding;
 	}
 
 	// perform the malloc
-	edb_shm_t *shm = malloc(sizeof(edb_shm_t));
+	edbs_handle_t *shm = malloc(sizeof(edbs_handle_t));
 	if(shm == 0) {
 		if(errno == ENOMEM) {
 			return EDB_ENOMEM;
@@ -223,12 +223,12 @@ edb_err edbs_host_init(edb_shm_t **o_shm, odb_hostconfig_t config) {
 	return eerr;
 }
 
-void edbs_handle_free(edb_shm_t *shm) {
+void edbs_handle_free(edbs_handle_t *shm) {
 	return deleteshm(shm, 0);
 }
 
-edb_err edbs_handle_init(edb_shm_t **o_shm, pid_t hostpid) {
-	edb_shm_t *shm = malloc(sizeof (edb_shm_t ));
+edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
+	edbs_handle_t *shm = malloc(sizeof (edbs_handle_t ));
 	if(shm == 0) {
 		if(errno == ENOMEM) {
 			return EDB_ENOMEM;
@@ -253,7 +253,7 @@ edb_err edbs_handle_init(edb_shm_t **o_shm, pid_t hostpid) {
 	}
 
 	// truncate it enough to make sure we have the counts
-	int err = ftruncate64(shmfd, sizeof(edb_shmhead_t));
+	int err = ftruncate64(shmfd, sizeof(edbs_shmhead_t));
 	if(err == -1) {
 		// no reason ftruncate should fail...
 		int errnotmp = errno;
@@ -266,42 +266,39 @@ edb_err edbs_handle_init(edb_shm_t **o_shm, pid_t hostpid) {
 	}
 
 	// Load the shared memeory
-	// get all the counts
-	ssize_t n = read(shmfd, shm->head, sizeof (edb_shmhead_t));
+	// get all the counts by reading in just the head
+	edbs_shmhead_t tmphead;
+	ssize_t n = read(shmfd, &tmphead, sizeof (edbs_shmhead_t));
 	if (n == -1) {
 		// no reason read should fail...
-		int errnotmp = errno;
-		log_critf("read(2) on shared memory returned unexpected errno: %d", errnotmp);
+		log_critf("read(2) on shared memory returned unexpected errno");
 		shm_unlink(shm->shm_name);
 		close(shmfd);
-		errno = errnotmp;
 		free(shm);
 		return EDB_ECRIT;
 	}
-	if (shm->head->magnum != EDB_SHM_MAGIC_NUM) {
+	if (tmphead.magnum != EDB_SHM_MAGIC_NUM) {
 		// failed to read in the shared memeory head.
 		shm_unlink(shm->shm_name);
 		close(shmfd);
 		log_noticef("shared memory does not contain magic number: expecting %lx, got %lx",
 		            EDB_SHM_MAGIC_NUM,
-		            shm->head->magnum);
+		            tmphead.magnum);
 		free(shm);
 		return EDB_ENOTDB;
 	}
 	// now retruncate with the full size now that we know what it is.
-	err = ftruncate64(shmfd, (int64_t)shm->head->shmc);
+	err = ftruncate64(shmfd, (int64_t)tmphead.shmc);
 	if(err == -1) {
 		// no reason ftruncate should fail...
-		int errnotmp = errno;
-		log_critf("ftruncate64(2) returned unexpected errno while truncating shm to %ld: %d", shm->head->shmc, errnotmp);
+		log_critf("ftruncate64(2) returned unexpected errno while truncating shm to %ld", shm->head->shmc);
 		shm_unlink(shm->shm_name);
 		close(shmfd);
-		errno = errnotmp;
 		free(shm);
 		return EDB_ECRIT;
 	}
 	// map it
-	shm->shm = mmap(0, shm->head->shmc,
+	shm->shm = mmap(0, tmphead.shmc,
 	                   PROT_READ | PROT_WRITE,
 	                MAP_SHARED,
 	                shmfd, 0);

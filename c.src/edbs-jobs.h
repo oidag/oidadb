@@ -13,7 +13,7 @@
 
 // edb_jobclass must take only the first 4 bits. (to be xor'd with
 // edb_cmd).
-typedef enum _edb_jobclass {
+typedef enum edb_jobclass {
 
 	// means that whatever job was there is now complete and ready
 	// for a handle to come in and install another job.
@@ -102,37 +102,13 @@ typedef enum _edb_jobclass {
 
 } edb_jobclass;
 
-/*
- * typedef enum edb_cmd_em {
-	EDB_CNONE  = 0x0000,
-	EDB_CCOPY  = 0x0100,
-	EDB_CWRITE = 0x0200,
-	EDB_CLOCK  = 0x0400,
-} edb_cmd;
- */
-
-typedef struct {
-	const edb_shm_t *shm;
-	edb_job_t *job;
-
-	// this is an index inside of the job buffer. Note that
-	// this doesn't mean that its currently executing the job at this pos. You
-	// must look at the job itself for that information.
-	//
-	// Once a job is complete, the worker will attempt to find a new job by
-	// incrementing from its last position.
+// unlike many of the other namespaces, we actually expose some structures
+// for self-allocation.
+typedef struct edbs_job_t {
+	const edbs_handle_t *shm;
 	unsigned int jobpos;
-} edbs_jobhandler;
+} edbs_job_t;
 
-// all this does is build up a helper structure.
-// Allows you to use the edbs_jobhandler functions
-static edbs_jobhandler edbs_jobhandle(const edb_shm_t *shm,
-									  unsigned int jobindex) {
-	return (edbs_jobhandler){
-		.shm = shm,
-		.job = &shm->jobv[jobindex],
-	};
-}
 // Will take care of all the mutexes and futexes inside of the shm and
 // will select a job for you and set load it into o_job.
 //
@@ -150,12 +126,14 @@ static edbs_jobhandler edbs_jobhandle(const edb_shm_t *shm,
 // edbs_jobselect only returns critical errors.
 //
 // call edbs_jobclose if you're all done with the job.
-edb_err edbs_jobselect(const edb_shm_t *shm, edbs_jobhandler *o_job, unsigned int ownerid);
-void    edbs_jobclose(edbs_jobhandler *job);
-int     edbs_jobisclosed(edbs_jobhandler *job);
+edb_err edbs_jobselect(const edbs_handle_t *shm,
+					   edbs_job_t  *o_job,
+					   unsigned int ownerid);
+void    edbs_jobclose(edbs_job_t job);
+int     edbs_jobisclosed(edbs_job_t job);
 
 // todo
-edb_err edbs_jobinstall();
+edb_err edbs_jobinstall(const edbs_handle_t *shm, unsigned int jobc);
 
 // analogous to read(2) and write(2).
 // Write will block if the buffer becomes full.
@@ -178,8 +156,11 @@ edb_err edbs_jobinstall();
 //   only 1 thread/process can call edb_jobread and another can call
 //   edb_jobwrite on the same job at the same time.
 //
-int edbs_jobread(edbs_jobhandler *jh, void *buff, int count);
-int edbs_jobwrite(edbs_jobhandler *jh, const void *buff, int count);
+int edbs_jobread(edbs_job_t j, void *buff, int count);
+int edbs_jobwrite(edbs_job_t j, const void *buff, int count);
 
+
+// returns the job description (see odbh_job)
+int edbs_jobdesc(edbs_job_t j);
 
 #endif
