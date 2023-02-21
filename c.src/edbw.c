@@ -69,7 +69,7 @@ static edb_err execjob(edb_worker_t *self) {
 	}
 
 	closejob:
-	edbs_jobclose(self->curjob);
+	edbs_jobfinish(self->curjob);
 	return err;
 }
 
@@ -83,7 +83,7 @@ void static *workermain(void *_selfv) {
 			log_critf("worker %d: failed to select job: %d", self->workerid, err);
 		} else {
 			execjob(self);
-			edbs_jobclose(self->curjob);
+			edbs_jobfinish(self->curjob);
 		}
 	}
 	return 0;

@@ -107,6 +107,10 @@ typedef enum edb_jobclass {
 typedef struct edbs_job_t {
 	const edbs_handle_t *shm;
 	unsigned int jobpos;
+
+	// 0: installer (edbs_jobinstall)
+	// non-zero: executor (edbs_jobselect)
+	unsigned int descriptortype;
 } edbs_job_t;
 
 // Will take care of all the mutexes and futexes inside of the shm and
@@ -114,28 +118,27 @@ typedef struct edbs_job_t {
 //
 // If there's no jobs installed in the shm yet, this function will block.
 //
-// jobpos should point to a valid number (initially set to 0). This will be
-// where the search for a new job will start. (note to self: just set this to
-// edbw.jobpos).
+// o_job.descriptortype will be set to 'executor'.
 //
-// ownerid should be worker id.
-//
-// Before you ever call this, make sure that o_job.jobpos is at least 0. You only
-// have to initilize that once.
+// ownerid should be worker id: used only for analytical purposes.
 //
 // edbs_jobselect only returns critical errors.
 //
 // call edbs_jobclose if you're all done with the job.
+//
+// todo: edbs_jobselect should return error when edbs_host_free (EDB_ESTOPPING?)
 edb_err edbs_jobselect(const edbs_handle_t *shm,
 					   edbs_job_t  *o_job,
 					   unsigned int ownerid);
-void    edbs_jobclose(edbs_job_t job);
+void    edbs_jobfinish(edbs_job_t job);
 int     edbs_jobisclosed(edbs_job_t job);
 
 // Installs a job with given jobclass and outputs a handle to said job.
 //
 // name is used specifically for analytics, debugging purposes. Should be the
 // handle id.
+//
+// o_job.descriptortype be set to be 'installer'.
 //
 // ERRORS
 //  - EDB_ECRIT
@@ -144,29 +147,46 @@ edb_err edbs_jobinstall(const edbs_handle_t *shm,
 						unsigned int name,
 						edbs_job_t *o_job);
 
-// analogous to read(2) and write(2).
-// Write will block if the buffer becomes full.
-// Read will block if the buffer becomes empty.
-// They both return the total amount of bytes read/written or -1 on critical error (which shouldn't ever happen) (will be logged),
-// and -2 on EOF.
+// A transfer buffer is structured as a pipe, though bi-directional. If both
+// sides of the pipe do not follow specification, deadlocks will ensue. Here
+// are the basic rules about reading and writting to the transfer buffer:
 //
-// todo: confim the next statement:
-// the returned amount of bytes read will always be equal to count if non-error.
+//  - Each transfer buffer is expected to have an 'installer' and an
+//    'executer' (see descriptortype): constituting 'both sides' of the pipe.
+//  - Write will block if the buffer becomes full, unless:
+//    - if the opposite side has called edbs_jobterm then write will return 0
+//      immediately.
+//  - Read will block if the buffer becomes empty. unless:
+//    - if the executor calls edbs_jobterm, read will return 0 immediately.
+//  - The installer must perform the first write. The installer can only call
+//    edbs_jobterm before this write.
+//  - Once the executer calls edbs_jobterm, the job is considered closed.
+//  - So long that the installer hasn't called edbs_jobterm, either side
+//    cannot write to the buffer without first reading all bytes the
+//    opposing side has written.
 //
-// edb_jobclose and edb_jobreset simply change the state of the buffer. edb_jobclose will cause further reads
-// and writes to return -2 until edb_jobreset is called.
+// An edge case is if edbs_jobterm is called in the middle of edbs_jobwrite:
+// in such case, edbs_jobwrite will return 0 despite it having
+// possibility written bytes to the buffer.
 //
-// edb_jobreset is also sufficient in reseting the job's buffer.
-//
-//
-// transferbuf should be equal to shm->transbuffer (found in the host/workers)
+// RETURNS
+//  - EDB_EINVAL - The executor tried to write first (before the installer)
+//  - EDB_EINVAL - The installer called edbs_jobterm before its first write
+//  - EDB_EPROTO - edbs_jobwrite called without first reading other side's
+//                 bytes in bi-directional mode (due to failing to following
+//                 protocol specs)
 //
 // TREADING
-//   only 1 thread/process can call edb_jobread and another can call
-//   edb_jobwrite on the same job at the same time.
+//   For a given job, exclusively 1 thread must hold the installer role and
+//   exclusively 1 thread must hold the executer role.
 //
-int edbs_jobread(edbs_job_t j, void *buff, int count);
-int edbs_jobwrite(edbs_job_t j, const void *buff, int count);
+// UNDEFINED
+//  - count == 0
+//  - count < 0
+//  - buff == 0
+edb_err edbs_jobread(edbs_job_t j, void *buff, int count);
+edb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count);
+edb_err edbs_jobterm(edbs_job_t j);
 
 
 // returns the job description (see odbh_job)
