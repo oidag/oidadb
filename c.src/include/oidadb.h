@@ -193,6 +193,9 @@ typedef enum edb_err {
 
 	/// Invalid verison
 	EDB_EVERSION,
+
+	/// Something has not obeyed protocol
+	EDB_EPROTO,
 } edb_err;
 
 /**

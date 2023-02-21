@@ -17,6 +17,10 @@ typedef struct edbs_handle_t edbs_handle_t;
 //
 // only config.job* and config.event* vars are used.
 //
+// edbs_host_free will block so long that jobs are open.
+//
+// edbs_host_free will cause further edbs_jobselect to return an error.
+//
 // ERRORS:
 //  - EDB_ENOMEM - not enough memory
 //  - EDB_EEXIST - host shm file already exists (logged). This may be because
