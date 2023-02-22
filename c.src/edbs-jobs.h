@@ -130,8 +130,8 @@ typedef struct edbs_job_t {
 edb_err edbs_jobselect(const edbs_handle_t *shm,
 					   edbs_job_t  *o_job,
 					   unsigned int ownerid);
-void    edbs_jobfinish(edbs_job_t job);
-int     edbs_jobisclosed(edbs_job_t job);
+void edbs_jobclose(edbs_job_t job);
+//int     edbs_jobisclosed(edbs_job_t job); // todo: I don't think we need this
 
 // Installs a job with given jobclass and outputs a handle to said job.
 //
