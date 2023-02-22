@@ -158,7 +158,8 @@ edb_err edbs_jobinstall(const edbs_handle_t *shm,
 //      immediately.
 //  - Read will block if the buffer becomes empty. unless:
 //    - if the executor calls edbs_jobterm, read will return 0 immediately.
-//  - The installer must perform the first write. The installer can only call
+//  - The installer must perform the first operation and that operation must
+//    be write. The installer can only call
 //    edbs_jobterm before this write.
 //  - Once the executer calls edbs_jobterm, the job is considered closed.
 //  - So long that the installer hasn't called edbs_jobterm, either side
@@ -169,21 +170,28 @@ edb_err edbs_jobinstall(const edbs_handle_t *shm,
 // in such case, edbs_jobwrite will return 0 despite it having
 // possibility written bytes to the buffer.
 //
-// RETURNS
-//  - EDB_EINVAL - The executor tried to write first (before the installer)
-//  - EDB_EINVAL - The installer called edbs_jobterm before its first write
+// RETURNS (all of them are logged)
+//  - EDB_EINVAL - buff is 0 and count is not 0.
+//  - EDB_EBADE - The executor tried to write first (before the installer), or,
+//                the installer tries to perform a read as its first operation.
+//  - EDB_EOPEN  - The installer called edbs_jobterm before its first write
 //  - EDB_EPROTO - edbs_jobwrite called without first reading other side's
 //                 bytes in bi-directional mode (due to failing to following
-//                 protocol specs)
+//                 protocol specs). This can also occur if one side reads
+//                 and another side writes but their respective calls do
+//                 not have the same counts.
+//  - EDB_ECLOSED - the installer has tried to call read after successfully
+//                  calling term
+//  - EDB_EPIPE - read/write has been interupted/ignored because executor has
+//                just called - or previously called - jobterm.
+//  - EDB_ECRIT - the pipe was broken for unexpected reasons (ie: other side
+//                no longer responding/bad network) and thus can no longer
+//                read/write and there's no recovering.
 //
 // TREADING
 //   For a given job, exclusively 1 thread must hold the installer role and
-//   exclusively 1 thread must hold the executer role.
+//   exclusively 1 thread must hold the executor role.
 //
-// UNDEFINED
-//  - count == 0
-//  - count < 0
-//  - buff == 0
 edb_err edbs_jobread(edbs_job_t j, void *buff, int count);
 edb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count);
 edb_err edbs_jobterm(edbs_job_t j);

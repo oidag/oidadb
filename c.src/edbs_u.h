@@ -25,6 +25,7 @@ typedef struct edbs_shmhead_t {
 	uint64_t jobtransc;   // *total* count of bytes in jobv->transferbuff
 
 	// futex vars will broadcast a futex after they have been changed
+	// threading: requires jobmutex
 	uint32_t futex_emptyjobs; // the amount of empty slots in the job buffer.
 	uint32_t futex_newjobs; // the amount of new jobs that are not owned.
 
@@ -33,19 +34,28 @@ typedef struct edbs_shmhead_t {
 	// requires jobinstall.lock to increment
 	unsigned long int nextjobid;
 
-	// job accept mutex for workers (process shared)
-	pthread_mutex_t jobaccept;
-
-	// job install mutex for handlers (process shared)
-	pthread_mutex_t jobinstall;
-
-	uint32_t futex_job;
-	uint32_t futex_event;
+	// job mutex for workers and handlers (process shared)
+	pthread_mutex_t jobmutex;
 
 	// 0 for starting...
 	// 1 for started (will signal)
 	uint32_t futex_status;
 } edbs_shmhead_t;
+
+// these valuse can also be used in futex_wait_bitset
+enum edbs_jobflags {
+	// the installer has called the first write
+	EDBS_JFINSTALLWRITE = 0x0001,
+
+	// installer successfully called term, thus executor write calls will be
+	// ignored.
+	EDBS_JINSTALLERTERM = 0x0002,
+
+	// the executor successfully called term, thus the job buffer is fully
+	// closed.
+	EDBS_JEXECUTERTERM = 0x0004,
+
+};
 
 // job slot structures are met to be stored in shared memory
 // and be accessed by multiple processes.
@@ -65,26 +75,48 @@ typedef struct edbs_shmhead_t {
 // So we must stick to offsets for guidance (transferbuffoff)
 typedef struct edbs_shmjob_t {
 
+	////////////////////////////////////////////////////////////////////////////
+	// regarding job ownership
+	//
+	// these require edbs_shmhead_t.
+	//
+	////////////////////////////////////////////////////////////////////////////
+
+	// threading: requires jobmutex
 	// Job desc is a xor'd value between 1 edb_jobclass, 1 edb_cmd.
 	// if 0 then empty job.
 	unsigned int jobdesc;
 
-	// the transfer buffer for this job.
-	// the offset from shm->transferbuff and how many bytes are there.
-	//
-	// do not use these directly, use edb_jobread and edb_jobwrite instead.
-	unsigned long int transferbuffoff;
-	unsigned int      transferbuffcapacity;
-	uint32_t          futex_transferbuffc; // the amount of the buffer that is full.
-	unsigned int      writehead; // data ends at this index
-	unsigned int      readhead;  // data starts at this index
-	int state;                   // 0 means closed, 1 means open.
-	pthread_mutex_t   bufmutex;  // multiprocess mutex.
-
+	// threading: requires jobmutex
 	// used by the worker pool.
-	// only matters if class != EDB_JNONE.
 	// 0 means its not owned.
 	unsigned int owner;
+
+	////////////////////////////////////////////////////////////////////////////
+	// regarding atomically editing the transfer buffer:
+	////////////////////////////////////////////////////////////////////////////
+
+	// shared memory mutex
+	pthread_mutex_t   pipemutex;
+
+	// heads = where their raster is (acts like what lseek sets).
+	// bytes = the amount of bytes it has written in front of the other head.
+	// both byte fields will have futex-on-change.
+	//
+	// Will also broadcast futex when the executor term'd (after being set to
+	// -1)
+	//
+	// futex_executorbytes, futex_installerbytes requires pipemutex to be locked
+	// to access.
+	uint32_t futex_executorbytes, futex_installerbytes;
+	unsigned int installerhead, executorhead;
+
+	// 0 means new job / initialized. see edbs_jobflags.
+	enum edbs_jobflags transferbuff_FLAGS;
+
+	////////////////////////////////////////////////////////////////////////////
+	// politics/analytics:
+	////////////////////////////////////////////////////////////////////////////
 
 	// this is reassigned by the handles everytime they
 	// install it. uses edb_shmhead_st.nextjobid.
@@ -93,9 +125,16 @@ typedef struct edbs_shmjob_t {
 	// see edbs_jobinstall.
 	unsigned int name;
 
+	////////////////////////////////////////////////////////////////////////////
+	// helpers
+	////////////////////////////////////////////////////////////////////////////
 
-	// the use of data depends on the class and command.
-	//edb_data_t data;
+	// the transfer buffer for this job.
+	// the offset from shm->transferbuff and how many bytes are there.
+	//
+	// these values never change once after edbs_host_init, they are constant.
+	unsigned long int transferbuffoff;
+	unsigned int      transferbuffcapacity;
 
 } edbs_shmjob_t;
 
