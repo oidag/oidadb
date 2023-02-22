@@ -161,6 +161,9 @@ typedef enum edb_err {
 	/// Something is already open.
 	EDB_EOPEN,
 
+	/// Something is closed.
+	EDB_ECLOSED,
+
 	/// No host present.
 	EDB_ENOHOST,
 
@@ -196,6 +199,12 @@ typedef enum edb_err {
 
 	/// Something has not obeyed protocol
 	EDB_EPROTO,
+
+	/// Bad exchange
+	EDB_EBADE,
+
+	/// Something happened to the active stream/pipe
+	EDB_EPIPE,
 } edb_err;
 
 /**
