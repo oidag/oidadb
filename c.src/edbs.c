@@ -31,9 +31,9 @@ void deleteshm(edbs_handle_t *host, int destroymutex) {
 	}
 	if (destroymutex) {
 		pthread_mutex_destroy(&host->head->jobinstall);
-		pthread_mutex_destroy(&host->head->jobaccept);
+		pthread_mutex_destroy(&host->head->jobmutex);
 		for(int i = 0; i < host->head->jobc; i++) {
-			pthread_mutex_destroy(&host->jobv[i].bufmutex);
+			pthread_mutex_destroy(&host->jobv[i].pipemutex);
 		}
 	}
 	munmap(host->shm, host->head->shmc);
@@ -160,7 +160,7 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 		goto clean_map;
 	}
 	pthread_mutexattr_setpshared(&mutexattr, PTHREAD_PROCESS_SHARED);
-	if((err = pthread_mutex_init(&shm->head->jobaccept, &mutexattr))) {
+	if((err = pthread_mutex_init(&shm->head->jobmutex, &mutexattr))) {
 		if (err == ENOMEM) eerr = EDB_ENOMEM;
 		else eerr = EDB_ECRIT;
 		log_critf("pthread_mutex_init(3): %d", err);
@@ -188,7 +188,7 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	for(int i = 0; i < shm->head->jobc; i++) {
 		shm->jobv[i].transferbuffoff        = config.job_transfersize * i;
 		shm->jobv[i].transferbuffcapacity   = config.job_transfersize;
-		if((err = pthread_mutex_init(&shm->jobv[i].bufmutex, &mutexattr))) {
+		if((err = pthread_mutex_init(&shm->jobv[i].pipemutex, &mutexattr))) {
 			log_critf("pthread_mutex_init(3): %d", err);
 			goto clean_mutex;
 		}
@@ -207,9 +207,9 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	// everything past here are bail-outs.
 
 	clean_mutex:
-	for(int i = 0; i < shm->head->jobc; i++) pthread_mutex_destroy(&shm->jobv[i].bufmutex);
+	for(int i = 0; i < shm->head->jobc; i++) pthread_mutex_destroy(&shm->jobv[i].pipemutex);
 	pthread_mutex_destroy(&shm->head->jobinstall);
-	pthread_mutex_destroy(&shm->head->jobaccept);
+	pthread_mutex_destroy(&shm->head->jobmutex);
 	pthread_mutexattr_destroy(&mutexattr);
 
 	clean_map:

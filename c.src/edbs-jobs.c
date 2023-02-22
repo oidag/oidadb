@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
+#include <strings.h>
 
 
 // jobclose will force all calls to jobread and jobwrite, waiting or not. stop and imediately return -2.
@@ -25,147 +26,253 @@
 //
 //   However, simultainous calls to the same function on the same job is okay (multiple threads calling
 //   edb_jobclose is ok, multiple threads calling edb_jobreset is okay.)
-void edb_jobclose(edbs_shmjob_t *job) {
-	pthread_mutex_lock(&job->bufmutex);
+edb_err edbs_jobterm(edbs_job_t jh) {
 
-	if (job->state == 0) {
-		pthread_mutex_unlock(&job->bufmutex);
-		return;
-	}
+	// easy ptrs
+	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
 
-	job->state = 0;
-	// if there's anything waiting right now then wake them up. They'll preceed to find
-	// that the state is closed and do nothing.
-	syscall(SYS_futex, &job->futex_transferbuffc, FUTEX_WAKE, 16, 0, 0, 0);
-	pthread_mutex_unlock(&job->bufmutex);
-	return;
-}
-int edb_jobreset(edbs_shmjob_t *job) {
-	pthread_mutex_lock(&job->bufmutex);
+	// check for EDB_EINVAL
+	if(!jh.descriptortype) {
+		// installer has called
+		if(job->transferbuff_FLAGS & EDBS_JFINSTALLWRITE) {
+			log_critf("installer called edbs_jobterm after it wrote to the buffer");
+			return EDB_EOPEN;
+		} else {
+			job->transferbuff_FLAGS |= EDBS_JINSTALLERTERM;
+			return 0;
+		}
+	} else {
+		// executor has called
+		job->transferbuff_FLAGS |= EDBS_JEXECUTERTERM;
 
-	if (job->state == 1) {
-		pthread_mutex_unlock(&job->bufmutex);
+		// broadcast to interupt and transfers
+		pthread_mutex_lock(&job->pipemutex); // lock so we can confidently set
+		// the executor/installer bytes
+		job->futex_executorbytes = -1; // set so the futex_wait will never trigger
+		job->futex_installerbytes = -1;
+		futex_wake(&job->futex_executorbytes, 1);
+		futex_wake(&job->futex_installerbytes, 1);
+		pthread_mutex_unlock(&job->pipemutex);
 		return 0;
 	}
+}
 
-	job->futex_transferbuffc = 0;
-	job->writehead = 0;
-	job->readhead = 0;
-	job->state = 1;
+edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
+#ifdef EDB_FUCKUPS
+	if(!buff && count) {
+		log_critf("buff is 0 & count is not 0");
+		return EDB_EINVAL;
+	}
+#endif
+	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
+	uint8_t *jbuf = jh.shm->transbuffer + job->transferbuffoff;
+	int totalbytes = 0;
 
-	pthread_mutex_unlock(&job->bufmutex);
+	// get the descriptor
+	unsigned int *pos, *opos;
+	unsigned int *bytes, *obytes;
+	if(jh.descriptortype) {
+
+		// caller is executor
+
+		// check for EDB_EBADE
+		if(!(job->transferbuff_FLAGS & EDBS_JFINSTALLWRITE)) {
+			log_critf("job executor's first directive was write, not read");
+			return EDB_EBADE;
+		}
+
+		// has the executor specified this as 1-way?
+		if(job->transferbuff_FLAGS & EDBS_JINSTALLERTERM) {
+			// yup. So executor writes return immediately
+			return 0;
+		}
+
+		// working vars
+		pos = &job->executorhead;
+		opos = &job->installerhead;
+		bytes = &job->futex_executorbytes;
+		obytes = &job->futex_installerbytes;
+	} else {
+		// caller is installer
+
+		// as per the above if statement, we can always assume this flag can be set.
+		job->transferbuff_FLAGS |= EDBS_JFINSTALLWRITE;
+
+		// working vars
+		pos = &job->installerhead;
+		opos = &job->executorhead;
+		bytes = &job->futex_installerbytes;
+		obytes = & job->futex_executorbytes;
+	}
+
+	retry:
+
+	// Wait if we've written so many bytes already that we've managed to fill
+	// up the entire buffer up. In which case we must wait until they read
+	// the bytes and decrement our byte count.
+	futex_wait(bytes, job->transferbuffcapacity);
+
+	// check for EDB_EPIPE
+	if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
+		return EDB_EPIPE;
+	}
+
+	// atp: we know that either room has been made in the buffer, or,
+	//      edbs_jobclose has been called. We really don't know which one so
+	//      our logic must not assume either one.
+
+	// we'll lock up the buffer so that reads and writes don't happen at the
+	// same time.
+	pthread_mutex_lock(&job->pipemutex);
+
+	// if the opposing side has bytes written in front of our head, then
+	// thats an EDB_EPROTO error.
+	if(*obytes) {
+		pthread_mutex_unlock(&job->pipemutex);
+		return EDB_EPROTO;
+	}
+
+	// atp: we know that we have no bytes infront of our head. We can write
+	//      up until we hit the opposite side's head, they'd then have to
+	//      read bytes to advance their head's position to make room in the
+	//      buffer.
+
+	// transfer up to count bytes into the buffer starting at the writehead
+	// and only updating a byte if we haven't hit our capacity.
+	int i;
+	for(i = 0; i < count - totalbytes; i++) {
+
+		// if we have written so much into the buffer then we must break
+		// out of this loop and leave the mutex and hold on the futex until
+		// they read the bytes
+		if(*bytes == job->transferbuffcapacity) {
+			// we filled the buffer up writing this message to the other
+			// side's head.
+			break;
+		}
+		jbuf[*pos] = ((const uint8_t *)(buff))[totalbytes+i]; // the actual
+		// write
+		*bytes = *bytes + 1; // increment the amount of unread bytes
+		*pos = (*pos + 1) % job->transferbuffcapacity; // advance our head pos
+	}
+
+	// broadcast that the amount of bytes we've written has changed.
+	futex_wake(bytes, 1);
+
+	// leave the mutex to allow the opposing read to execute.
+	pthread_mutex_unlock(&job->pipemutex);
+
+	// did we write all the bytes that the caller needed to write?
+	totalbytes += i;
+	if(totalbytes != count) {
+		// We only wrote the partial amount of bytes they sent, so lets
+		// perform this function again until we either get all the bytes we
+		// need or the transfer buffer is closed.
+		goto retry;
+	}
+
+	// we wrote totalbytes while == to count.
 	return 0;
-}
-
-// todo: really need to test this function.
-int edbs_jobread(edbs_job_t jh, void *buff, int count) {
-	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
-	void *transferbuf = jh.shm->transbuffer;
-	int err;
-	{
-		// we must block until we know we have room. So block if we are capacity.
-		// However, we don't want to start waiting if the job transfer is closed.
-		// We have to lock the mutex to ensure we don't run into race conditions
-		// with edb_jobclose
-		pthread_mutex_lock(&job->bufmutex);
-		if(job->state == 0) {
-			// this job buffer is closed.
-			return -2;
-		}
-		pthread_mutex_unlock(&job->bufmutex);
-		err = syscall(SYS_futex, &job->futex_transferbuffc, FUTEX_WAIT, job->transferbuffcapacity, 0,
-		              0, 0);
-		if (err == -1 && errno != EAGAIN) {
-			log_critf("failed to listen to futex on buffer");
-			return -1;
-		}
-	}
-
-	// we have room. now dump in as much buff as we can until the capacity is full.
-
-	// we'll lock up the buffer so that reads and writes don't happen at the same time.
-	pthread_mutex_lock(&job->bufmutex);
-
-	// we have to ask this again because the closed status could have been changed
-	// before the FUTEX_WAKE was called.
-	if(job->state == 0) {
-		// this job buffer is closed.
-		return -2;
-	}
-
-	// transfer up to count bytes into the buffer starting at the writehead
-	// and only updating a byte if we haven't hit our capacity.
-	char *jbuf = transferbuf + job->transferbuffoff;
-	int i;
-	for(i = 0; i < count; i++) {
-		if(job->futex_transferbuffc == job->transferbuffcapacity) {
-			// we filled the buffer up.
-			break;
-		}
-		jbuf[job->writehead] = ((const char *)(buff))[i];
-		job->futex_transferbuffc++;
-		job->writehead = job->writehead+1 % job->transferbuffcapacity;
-	}
-
-	// send a broadcast out too the reader if it happens to be waiting on something to be sent
-	// to the buffer.
-	syscall(SYS_futex, &job->futex_transferbuffc, FUTEX_WAKE, 1, 0, 0, 0);
-	pthread_mutex_unlock(&job->bufmutex);
-	return i;
 
 }
-int edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
+edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
+#ifdef EDB_FUCKUPS
+	if(!buff && count) {
+		log_critf("buff is 0 & count is not 0");
+		return EDB_EINVAL;
+	}
+#endif
 	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
-	void *transferbuf = jh.shm->transbuffer;
-	int err;
-	{
-		// we must wait if there nothing in the buffer.
-		// However, we don't want to start waiting if the job transfer is closed.
-		// We have to lock the mutex to ensure we don't run into race conditions
-		// with edb_jobclose
-		pthread_mutex_lock(&job->bufmutex);
-		if(job->state == 0) {
-			// this job buffer is closed.
-			return -2;
+	uint8_t *jbuf = jh.shm->transbuffer + job->transferbuffoff;
+	int totalbytes = 0;
+
+	// get the descriptor
+	unsigned int *pos, *opos;
+	unsigned int *bytes, *obytes;
+	if(jh.descriptortype) {
+
+		// caller is executor
+
+		// working vars
+		pos = &job->executorhead;
+		opos = &job->installerhead;
+		bytes = &job->futex_executorbytes;
+		obytes = &job->futex_installerbytes;
+	} else {
+
+		// caller is installer
+
+		// check for EDB_EBADE
+		if(!(job->transferbuff_FLAGS & EDBS_JFINSTALLWRITE)) {
+			log_critf(
+					"job installer's first operation was a read, not a write");
+			return EDB_EBADE;
 		}
-		pthread_mutex_unlock(&job->bufmutex);
-		err = syscall(SYS_futex, &job->futex_transferbuffc, FUTEX_WAIT, 0, 0, 0, 0);
-		if (err == -1 && errno != EAGAIN) {
-			log_critf("failed to listen to futex on buffer");
-			return -1;
+
+		// check for EDB_ECLOSED
+		if(!(job->transferbuff_FLAGS & EDBS_JINSTALLERTERM)) {
+			log_critf(
+					"job installer try to read from installer-terminated pipe");
+			return EDB_ECLOSED;
 		}
+
+		// working vars
+		pos = &job->installerhead;
+		opos = &job->executorhead;
+		bytes = &job->futex_installerbytes;
+		obytes = & job->futex_executorbytes;
 	}
 
-	// the buffer has stuff in it.
+	retry:
 
-	// we'll lock up the buffer so that reads and writes don't happen at the same time.
-	pthread_mutex_lock(&job->bufmutex);
+	// Wait if we've read so many bytes from the opposite side that there's
+	// none left.
+	futex_wait(obytes, 0);
 
-	// we have to ask this again because the closed status could have been changed
-	// before the FUTEX_WAKE was called.
-	if(job->state == 0) {
-		// this job buffer is closed.
-		return -2;
+	// check for EDB_EPIPE
+	if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
+		return EDB_EPIPE;
 	}
 
-	// transfer up to count bytes into the buffer starting at the writehead
-	// and only updating a byte if we haven't hit our capacity.
-	const char *jbuf = transferbuf + job->transferbuffoff;
+	// we'll lock up the buffer so that reads and writes don't happen at the
+	// same time.
+	pthread_mutex_lock(&job->pipemutex);
+
+	// atp: we know that we have some bytes in front of our head. read them
+	//      until we fill up the callers buffer or we run out of bytes in the
+	//      transfer buffer to read in which case we wait for subsequent writes
+
+	//
 	int i;
-	for(i = 0; i < count; i++) {
-		if(job->futex_transferbuffc == 0) {
-			// buffer is empty.
+	for(i = 0; i < count - totalbytes; i++) {
+
+		// if we have read everything from the opposing buffer we must break and
+		// try to fill up next time.
+		if(*obytes == 0) {
 			break;
 		}
-		((char *)buff)[i] = jbuf[job->readhead];
-		job->futex_transferbuffc--;
-		job->readhead = job->readhead+1 % job->transferbuffcapacity;
+		((uint8_t *)buff)[totalbytes + i] = jbuf[*pos];
+		*obytes = *obytes - 1; // decrement the amount of unread bytes
+		*pos = (*pos + 1) % job->transferbuffcapacity; // advance our head pos
 	}
 
-	// wake up any write calls waiting for the buffer to be emtpied.
-	syscall(SYS_futex, &job->futex_transferbuffc, FUTEX_WAKE, 1, 0, 0, 0);
-	pthread_mutex_unlock(&job->bufmutex);
-	return i;
+	// broadcast that the amount of bytes we've left unread has changed
+	futex_wake(obytes, 1);
+
+	// leave the mutex to allow the opposing read to execute.
+	pthread_mutex_unlock(&job->pipemutex);
+
+	// did we read all the bytes that the caller needed to read?
+	totalbytes += i;
+	if(totalbytes != count) {
+		// We only read the partial amount of bytes they sent, so lets
+		// perform this function again until we either get all the bytes we
+		// need or the transfer buffer is closed.
+		goto retry;
+	}
+
+	// we wrote totalbytes while == to count.
+	return 0;
 
 }
 
@@ -175,6 +282,7 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 
 	// save some pointers to the stack for easier access.
 	o_job->shm = shm;
+	o_job->descriptortype = 1;
 	edbs_shmhead_t *const head = shm->head;
 	const uint64_t jobc = head->jobc;
 	edbs_shmjob_t *const jobv = shm->jobv;
@@ -183,7 +291,7 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	// now we need to find a new job.
 	// Firstly, we need to atomically lock all workers so that only one can accept a job at once to
 	// avoid the possibility that 2 workers accidentally take the same job.
-	err = pthread_mutex_lock(&head->jobaccept);
+	err = pthread_mutex_lock(&head->jobmutex);
 	if (err) {
 		log_critf("critical error while attempting to lock jobaccept mutex: %d", err);
 		return EDB_ECRIT;
@@ -220,7 +328,7 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 			//
 			// The first thread that enters into here will not be the last as futher
 			// threads will discover the same thing.
-			pthread_mutex_unlock(&head->jobaccept);
+			pthread_mutex_unlock(&head->jobmutex);
 			log_critf("although newjobs was at least 1, an open job was not found in the stack.");
 			return EDB_ECRIT;
 		}
@@ -234,7 +342,7 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	// we're done filing all the paperwork to have ownership over this job. thus no more need to have
 	// the ownership logic locked for other thread. We can continue to do this job.
 	telemetry_workr_accepted(ownerid, o_job->jobpos);
-	pthread_mutex_unlock(&head->jobaccept);
+	pthread_mutex_unlock(&head->jobmutex);
 
 	// if we're here that means we've accepted the job at jobv[self->jobpos] and we've
 	// claimed it so other workers won't bother this job.
@@ -251,11 +359,12 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	edbs_shmhead_t *const head = h->head;
 	const uint64_t jobc = head->jobc;
 	o_job->shm = h;
+	o_job->descriptortype = 0;
 
 	// lock the job install mutex. So we don't try to install a job into a slot
 	// that's currently being cleared out as completed.
-	pthread_mutex_lock(&head->jobinstall);
-	//**defer: pthread_mutex_unlock(&head->jobinstall);
+	pthread_mutex_lock(&head->jobmutex);
+	//**defer: pthread_mutex_unlock(&head->jobmutex);
 
 	// if there's no open spots in the job buffer we wait. Yes, we are
 	// clogging up the mutex, but those threads will also have to wait.
@@ -275,7 +384,7 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 		if (i == jobc) {
 			// this is a critical error. We should always have found an open
 			// job because the futex let us through.
-			pthread_mutex_unlock(&head->jobinstall);
+			pthread_mutex_unlock(&head->jobmutex);
 			log_critf("although empty was at least 1, an open job was not "
 					  "found in the stack.");
 			return EDB_ECRIT;
@@ -288,18 +397,38 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	head->futex_emptyjobs--; // 1 less empty job slot
 	head->futex_newjobs++;   // 1 more job for workers to adopt
 
-	// sense we set the jobclass, we can unlock. We now have installed our job.
-	pthread_mutex_unlock(&head->jobinstall);
+#ifdef EDB_FUCKUPS
+	if(!(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM)) {
+		log_critf("just accepted a job that has a buffer that wasn't marked "
+				  "as terminated by its last executor");
+	}
+#endif
 
-	// other politics that don't need the mutex.
+	// weave-lock the job specifically so we can perform task outside the
+	// jobinstall mutex
+	pthread_mutex_lock(&job->pipemutex);
+
+	// sense we set the jobclass, we can unlock. We now have installed our job.
+	pthread_mutex_unlock(&head->jobmutex);
+
+	// now reset all the descriptors for this job. that have nothing to do
+	// with the job installment algo.
+	job->futex_executorbytes  = 0;
+	job->executorhead   = 0;
+	job->futex_installerbytes = 0;
+	job->installerhead  = 0;
+	job->transferbuff_FLAGS = 0;
 	job->name = name;
+
+
+	pthread_mutex_unlock(&job->pipemutex);
 
 	// send a futex signal that a job was just installed.
 	futex_wake(&head->futex_newjobs, 1);
 	return 0;
 }
 
-void    edbs_jobclose(edbs_job_t job) {
+void  edbs_jobclose(edbs_job_t job) {
 
 	// save some pointers to the stack for easier access.
 	const edbs_handle_t *shm = job.shm;
@@ -307,28 +436,34 @@ void    edbs_jobclose(edbs_job_t job) {
 	const uint64_t jobc = head->jobc;
 	edbs_shmjob_t *const jobv = &shm->jobv[job.jobpos];
 
+	// close the transfer if it hasn't already.
+	// note that per edb_jobclose's documentation on threading, edb_jobclose and edb_jobopen must
+	// only be called inside the comfort of the jobinstall mutex.
+	edbs_jobterm(job);
+
 	// job has been completed. relinquish ownership.
 	//
 	// to do this, we have to lock the job install mutex to avoid the possiblity of a
 	// handle trying to install a job mid-way through us relinqusihing it.
 	//
 	// (this can probably be done a bit more nicely if the jobinstall mutex was held per-job slot)
-	pthread_mutex_lock(&head->jobinstall);
+	pthread_mutex_lock(&head->jobmutex);
+
+#ifdef EDB_FUCKUPS
+	if(!jobv->owner) {
+		log_critf("edbs_jobclose on a job that has already been closed");
+	}
+#endif
 
 	// we must do this by removing the owner, and then setting class to EDB_JNONE in that
 	// exact order. This is because handles look exclusively at the class to determine
 	// its ability to load in another job and we don't want it loading another job into
 	// this position while its still owned.
 	jobv->jobdesc = 0;
-	jobv->owner   = 0;
+	jobv->owner = 0;
 	head->futex_emptyjobs++;
 
-	// close the transfer if it hasn't already.
-	// note that per edb_jobclose's documentation on threading, edb_jobclose and edb_jobopen must
-	// only be called inside the comfort of the jobinstall mutex.
-	edb_jobclose(jobv);
-
-	pthread_mutex_unlock(&head->jobinstall);
+	pthread_mutex_unlock(&head->jobmutex);
 
 	// send out a broadcast letting at least 1 waiting handler know theres another empty job
 	futex_wake(&head->futex_emptyjobs, 1);
