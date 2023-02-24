@@ -30,7 +30,6 @@ void deleteshm(edbs_handle_t *host, int destroymutex) {
 		log_critf("attempting to delete shared memory that is not linked / initialized. prepare for errors.");
 	}
 	if (destroymutex) {
-		pthread_mutex_destroy(&host->head->jobinstall);
 		pthread_mutex_destroy(&host->head->jobmutex);
 		for(int i = 0; i < host->head->jobc; i++) {
 			pthread_mutex_destroy(&host->jobv[i].pipemutex);
@@ -166,12 +165,6 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 		log_critf("pthread_mutex_init(3): %d", err);
 		goto clean_mutex;
 	}
-	if((err = pthread_mutex_init(&shm->head->jobinstall, &mutexattr))) {
-		if (err == ENOMEM) eerr = EDB_ENOMEM;
-		else eerr = EDB_ECRIT;
-		log_critf("pthread_mutex_init(3): %d", err);
-		goto clean_mutex;
-	}
 
 
 	// initialize the futexes in the head
@@ -188,6 +181,8 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	for(int i = 0; i < shm->head->jobc; i++) {
 		shm->jobv[i].transferbuffoff        = config.job_transfersize * i;
 		shm->jobv[i].transferbuffcapacity   = config.job_transfersize;
+		// make sure were cannonically correct
+		shm->jobv[i].transferbuff_FLAGS = EDBS_JEXECUTERTERM;
 		if((err = pthread_mutex_init(&shm->jobv[i].pipemutex, &mutexattr))) {
 			log_critf("pthread_mutex_init(3): %d", err);
 			goto clean_mutex;
@@ -208,7 +203,6 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 
 	clean_mutex:
 	for(int i = 0; i < shm->head->jobc; i++) pthread_mutex_destroy(&shm->jobv[i].pipemutex);
-	pthread_mutex_destroy(&shm->head->jobinstall);
 	pthread_mutex_destroy(&shm->head->jobmutex);
 	pthread_mutexattr_destroy(&mutexattr);
 
@@ -252,10 +246,12 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		return EDB_EERRNO;
 	}
 
-	// truncate it enough to make sure we have the counts
-	int err = ftruncate64(shmfd, sizeof(edbs_shmhead_t));
+	// Lets make sure we confirm the magic number safely before we can trust
+	// casting edbs_shmhead_t.
+	struct stat st;
+	int err = fstat(shmfd,  &st);
 	if(err == -1) {
-		// no reason ftruncate should fail...
+		// no reason fstat should fail...
 		int errnotmp = errno;
 		log_critf("ftruncate64(2) returned unexpected errno: %d", errnotmp);
 		shm_unlink(shm->shm_name);
@@ -263,6 +259,13 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		errno = errnotmp;
 		free(shm);
 		return EDB_ECRIT;
+	}
+	if(st.st_size < sizeof(edbs_shmhead_t)) {
+		log_noticef("hosted shm block not large enough to contain headers");
+		shm_unlink(shm->shm_name);
+		close(shmfd);
+		free(shm);
+		return EDB_ENOTDB;
 	}
 
 	// Load the shared memeory
@@ -287,17 +290,7 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		free(shm);
 		return EDB_ENOTDB;
 	}
-	// now retruncate with the full size now that we know what it is.
-	err = ftruncate64(shmfd, (int64_t)tmphead.shmc);
-	if(err == -1) {
-		// no reason ftruncate should fail...
-		log_critf("ftruncate64(2) returned unexpected errno while truncating shm to %ld", shm->head->shmc);
-		shm_unlink(shm->shm_name);
-		close(shmfd);
-		free(shm);
-		return EDB_ECRIT;
-	}
-	// map it
+	// we trust this shm to be the right size at this point: map it
 	shm->shm = mmap(0, tmphead.shmc,
 	                   PROT_READ | PROT_WRITE,
 	                MAP_SHARED,

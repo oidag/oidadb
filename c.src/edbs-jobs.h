@@ -126,6 +126,8 @@ typedef struct edbs_job_t {
 //
 // call edbs_jobclose if you're all done with the job.
 //
+// edbs_jobclose will do nothing if the descriptor is marked as the installer
+//
 // todo: edbs_jobselect should return error when edbs_host_free (EDB_ESTOPPING?)
 edb_err edbs_jobselect(const edbs_handle_t *shm,
 					   edbs_job_t  *o_job,

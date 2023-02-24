@@ -429,6 +429,12 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 }
 
 void  edbs_jobclose(edbs_job_t job) {
+	if(!job.descriptortype) {
+#ifdef EDB_FUCKUPS
+		log_critf("edbs_jobclose when job is marked as installer");
+#endif
+		return;
+	}
 
 	// save some pointers to the stack for easier access.
 	const edbs_handle_t *shm = job.shm;
