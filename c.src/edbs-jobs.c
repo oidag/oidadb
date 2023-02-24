@@ -204,15 +204,11 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 
 		// check for EDB_EBADE
 		if(!(job->transferbuff_FLAGS & EDBS_JFINSTALLWRITE)) {
-			log_critf(
-					"job installer's first operation was a read, not a write");
 			return EDB_EBADE;
 		}
 
 		// check for EDB_ECLOSED
-		if(!(job->transferbuff_FLAGS & EDBS_JINSTALLERTERM)) {
-			log_critf(
-					"job installer try to read from installer-terminated pipe");
+		if(job->transferbuff_FLAGS & EDBS_JINSTALLERTERM) {
 			return EDB_ECLOSED;
 		}
 
