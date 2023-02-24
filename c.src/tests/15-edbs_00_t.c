@@ -59,12 +59,12 @@ int main(int argc, const char **argv) {
 		}
 	}
 	// look inside the shm and make sure we have the expected values.
-	if(shm_host->head->futex_newjobs != job_buffq) {
-		test_error("futex_newjobs not as expected");
+	if(shm_host->head->newjobs != job_buffq) {
+		test_error("newjobs not as expected");
 		goto ret;
 	}
-	if(shm_host->head->futex_emptyjobs != 0) {
-		test_error("futex_emptyjobs not as expected");
+	if(shm_host->head->emptyjobs != 0) {
+		test_error("emptyjobs not as expected");
 		goto ret;
 	}
 
@@ -77,8 +77,8 @@ int main(int argc, const char **argv) {
 		}
 	}
 	// check the shm for expected values
-	if(shm_host->head->futex_newjobs != 0) {
-		test_error("futex_newjobs not as expected after accepting all jobs");
+	if(shm_host->head->newjobs != 0) {
+		test_error("newjobs not as expected after accepting all jobs");
 		goto ret;
 	}
 
@@ -87,8 +87,8 @@ int main(int argc, const char **argv) {
 		edbs_jobclose(jobbuff[i]);
 	}
 	// check the shm for expected values
-	if(shm_host->head->futex_emptyjobs != job_buffq) {
-		test_error("futex_newjobs not as expected after accepting all jobs");
+	if(shm_host->head->emptyjobs != job_buffq) {
+		test_error("newjobs not as expected after accepting all jobs");
 		goto ret;
 	}
 

@@ -113,22 +113,27 @@ typedef struct edbs_job_t {
 	unsigned int descriptortype;
 } edbs_job_t;
 
-// Will take care of all the mutexes and futexes inside of the shm and
-// will select a job for you and set load it into o_job.
-//
-// If there's no jobs installed in the shm yet, this function will block.
+// If there's no jobs installed in the yet, this function will block until
+// there is one, or the handle is shutdown.
 //
 // o_job.descriptortype will be set to 'executor'.
 //
 // ownerid should be worker id: used only for analytical purposes.
 //
-// edbs_jobselect only returns critical errors.
+// call edbs_jobclose if you're all done with the job thus marking it
+// complete. edbs_jobclose will implicitly call edbs_jobterm.
 //
-// call edbs_jobclose if you're all done with the job.
+// edbs_jobclose will do nothing if the descriptor is marked as the installer.
 //
-// edbs_jobclose will do nothing if the descriptor is marked as the installer
-//
-// todo: edbs_jobselect should return error when edbs_host_free (EDB_ESTOPPING?)
+// ERRORS:
+//   - EDB_ECLOSED - there are no jobs available AND edbs_host_free has been
+//                   called, thus no more job installs are possible. This
+//                   means that edbs_jobselect will only block so long that
+//                   the host of the shm is running and accepting jobs.
+//                   Futhermore, edbs_jobselect will return even after
+//                   edbs_host_free has been called so long that there's jobs
+//                   that need to be doing.
+//   - EDB_ECRIT
 edb_err edbs_jobselect(const edbs_handle_t *shm,
 					   edbs_job_t  *o_job,
 					   unsigned int ownerid);
@@ -143,6 +148,8 @@ void edbs_jobclose(edbs_job_t job);
 // o_job.descriptortype be set to be 'installer'.
 //
 // ERRORS
+//  - EDB_ECLOSED - The host is closed, or is in the process of closing. So
+//                  no new jobs are being accepted.
 //  - EDB_ECRIT
 edb_err edbs_jobinstall(const edbs_handle_t *shm,
 						unsigned int jobclass,

@@ -17,9 +17,14 @@ typedef struct edbs_handle_t edbs_handle_t;
 //
 // only config.job* and config.event* vars are used.
 //
-// edbs_host_free will block so long that jobs are open.
+// Immediately after calling edbs_host_free, all attempts to communicate with
+// the host from the handle will return EDB_ECLOSED save for open job buffers.
 //
-// edbs_host_free will cause further edbs_jobselect to return an error.
+// If any job transfer buffers are in use, edbs_host_free will block until
+// they are closed naturally (see edbs_jobterm via executor).
+//
+// later: make a edbs_host_free varient that will NOT wait for job buffers to
+//        be closed.
 //
 // ERRORS:
 //  - EDB_ENOMEM - not enough memory
