@@ -169,10 +169,42 @@ typedef struct edbs_shmjob_t {
 	// Will also broadcast futex when the executor term'd (after being set to
 	// -1)
 	//
-	// futex_executorbytes, futex_installerbytes requires pipemutex to be locked
+	// executorbytes, installerbytes requires pipemutex to be locked
 	// to access.
-	uint32_t futex_executorbytes, futex_installerbytes;
+	uint32_t executorbytes, installerbytes;
 	unsigned int installerhead, executorhead;
+
+	// Both of these futex holds are equal to 1 if the following are true:
+	//  - the executor has not called term
+	//  - their opposing byte fields (see above) are 0.
+	//
+	// Both of these futex holds are equal to 2 if the following are true:
+	// - the executor has not called term
+	// - their RESPECTIVE byte fields (see above) are equal to
+	//   transferbuffcapacity
+	//
+	// will only broadcast when set to 0.
+	//
+	// THREADING:
+	//   - setting, waking: requires pipemutex
+	//   - getting: no mutex required
+	//   - waiting: pipemutex must not be locked.
+	uint32_t futex_executorhold, futex_installerhold;
+
+	// Used to handle edge case discussed in edbs_jobterm's documentation
+	// where edbs_jobterm will block.
+	//
+	// Will be set to 1 if the following are true:
+	//  - the executorbytes is not equal to 0.
+	//
+	// will only broadcast when set to 0.
+	//
+	// THREADING:
+	//   - setting, waking: requires pipemutex
+	//   - getting: no mutex required
+	//   - waiting: pipemutex must not be locked.
+	uint32_t futex_exetermhold;
+
 
 	// 0 means new job / initialized. see edbs_jobflags.
 	enum edbs_jobflags transferbuff_FLAGS;
