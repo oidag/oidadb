@@ -84,7 +84,7 @@ int main(int argc, const char **argv) {
 
 	// finally, close them.
 	for(int i = 0; i < job_buffq; i++) {
-		edbs_jobfinish(jobbuff[i]);
+		edbs_jobclose(jobbuff[i]);
 	}
 	// check the shm for expected values
 	if(shm_host->head->futex_emptyjobs != job_buffq) {
