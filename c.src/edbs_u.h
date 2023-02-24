@@ -1,4 +1,5 @@
 #include "edbs.h"
+#include "options.h"
 
 #include <linux/futex.h>
 #include <stdint.h>
@@ -8,7 +9,16 @@
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22
 
+#define EDBS_SSTARTING 0 // must be 0 because thats the init value.
+#define EDBS_SRUNNING 1
+#define EDBS_SSTOPPED 3
+
 typedef struct edbs_shmhead_t {
+
+	////////////////////////////////////////////////////////////////////////////
+	// Memory navigation
+	////////////////////////////////////////////////////////////////////////////
+
 	uint64_t magnum;    // magicnumber (EDB_SHM_MAGIC_NUM)
 	uint64_t shmc;      // total bytes in the shm
 
@@ -24,22 +34,75 @@ typedef struct edbs_shmhead_t {
 	uint64_t jobtransoff; // offset from shm until the start of transbuffer
 	uint64_t jobtransc;   // *total* count of bytes in jobv->transferbuff
 
+	////////////////////////////////////////////////////////////////////////////
+	// Inventory control
+	////////////////////////////////////////////////////////////////////////////
+
+	// the amount of empty slots in the job buffer.
 	// futex vars will broadcast a futex after they have been changed
-	// threading: requires jobmutex
-	uint32_t futex_emptyjobs; // the amount of empty slots in the job buffer.
-	uint32_t futex_newjobs; // the amount of new jobs that are not owned.
+	// threading: requires jobmutex to read/write too.
+	uint32_t emptyjobs;
+
+	// The amount of new jobs that are not owned.
+	// threading: requires jobmutex to read/write too.
+	uint32_t newjobs;
+
+	////////////////////////////////////////////////////////////////////////////
+	// Traffic control. Lots of brain-hurt here. Just read the field-comments
+	// and accept it.
+	////////////////////////////////////////////////////////////////////////////
+
+	// job mutex for workers and handlers (process shared).
+	pthread_mutex_t jobmutex;
+
+	// Used to track when all jobs have been closed during shutdown.
+	//
+	// Will be 1 if the following are true:
+	//   - emptyjobs != jobc
+	//
+	// Will only broadcast when set to 0.
+	//
+	// THREADING
+	//   - for setting, waking: jobmutex must be locked
+	//   - for getting: no locks required
+	//   - for waiting: jobmutex must not be locked.
+	uint32_t futex_hasjobs;
+
+
+	// for futex_selectorhold: set to 1 if the following is is true:
+	//   - futex_status == EDBS_SRUNNING
+	//   - AND newjobs == 0
+	//
+	// for futex_installerhold: set to 1 if the following are true:
+	//   - futex_status == EDBS_SRUNNING
+	//   - AND emptyjobs == 0
+	//
+	// will only broadcast when its set to 0.
+	//
+	// THREADING
+	//  - for setting, waking: lock jobmutex (except in edbs_host_init)
+	//  - for getting: no locks required
+	//  - for waiting: jobmutex must not be locked
+	uint32_t futex_selectorhold;
+	uint32_t futex_installerhold;
+
+	// will signal on changes
+	// EDBS_SSTARTING for starting...
+	// EDBS_SRUNNING for started
+	// EDBS_SSTOPPED for shut down
+	//
+	// threading: requires jobmutex to read and write too.
+	uint32_t futex_status;
+
+
+	////////////////////////////////////////////////////////////////////////////
+	// politics/analytics:
+	////////////////////////////////////////////////////////////////////////////
 
 	// the next jobid. It is not strict that jobs need to have sequencial jobids
 	// they just need to be unique.
 	// requires jobinstall.lock to increment
 	unsigned long int nextjobid;
-
-	// job mutex for workers and handlers (process shared)
-	pthread_mutex_t jobmutex;
-
-	// 0 for starting...
-	// 1 for started (will signal)
-	uint32_t futex_status;
 } edbs_shmhead_t;
 
 // these valuse can also be used in futex_wait_bitset

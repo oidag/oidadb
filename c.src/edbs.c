@@ -25,20 +25,55 @@ void static inline shmname(pid_t pid, char *buff) {
 //
 // when calling from host: only works after createshm returned successfully.
 // this must be called before edb_fileclose(&(host->file))
-void deleteshm(edbs_handle_t *host, int destroymutex) {
-	if(host->shm == 0) {
+void deleteshm(edbs_handle_t *h, int ishost) {
+#ifdef EDB_FUCKUPS
+	if(h->shm == 0) {
 		log_critf("attempting to delete shared memory that is not linked / initialized. prepare for errors.");
 	}
-	if (destroymutex) {
-		pthread_mutex_destroy(&host->head->jobmutex);
-		for(int i = 0; i < host->head->jobc; i++) {
-			pthread_mutex_destroy(&host->jobv[i].pipemutex);
+#endif
+
+	// the host has extra steps.
+	if (ishost) {
+#ifdef EDB_FUCKUPS
+		if(h->head->futex_status != EDBS_SRUNNING) {
+			log_critf("shm close without running status, is that supposed to "
+					  "happen?");
+		}
+#endif
+
+		// set to be in stopping mode. This will prevent any further jobs
+		// from being installed.
+		pthread_mutex_lock(&h->head->jobmutex);
+		h->head->futex_status = EDBS_SSTOPPED;
+
+		// sense we changed our futex_status, we must broadcast this to the
+		// hold futexes.
+		h->head->futex_selectorhold = 0;
+		h->head->futex_installerhold = 0;
+		futex_wake(&h->head->futex_selectorhold, INT32_MAX);
+		futex_wake(&h->head->futex_installerhold, INT32_MAX);
+		pthread_mutex_unlock(&h->head->jobmutex);
+
+		if(h->head->futex_hasjobs) {
+			// we use ~%d because we don't have a mutex lock so the number
+			// could have changed sense this log would have got to the front.
+			log_infof("haulting transfer buffer free: ~%ld jobs still left",
+					  h->head->jobc - h->head->emptyjobs);
+		}
+
+		// wait for all jobs to be closed.
+		futex_wait(&h->head->futex_hasjobs, 1);
+
+		// kill the mutex.
+		pthread_mutex_destroy(&h->head->jobmutex);
+		for(int i = 0; i < h->head->jobc; i++) {
+			pthread_mutex_destroy(&h->jobv[i].pipemutex);
 		}
 	}
-	munmap(host->shm, host->head->shmc);
-	shm_unlink(host->shm_name);
-	host->shm = 0;
-	free(host);
+	munmap(h->shm, h->head->shmc);
+	shm_unlink(h->shm_name);
+	h->shm = 0;
+	free(h);
 }
 
 void edbs_host_free(edbs_handle_t *shm) {
@@ -167,10 +202,10 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	}
 
 
-	// initialize the futexes in the head
-	shm->head->futex_newjobs   = 0;
-	shm->head->futex_status    = 0;
-	shm->head->futex_emptyjobs = shm->head->jobc;
+	// initialize the head with expected values
+	shm->head->newjobs   = 0;
+	shm->head->futex_status    = EDBS_SSTARTING;
+	shm->head->emptyjobs = shm->head->jobc;
 
 	// assign buffer pointers
 	shm->jobv        = shm->shm + shm->head->joboff;
@@ -194,9 +229,12 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	// todo
 
 	// send out the futex saying we're ready to accept jobs
-	shm->head->futex_status = 1;
-	syscall(SYS_futex, &shm->head->futex_status, FUTEX_WAKE, INT32_MAX,
-			0,0,0);
+	shm->head->futex_status = EDBS_SRUNNING;
+	futex_wake(&shm->head->futex_status, INT32_MAX);
+
+	// finally, before returning as the host, we must make sure to enable selectorhold
+	// sense its conditions have been met.
+	shm->head->futex_selectorhold = 1;
 
 	return 0;
 	// everything past here are bail-outs.
@@ -205,6 +243,8 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	for(int i = 0; i < shm->head->jobc; i++) pthread_mutex_destroy(&shm->jobv[i].pipemutex);
 	pthread_mutex_destroy(&shm->head->jobmutex);
 	pthread_mutexattr_destroy(&mutexattr);
+	shm->head->futex_status = EDBS_SSTOPPED;
+	futex_wake(&shm->head->futex_status, INT32_MAX);
 
 	clean_map:
 	munmap(shm->shm, shm->head->shmc);
@@ -311,6 +351,19 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		log_critf("mmap(2) failed to map shared memory: %d", errno);
 		free(shm);
 		return EDB_ECRIT;
+	}
+
+	// wait if the host is still setting up
+	futex_wait(&shm->head->futex_status, EDBS_SSTARTING);
+
+	// make sure it hasn't shut down
+	if(shm->head->futex_status == EDBS_SSTOPPED) {
+		// this is a weird edge case if we're in here. But basically the host
+		// had shut down while we were trying to connect to it.
+		munmap(shm->shm, shm->head->shmc);
+		shm_unlink(shm->shm_name);
+		free(shm);
+		return EDB_ENOHOST;
 	}
 
 	// assign buffer pointers

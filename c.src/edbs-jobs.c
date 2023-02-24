@@ -287,27 +287,38 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	const uint64_t jobc = head->jobc;
 	edbs_shmjob_t *const jobv = shm->jobv;
 
+	// we wait outside the mutex because if we were to wait inside of the
+	// mutex that would prevent any jobs from being installed, thus
+	// deadlocking us.
+	rehold:
+	futex_wait(&head->futex_selectorhold, 1);
+
+	// atp: although our futex_selectorhold has returned, sense we're outside of a mutex,
+	//      there's a chance that another thread has already changed this value.
+	//      So you'll see the first if statement we ask
+	//      inside of the mutex is if we should re-hold.
 
 	// now we need to find a new job.
 	// Firstly, we need to atomically lock all workers so that only one can accept a job at once to
 	// avoid the possibility that 2 workers accidentally take the same job.
-	err = pthread_mutex_lock(&head->jobmutex);
-	if (err) {
-		log_critf("critical error while attempting to lock jobaccept mutex: %d", err);
-		return EDB_ECRIT;
+	pthread_mutex_lock(&head->jobmutex);
+
+	// check for EDB_ECLOSED
+	if(head->futex_status != EDBS_SRUNNING) {
+		pthread_mutex_unlock(&head->jobmutex);
+		return EDB_ECLOSED;
 	}
 
-	// note on critical errors: the job accept must be unlocked if a critical error occurs.
+	// see above atp.
+	if(head->futex_selectorhold == 1) {
+		pthread_mutex_unlock(&head->jobmutex);
+		goto rehold;
+	}
 
-	// at this point, we have locked the job accept mutex. But that doesn't mean there's
-	// jobs available.
-	//
-	// if there's no new jobs then we must wait. We do this by running futext_wait
-	// on the case that newjobs is 0. In which case a handle will eventually wake us after it increments
-	// newjobs.
-	futex_wait(&head->futex_newjobs, 0);
+	// atp: the host is EDBS_SRUNNING and newjobs is at least 1.
 
-	// if we're here that means we know that there's at least 1 new job. lets find it.
+	// if we're here that means we know that there's at least 1 new job.
+	// lets find it.
 	edbs_shmjob_t *job;
 	{
 		unsigned int i;
@@ -323,7 +334,7 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 		}
 		if (i == jobc) {
 			// this is a critical error. If we're here that meas we went through
-			// the entire stack and didn't find an open job. Sense futex_newjobs
+			// the entire stack and didn't find an open job. Sense newjobs
 			// was supposed to be at least 1 that means I programmed something wrong.
 			//
 			// The first thread that enters into here will not be the last as futher
@@ -337,7 +348,10 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	// at this point, job is pointing to an open job.
 	// so lets go ahead and set the job ownership to us.
 	job->owner = ownerid;
-	head->futex_newjobs--; // 1 less job that is without an owner.
+	head->newjobs--; // 1 less job that is without an owner.
+	if(head->newjobs == 0) {
+		head->futex_selectorhold = 1;
+	}
 
 	// we're done filing all the paperwork to have ownership over this job. thus no more need to have
 	// the ownership logic locked for other thread. We can continue to do this job.
@@ -361,16 +375,32 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	o_job->shm = h;
 	o_job->descriptortype = 0;
 
+	rehold:
+	// if there's no open spots in the job buffer we wait. Yes, we are
+	// clogging up the mutex, but those threads will also have to wait.
+	futex_wait(&head->futex_installerhold, 1);
+
+	// atp: see the atp in edbs_jobselect after its futex_wait.
+
 	// lock the job install mutex. So we don't try to install a job into a slot
 	// that's currently being cleared out as completed.
 	pthread_mutex_lock(&head->jobmutex);
 	//**defer: pthread_mutex_unlock(&head->jobmutex);
 
-	// if there's no open spots in the job buffer we wait. Yes, we are
-	// clogging up the mutex, but those threads will also have to wait.
-	futex_wait(&head->futex_emptyjobs, 0);
+	// check for EDB_ECLOSED
+	if(head->futex_status != EDBS_SRUNNING) {
+		pthread_mutex_unlock(&head->jobmutex);
+		return EDB_ECLOSED;
+	}
 
-	// if we're here we know there's at least 1 empty job slot.
+	// see above atp
+	if(head->futex_installerhold == 1) {
+		pthread_mutex_unlock(&head->jobmutex);
+		goto rehold;
+	}
+
+	// if we're here we know there's at least 1 empty job slot and status is
+	// EDBS_SRUNNING
 	int i;
 	edbs_shmjob_t *job;
 	for(i = 0; i < jobc; i++) {
@@ -394,8 +424,19 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	// install the job
 	job->jobdesc = jobclass;
 	job->jobid = h->head->nextjobid++;
-	head->futex_emptyjobs--; // 1 less empty job slot
-	head->futex_newjobs++;   // 1 more job for workers to adopt
+
+	// futex signals
+	head->emptyjobs--; // 1 less empty job slot
+	if(!head->futex_hasjobs) {
+		head->futex_installerhold = 1;
+		head->futex_hasjobs = 1;
+	}
+	if(head->futex_selectorhold) {
+		head->futex_selectorhold = 0;
+		futex_wake(&head->futex_selectorhold, 1);
+	}
+	head->newjobs++;   // 1 more job for workers to adopt
+
 
 #ifdef EDB_FUCKUPS
 	if(!(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM)) {
@@ -419,12 +460,7 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	job->installerhead  = 0;
 	job->transferbuff_FLAGS = 0;
 	job->name = name;
-
-
 	pthread_mutex_unlock(&job->pipemutex);
-
-	// send a futex signal that a job was just installed.
-	futex_wake(&head->futex_newjobs, 1);
 	return 0;
 }
 
@@ -461,16 +497,25 @@ void  edbs_jobclose(edbs_job_t job) {
 	}
 #endif
 
-	// we must do this by removing the owner, and then setting class to EDB_JNONE in that
-	// exact order. This is because handles look exclusively at the class to determine
-	// its ability to load in another job and we don't want it loading another job into
-	// this position while its still owned.
+	// set this job slot to be empty and unowned
 	jobv->jobdesc = 0;
 	jobv->owner = 0;
-	head->futex_emptyjobs++;
+	head->emptyjobs++;
+
+	// futex signalling
+	if(head->emptyjobs == jobc) {
+		// we now have NO jobs left.
+		head->futex_hasjobs = 0;
+		futex_wake(&head->futex_hasjobs, INT32_MAX);
+	}
+	if(head->futex_installerhold) {
+		// if we're in here, we know that per our structure definition for
+		// futex_installerhold, it must be set to 0 sense we know that
+		// emptyjobs is no longer 0.
+		head->futex_installerhold = 0;
+		futex_wake(&head->futex_installerhold, 1);
+	}
+
 
 	pthread_mutex_unlock(&head->jobmutex);
-
-	// send out a broadcast letting at least 1 waiting handler know theres another empty job
-	futex_wake(&head->futex_emptyjobs, 1);
 }
