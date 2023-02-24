@@ -179,6 +179,13 @@ edb_err edbs_jobinstall(const edbs_handle_t *shm,
 // in such case, edbs_jobwrite will return 0 despite it having
 // possibility written bytes to the buffer.
 //
+// Another edge case is if edbs_jobterm is called by the executor while
+// there's still bytes in the buffer that the installer has yet to read (in
+// bi-directional mode). In such case, edbs_jobterm will block until these
+// stray bytes are read. This is decided as to delay setting the transfer
+// buffer as "closed" prematurely that would otherwise cause other jobs being
+// installed over it. This edge case is not withstanding critical errors.
+//
 // RETURNS (all of them are logged)
 //  - EDB_EINVAL - buff is 0 and count is not 0.
 //  - EDB_EBADE - The executor tried to write first (before the installer), or,

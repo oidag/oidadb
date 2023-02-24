@@ -43,15 +43,23 @@ edb_err edbs_jobterm(edbs_job_t jh) {
 		}
 	} else {
 		// executor has called
-		job->transferbuff_FLAGS |= EDBS_JEXECUTERTERM;
+
+		// before we can mark the job as executer-terminated, are their still
+		// bytes that the handle has yet to read? (provided we're in
+		// bi-directional mode)
+		futex_wait(&job->futex_exetermhold, 1);
+
+		// atp: we know executorbytes is 0. And it will stay like that
+		// even outside of the mutex because of the THREADING rules of edbs_job*
+
 
 		// broadcast to interupt and transfers
 		pthread_mutex_lock(&job->pipemutex); // lock so we can confidently set
-		// the executor/installer bytes
-		job->futex_executorbytes = -1; // set so the futex_wait will never trigger
-		job->futex_installerbytes = -1;
-		futex_wake(&job->futex_executorbytes, 1);
-		futex_wake(&job->futex_installerbytes, 1);
+		// See the structure comment for the futex holds. When this function
+		// is called that means these cannot apply anymore.
+		job->transferbuff_FLAGS |= EDBS_JEXECUTERTERM;
+		job->futex_installerhold = 0;
+		futex_wake(&job->futex_installerhold, 1);
 		pthread_mutex_unlock(&job->pipemutex);
 		return 0;
 	}
@@ -71,6 +79,7 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 	// get the descriptor
 	unsigned int *pos, *opos;
 	unsigned int *bytes, *obytes;
+	uint32_t *hold, *ohold;
 	if(jh.descriptortype) {
 
 		// caller is executor
@@ -90,8 +99,10 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 		// working vars
 		pos = &job->executorhead;
 		opos = &job->installerhead;
-		bytes = &job->futex_executorbytes;
-		obytes = &job->futex_installerbytes;
+		bytes = &job->executorbytes;
+		obytes = &job->installerbytes;
+		hold = &job->futex_executorhold;
+		ohold = &job->futex_installerhold;
 	} else {
 		// caller is installer
 
@@ -101,8 +112,10 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 		// working vars
 		pos = &job->installerhead;
 		opos = &job->executorhead;
-		bytes = &job->futex_installerbytes;
-		obytes = & job->futex_executorbytes;
+		bytes = &job->installerbytes;
+		obytes = & job->executorbytes;
+		ohold = &job->futex_executorhold;
+		hold = &job->futex_installerhold;
 	}
 
 	retry:
@@ -110,12 +123,7 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 	// Wait if we've written so many bytes already that we've managed to fill
 	// up the entire buffer up. In which case we must wait until they read
 	// the bytes and decrement our byte count.
-	futex_wait(bytes, job->transferbuffcapacity);
-
-	// check for EDB_EPIPE
-	if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
-		return EDB_EPIPE;
-	}
+	futex_wait(hold, 2);
 
 	// atp: we know that either room has been made in the buffer, or,
 	//      edbs_jobclose has been called. We really don't know which one so
@@ -124,6 +132,12 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 	// we'll lock up the buffer so that reads and writes don't happen at the
 	// same time.
 	pthread_mutex_lock(&job->pipemutex);
+
+	// check for EDB_EPIPE
+	if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
+		pthread_mutex_unlock(&job->pipemutex);
+		return EDB_EPIPE;
+	}
 
 	// if the opposing side has bytes written in front of our head, then
 	// thats an EDB_EPROTO error.
@@ -147,7 +161,9 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 		// they read the bytes
 		if(*bytes == job->transferbuffcapacity) {
 			// we filled the buffer up writing this message to the other
-			// side's head.
+			// side's head. We'll put a write hold on ourselves that they'll
+			// be responsilbe for clearing
+			*hold = 2;
 			break;
 		}
 		jbuf[*pos] = ((const uint8_t *)(buff))[totalbytes+i]; // the actual
@@ -156,8 +172,25 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 		*pos = (*pos + 1) % job->transferbuffcapacity; // advance our head pos
 	}
 
-	// broadcast that the amount of bytes we've written has changed.
-	futex_wake(bytes, 1);
+#ifdef EDB_FUCKUPS
+	if(i == 0) {
+		log_critf("for some reason, i is 0... that means no bytes were "
+				  "written, which should be impossible given the threading "
+				  "logic.");
+	}
+#endif
+
+	// If the opposite side has a read hold, then we can clear it and
+	// broadcast such event sense we know for a fact that we just read their
+	// buffer.
+	*ohold = 0;
+	futex_wake(ohold, 1);
+
+	// if this is an executor call, this means executorbytes is no
+	// longer 0.
+	if(jh.descriptortype) {
+		job->futex_exetermhold = 1;
+	}
 
 	// leave the mutex to allow the opposing read to execute.
 	pthread_mutex_unlock(&job->pipemutex);
@@ -189,6 +222,7 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 	// get the descriptor
 	unsigned int *pos, *opos;
 	unsigned int *bytes, *obytes;
+	uint32_t *hold, *ohold;
 	if(jh.descriptortype) {
 
 		// caller is executor
@@ -196,8 +230,10 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 		// working vars
 		pos = &job->executorhead;
 		opos = &job->installerhead;
-		bytes = &job->futex_executorbytes;
-		obytes = &job->futex_installerbytes;
+		bytes = &job->executorbytes;
+		obytes = &job->installerbytes;
+		hold   = &job->futex_executorhold;
+		ohold  = &job->futex_installerhold;
 	} else {
 
 		// caller is installer
@@ -215,24 +251,26 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 		// working vars
 		pos = &job->installerhead;
 		opos = &job->executorhead;
-		bytes = &job->futex_installerbytes;
-		obytes = & job->futex_executorbytes;
+		bytes = &job->installerbytes;
+		obytes = &job->executorbytes;
+		hold   = &job->futex_installerhold;
+		ohold  = &job->futex_executorhold;
 	}
 
 	retry:
 
-	// Wait if we've read so many bytes from the opposite side that there's
-	// none left.
-	futex_wait(obytes, 0);
-
-	// check for EDB_EPIPE
-	if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
-		return EDB_EPIPE;
-	}
+	// Wait if we have no bytes in front of us
+	futex_wait(hold, 1);
 
 	// we'll lock up the buffer so that reads and writes don't happen at the
 	// same time.
 	pthread_mutex_lock(&job->pipemutex);
+
+	// check for EDB_EPIPE
+	if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
+		pthread_mutex_unlock(&job->pipemutex);
+		return EDB_EPIPE;
+	}
 
 	// atp: we know that we have some bytes in front of our head. read them
 	//      until we fill up the callers buffer or we run out of bytes in the
@@ -242,9 +280,11 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 	int i;
 	for(i = 0; i < count - totalbytes; i++) {
 
-		// if we have read everything from the opposing buffer we must break and
-		// try to fill up next time.
+		// if we have read everything from the opposing buffer.
+		// We'll put a read hold on ourselves that they'll be responsible
+		// clearing.
 		if(*obytes == 0) {
+			*hold = 1;
 			break;
 		}
 		((uint8_t *)buff)[totalbytes + i] = jbuf[*pos];
@@ -252,8 +292,25 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 		*pos = (*pos + 1) % job->transferbuffcapacity; // advance our head pos
 	}
 
-	// broadcast that the amount of bytes we've left unread has changed
-	futex_wake(obytes, 1);
+#ifdef EDB_FUCKUPS
+	if(i == 0) {
+		log_critf("for some reason, i is 0... that means no bytes were "
+		          "read, which should be impossible given the threading "
+		          "logic (descriptor: %d).", jh.descriptortype);
+	}
+#endif
+
+	// if we just cleared their write hold, broadcast it sense we just ate up
+	// some of their buffer.
+	*ohold = 0;
+	futex_wake(ohold, 1);
+
+	// if this call is the installer, and we've empied out all the bytes,
+	// then the broadcast conditions of futex_exetermhold have been met.
+	if(!jh.descriptortype && *obytes == 0) {
+		job->futex_exetermhold = 0;
+		futex_wake(&job->futex_exetermhold, 1);
+	}
 
 	// leave the mutex to allow the opposing read to execute.
 	pthread_mutex_unlock(&job->pipemutex);
@@ -450,11 +507,16 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 
 	// now reset all the descriptors for this job. that have nothing to do
 	// with the job installment algo.
-	job->futex_executorbytes  = 0;
+	job->executorbytes  = 0;
 	job->executorhead   = 0;
-	job->futex_installerbytes = 0;
+	job->installerbytes = 0;
 	job->installerhead  = 0;
 	job->transferbuff_FLAGS = 0;
+	job->futex_installerhold = 0; // sense we know they're going to call
+	                              // write first into a clean buffer
+	job->futex_executorhold = 1; // sense we know they're going to call read
+	                             // first and they have to wait for the write
+								 // anyways
 	job->name = name;
 	pthread_mutex_unlock(&job->pipemutex);
 	return 0;

@@ -179,8 +179,6 @@ int main(int argc, const char **argv) {
 					test_error("did not read 98 from host");
 				}
 			}
-			if(!oneway)
-			edbs_jobterm(job);
 		}
 		edbs_handle_free(h);
 		if(!isparent) {
