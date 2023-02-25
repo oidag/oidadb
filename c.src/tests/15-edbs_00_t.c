@@ -96,6 +96,7 @@ int main(int argc, const char **argv) {
 	// free the handle
 	ret:
 	edbs_handle_free(shm_handle);
+	edbs_host_close(shm_host);
 	edbs_host_free(shm_host);
 
 	return test_waserror;

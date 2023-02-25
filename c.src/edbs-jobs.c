@@ -462,6 +462,7 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 		goto rehold;
 	}
 
+
 	// if we're here we know there's at least 1 empty job slot and status is
 	// EDBS_SRUNNING
 	int i;
@@ -474,15 +475,18 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 			// here we have an empty job with no owner, we can install it here.
 			break;
 		}
-		if (i == jobc) {
-			// this is a critical error. We should always have found an open
-			// job because the futex let us through.
-			pthread_mutex_unlock(&head->jobmutex);
-			log_critf("although empty was at least 1, an open job was not "
-					  "found in the stack.");
-			return EDB_ECRIT;
-		}
 	}
+
+#ifdef EDB_FUCKUPS
+	if (i == jobc) {
+		// this is a critical error. We should always have found an open
+		// job because the futex let us through.
+		pthread_mutex_unlock(&head->jobmutex);
+		log_critf("although empty was at least 1, an open job was not "
+		          "found in the stack.");
+		return EDB_ECRIT;
+	}
+#endif
 
 	// install the job
 	job->jobdesc = jobclass;
@@ -490,9 +494,14 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 
 	// futex signals
 	head->emptyjobs--; // 1 less empty job slot
+	// sense we know emptyjobs-- will always ensure that its not equal to
+	// jobc, we can set futex_hasjobs to 1.
 	if(!head->futex_hasjobs) {
-		head->futex_installerhold = 1;
 		head->futex_hasjobs = 1;
+	}
+	// if empty jobs is now 0.
+	if(head->emptyjobs == 0) {
+		head->futex_installerhold = 1;
 	}
 	if(head->futex_selectorhold) {
 		head->futex_selectorhold = 0;
