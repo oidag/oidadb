@@ -23,6 +23,7 @@ struct threadpayload {
 void *gothread(void *v) {
 	struct threadpayload *payload = v;
 	edb_err terr; // cannot use normal err sense we're multi-thread'n
+	int i = 0;
 	while(1) {
 
 		// select a job
@@ -44,8 +45,9 @@ void *gothread(void *v) {
 			terr = edbs_jobread(job, &res, count);
 			if(terr) {
 				test_error("executor: edbs_jobread");
+				return 0;
 			}
-			if (res != 12) {
+			if (res != (uint8_t)j) {
 				test_error("executor: bad bytes");
 				return 0;
 			}
@@ -53,7 +55,7 @@ void *gothread(void *v) {
 
 		// write to buffer.
 		for (j = 0; j < payload->bytes_to_write_to_buff; j++) {
-			uint8_t res = 98;
+			uint8_t res = j;
 			int count = 1;
 			terr = edbs_jobwrite(job, &res, count);
 			if(terr) {
@@ -61,6 +63,7 @@ void *gothread(void *v) {
 			}
 		}
 		edbs_jobclose(job);
+		i++;
 	}
 	return 0;
 }
@@ -109,18 +112,18 @@ int main(int argc, const char **argv) {
 	}
 
 	// if we're the parent: host the shm
-	edbs_handle_t *h;
+	edbs_handle_t *host;
 	if(isparent) {
 		odb_hostconfig_t config = odb_hostconfig_default;
 		config.job_buffq = job_buffq;
-		if((err = edbs_host_init(&h, config))) {
+		if((err = edbs_host_init(&host, config))) {
 			test_error("edbs_host_init");
 			return 1;
 		}
 
 		// start threads
 		for(int i = 0; i < hostthreads; i++) {
-			payloads[i].h = h;
+			payloads[i].h = host;
 			payloads[i].bytes_to_write_to_buff = bytes_to_write_to_buff;
 			payloads[i].shouldclose = &shouldclose;
 			pthread_create(&payloads[i].thread, 0, gothread, &payloads[i]);
@@ -130,7 +133,8 @@ int main(int argc, const char **argv) {
 	// let the chidren install jobs and let the parent accept them
 	// in multi-threaded style
 	if(!isparent || handles == 0) {
-		if((err = edbs_handle_init(&h, parentpid))) {
+		edbs_handle_t *hndl;
+		if((err = edbs_handle_init(&hndl, parentpid))) {
 			test_error("edbs_handle_init");
 			return 1;
 		}
@@ -142,7 +146,7 @@ int main(int argc, const char **argv) {
 			int oneway = i % 7 == 0;
 
 			edbs_job_t job;
-			edbs_jobinstall(h, 69, getpid(), &job);
+			edbs_jobinstall(hndl, 69, getpid(), &job);
 			if(oneway) {
 				edbs_jobterm(job);
 			}
@@ -151,7 +155,7 @@ int main(int argc, const char **argv) {
 			// this is truely chaos sense we're writting 1 byte at a time.
 			for( int j = 0; j < bytes_to_write_to_buff; j++) {
 				int count = 1;
-				uint8_t b = 12;
+				uint8_t b = j;
 				err = edbs_jobwrite(job, &b, count);
 				if(err) {
 					test_error("handle: edbs_jobwrite");
@@ -175,12 +179,12 @@ int main(int argc, const char **argv) {
 					test_error("expected to get error on jobread for 1-way");
 					continue;
 				}
-				if(b != 98) {
+				if(b !=(uint8_t) j) {
 					test_error("did not read 98 from host");
 				}
 			}
 		}
-		edbs_handle_free(h);
+		edbs_handle_free(hndl);
 		if(!isparent) {
 			return test_waserror;
 		}
@@ -198,12 +202,14 @@ int main(int argc, const char **argv) {
 	}
 
 	// close host, this will cause all children to break out of their loops.
-	edbs_host_free(h);
+	edbs_host_close(host);
 
 	// join
 	for(int i = 0; i < hostthreads; i++) {
 		pthread_join(payloads[i].thread, 0);
 	}
+
+	edbs_host_free(host);
 
 
 	// atp: only parent

@@ -34,41 +34,26 @@ void deleteshm(edbs_handle_t *h, int ishost) {
 
 	// the host has extra steps.
 	if (ishost) {
-#ifdef EDB_FUCKUPS
-		if(h->head->futex_status != EDBS_SRUNNING) {
-			log_critf("shm close without running status, is that supposed to "
-					  "happen?");
-		}
-#endif
-
-		// set to be in stopping mode. This will prevent any further jobs
-		// from being installed.
-		pthread_mutex_lock(&h->head->jobmutex);
-		h->head->futex_status = EDBS_SSTOPPED;
-
-		// sense we changed our futex_status, we must broadcast this to the
-		// hold futexes.
-		h->head->futex_selectorhold = 0;
-		h->head->futex_installerhold = 0;
-		futex_wake(&h->head->futex_selectorhold, INT32_MAX);
-		futex_wake(&h->head->futex_installerhold, INT32_MAX);
-		pthread_mutex_unlock(&h->head->jobmutex);
-
-		if(h->head->futex_hasjobs) {
-			// we use ~%d because we don't have a mutex lock so the number
-			// could have changed sense this log would have got to the front.
-			log_infof("haulting transfer buffer free: ~%ld jobs still left",
-					  h->head->jobc - h->head->emptyjobs);
+		if(h->head->futex_status != EDBS_SSTOPPED) {
+			log_errorf("call to edbs_host_free without first calling "
+					   "edbs_host_close may cause race conditions in "
+					   "user-mutlithreaded enviroments. Calling implicitly");
+			edbs_host_close(h);
 		}
 
-		// wait for all jobs to be closed.
-		futex_wait(&h->head->futex_hasjobs, 1);
-
-		// kill the mutex.
-		pthread_mutex_destroy(&h->head->jobmutex);
+		// kill the mutex of all the jobs as we know no more can be installed.
 		for(int i = 0; i < h->head->jobc; i++) {
 			pthread_mutex_destroy(&h->jobv[i].pipemutex);
 		}
+	}
+	uint32_t remaining = __sync_sub_and_fetch(&h->head->connected, 1);
+	if(!remaining) {
+
+		// "Last man out hit the lights"
+
+		// we're the last one to disconnect, clean up all the
+		// shm-malloc-specific data. This includes any shm mutexes.
+		pthread_mutex_destroy(&h->head->jobmutex);
 	}
 	munmap(h->shm, h->head->shmc);
 	shm_unlink(h->shm_name);
@@ -232,6 +217,10 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	shm->head->futex_status = EDBS_SRUNNING;
 	futex_wake(&shm->head->futex_status, INT32_MAX);
 
+	// increment the connection count sense we're technically a handle on the
+	// shm.
+	__sync_add_and_fetch(&shm->head->connected, 1);
+
 	// finally, before returning as the host, we must make sure to enable selectorhold
 	// sense its conditions have been met.
 	shm->head->futex_selectorhold = 1;
@@ -255,6 +244,31 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	free(shm);
 
 	return eerr;
+}
+
+void    edbs_host_close(edbs_handle_t *h) {
+	// set to be in stopping mode. This will prevent any further jobs
+	// from being installed.
+	pthread_mutex_lock(&h->head->jobmutex);
+	h->head->futex_status = EDBS_SSTOPPED;
+
+	// sense we changed our futex_status, we must broadcast this to the
+	// hold futexes.
+	h->head->futex_selectorhold = 0;
+	h->head->futex_installerhold = 0;
+	futex_wake(&h->head->futex_selectorhold, INT32_MAX);
+	futex_wake(&h->head->futex_installerhold, INT32_MAX);
+	pthread_mutex_unlock(&h->head->jobmutex);
+
+	if(h->head->futex_hasjobs) {
+		// we use ~%d because we don't have a mutex lock so the number
+		// could have changed sense this log would have got to the front.
+		log_infof("haulting transfer buffer free: ~%ld jobs still left",
+		          h->head->jobc - h->head->emptyjobs);
+	}
+
+	// wait for all jobs to be closed.
+	futex_wait(&h->head->futex_hasjobs, 1);
 }
 
 void edbs_handle_free(edbs_handle_t *shm) {
@@ -370,6 +384,19 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 	shm->jobv        = shm->shm + shm->head->joboff;
 	shm->eventv      = shm->shm + shm->head->eventoff;
 	shm->transbuffer = shm->shm + shm->head->jobtransoff;
+
+	// include our presence.
+	uint32_t lastcount = __sync_fetch_and_add(&shm->head->connected, 1);
+	if(!lastcount) {
+		// yet another weird edge case. We just connected to a shm with no
+		// other memebers on it, this means know the shm has been dismantled
+		// between this if statement and the futex_status check. It can
+		// theoretically happen.
+		munmap(shm->shm, shm->head->shmc);
+		shm_unlink(shm->shm_name);
+		free(shm);
+		return EDB_ENOHOST;
+	}
 
 	return 0;
 }
