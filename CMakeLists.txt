@@ -52,6 +52,14 @@ add_executable(edbp_00 ${stdtestfiles}
         ${edbp_t})
 target_link_libraries(edbp_00 ${stdtestlibs})
 
+#edba
+file(GLOB edba_t c.src/edba*.c)
+add_executable(edba_00 ${stdtestfiles}
+        c.src/tests/17-edba_00_t.c
+        ${edbl_t}
+        ${edbd_t}
+        ${edbp_t})
+
 
 #add_executable       (edbd_00 ${stdtestfiles} c.src/tests/20-edbx_00_t.c c.src/edbh.c c.src/edbd.c c.src/edbd-init.c)
 #target_link_libraries(t0091_io ${stdtestlibs})
