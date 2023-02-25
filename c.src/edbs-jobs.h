@@ -126,12 +126,12 @@ typedef struct edbs_job_t {
 // edbs_jobclose will do nothing if the descriptor is marked as the installer.
 //
 // ERRORS:
-//   - EDB_ECLOSED - there are no jobs available AND edbs_host_free has been
+//   - EDB_ECLOSED - there are no jobs available AND edbs_host_close has been
 //                   called, thus no more job installs are possible. This
 //                   means that edbs_jobselect will only block so long that
 //                   the host of the shm is running and accepting jobs.
 //                   Futhermore, edbs_jobselect will return even after
-//                   edbs_host_free has been called so long that there's jobs
+//                   edbs_host_close has been called so long that there's jobs
 //                   that need to be doing.
 //   - EDB_ECRIT
 edb_err edbs_jobselect(const edbs_handle_t *shm,

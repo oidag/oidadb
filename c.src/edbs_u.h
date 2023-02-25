@@ -47,6 +47,28 @@ typedef struct edbs_shmhead_t {
 	// threading: requires jobmutex to read/write too.
 	uint32_t newjobs;
 
+	// number of handles (including the host) connected to this shm. If
+	// you're the last one out, you're responsible for cleaning up the
+	// pthread stuff.
+	// This is for the lingering handles that still hold on to this shm even
+	// though the host has closed. Without this, the host would free the
+	// jobmutex and would cause handles unknowningly run into segfaults when
+	// trying to lock it.
+	// THREADING:
+	//  To increment, get, decrement, use __sync_fetch_and_add/_sub
+	uint32_t connected;
+
+	// will signal on changes
+	// EDBS_SSTARTING for starting...
+	// EDBS_SRUNNING for started
+	// EDBS_SSTOPPED for shut down
+	//
+	// THREADING
+	//  - for setting, waking: lock connectedmutex
+	//  - for getting: no mutex required
+	//  - for waiting: must not be in mutex.
+	uint32_t futex_status;
+
 	////////////////////////////////////////////////////////////////////////////
 	// Traffic control. Lots of brain-hurt here. Just read the field-comments
 	// and accept it.
@@ -73,7 +95,7 @@ typedef struct edbs_shmhead_t {
 	//   - futex_status == EDBS_SRUNNING
 	//   - AND newjobs == 0
 	//
-	// for futex_installerhold: set to 1 if the following are true:
+	// for futex_installerreadhold: set to 1 if the following are true:
 	//   - futex_status == EDBS_SRUNNING
 	//   - AND emptyjobs == 0
 	//
@@ -85,14 +107,6 @@ typedef struct edbs_shmhead_t {
 	//  - for waiting: jobmutex must not be locked
 	uint32_t futex_selectorhold;
 	uint32_t futex_installerhold;
-
-	// will signal on changes
-	// EDBS_SSTARTING for starting...
-	// EDBS_SRUNNING for started
-	// EDBS_SSTOPPED for shut down
-	//
-	// threading: requires jobmutex to read and write too.
-	uint32_t futex_status;
 
 
 	////////////////////////////////////////////////////////////////////////////
@@ -174,11 +188,13 @@ typedef struct edbs_shmjob_t {
 	uint32_t executorbytes, installerbytes;
 	unsigned int installerhead, executorhead;
 
-	// Both of these futex holds are equal to 1 if the following are true:
+	// Both of the readhold futex holds are equal to 1 if the following are
+	// true:
 	//  - the executor has not called term
 	//  - their opposing byte fields (see above) are 0.
 	//
-	// Both of these futex holds are equal to 2 if the following are true:
+	// Both of the writehold futex holds are equal to 2 if the following are
+	// true:
 	// - the executor has not called term
 	// - their RESPECTIVE byte fields (see above) are equal to
 	//   transferbuffcapacity
@@ -189,7 +205,8 @@ typedef struct edbs_shmjob_t {
 	//   - setting, waking: requires pipemutex
 	//   - getting: no mutex required
 	//   - waiting: pipemutex must not be locked.
-	uint32_t futex_executorhold, futex_installerhold;
+	uint32_t futex_executorreadhold, futex_installerreadhold,
+	futex_executorwritehold, futex_installerwritehold;
 
 	// Used to handle edge case discussed in edbs_jobterm's documentation
 	// where edbs_jobterm will block.
@@ -259,24 +276,6 @@ typedef struct edbs_handle_t {
 	edb_event_t *eventv;  // events buffer.
 	void        *transbuffer; // start of transfer buffer
 
-	// indexpagesv and structpagesv are NOT found within the shm.
-	// they are their own seperate allocations. They are read-only
-	// by the handles. Their content's can change at any time.
-	//
-	// The amount of index pages can be found on the first index
-	// page (which will always exist) (see spec of edbp_index),
-	// pointed to by indexpagesc;
-	//
-	// The amount of structure pages can be found in the first index
-	// page on the second entry (see spec of edbp_index), pointed to by
-	// structpagec;
-	//
-	// todo: change these to edbd
-	/*edbp_t const *indexpagec;
-	edbp_t const * const *indexpagesv;
-	edbp_t const *structpagec;
-	edbp_t const * const *structpagesv;*/
-
 	// shared memory file name. not stored in the shm itself.
 	char shm_name[32];
 
@@ -286,11 +285,12 @@ typedef struct edbs_handle_t {
 // wrappers. See futex(2)
 //
 // futex_wait returns -1 if EAGAIN was returned (which is not really an error)
+// all other errors are set by errno and returns -1.
 static int futex_wait(uint32_t *uaddr, uint32_t val) {
 	int err = (int)syscall(SYS_futex, uaddr, FUTEX_WAIT, val, 0, 0, 0);
 	if (err == -1 && errno != EAGAIN) {
-		log_critf("critical futex_wait: %d", errno);
-		return 0;
+		log_debugf("futex returned errno: %d", errno);
+		return -1;
 	}
 	// reset errno to keep it clean.
 	if(err == -1) {
