@@ -124,6 +124,7 @@ int main(int argc, const char **argv) {
 		// start threads
 		for(int i = 0; i < hostthreads; i++) {
 			payloads[i].h = host;
+			payloads[i].name = i+1;
 			payloads[i].bytes_to_write_to_buff = bytes_to_write_to_buff;
 			payloads[i].shouldclose = &shouldclose;
 			pthread_create(&payloads[i].thread, 0, gothread, &payloads[i]);

@@ -330,7 +330,10 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 
 edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
                        unsigned int ownerid) {
-	int err;
+	if(ownerid == 0) {
+		log_critf("jobselect has 0 ownerid");
+		return EDB_EINVAL;
+	}
 
 	// save some pointers to the stack for easier access.
 	o_job->shm = shm;

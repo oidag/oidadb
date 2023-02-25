@@ -133,6 +133,7 @@ typedef struct edbs_job_t {
 //                   Futhermore, edbs_jobselect will return even after
 //                   edbs_host_close has been called so long that there's jobs
 //                   that need to be doing.
+//   - EDB_EINVAL - (crit logged) ownerid is 0.
 //   - EDB_ECRIT
 edb_err edbs_jobselect(const edbs_handle_t *shm,
 					   edbs_job_t  *o_job,
