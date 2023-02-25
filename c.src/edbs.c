@@ -62,8 +62,6 @@ void deleteshm(edbs_handle_t *h, int ishost) {
 }
 
 void edbs_host_free(edbs_handle_t *shm) {
-	// todo: when the host closes the shm it should signal all other procsses
-	//       that it has closed.
 	return deleteshm(shm, 1);
 }
 
