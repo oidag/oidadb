@@ -508,12 +508,10 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	}
 #endif
 
-	// weave-lock the job specifically so we can perform task outside the
-	// jobinstall mutex
-	pthread_mutex_lock(&job->pipemutex);
-
-	// sense we set the jobclass, we can unlock. We now have installed our job.
-	pthread_mutex_unlock(&head->jobmutex);
+	// note to self: I had all the folowing "setup" logic in a weave lock as
+	// to not take too much time in jobmutex. I ended up getting rid of the
+	// weave lock because of an edge case where edbs_jobselect would return
+	// with the job that edbs_jobinstall has yet to return from.
 
 	// now reset all the descriptors for this job. that have nothing to do
 	// with the job installment algo.
@@ -532,7 +530,11 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	job->futex_executorreadhold = 1;
 	job->futex_executorwritehold = 0;
 	job->name = name;
-	pthread_mutex_unlock(&job->pipemutex);
+
+
+	// sense we set the jobclass, we can unlock. We now have installed our job.
+	pthread_mutex_unlock(&head->jobmutex);
+
 	return 0;
 }
 

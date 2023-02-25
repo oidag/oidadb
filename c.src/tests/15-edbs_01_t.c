@@ -37,6 +37,12 @@ void *gothread(void *v) {
 			return 0;
 		}
 
+		edbs_shmjob_t *debugjob = &job.shm->jobv[job.jobpos];
+
+		/*printf("thread#%d adopted job#%ld (slot %d)\n", payload->name,
+			   debugjob->jobid,
+			   job.jobpos);*/
+
 		// read from the buffer
 		int j;
 		for (j = 0; j < payload->bytes_to_write_to_buff; j++) {
@@ -73,9 +79,9 @@ int main(int argc, const char **argv) {
 	////////////////////////////////////////////////////////////////////////////
 	const int handles = 0; // if and only if 0 the current process will be
 	                       // the handle.
-	const int hostthreads = 1; // must be at least 1.
-	const int job_buffq = 6;
-	const int jobs_to_install_per_handle = 10;
+	const int hostthreads = 6; // must be at least 1.
+	const int job_buffq = 10;
+	const int jobs_to_install_per_handle = 100;
 	const int bytes_to_write_to_buff = 4096;
 
 	// so the handles will install a bunch of jobs, and write
