@@ -11,6 +11,8 @@
 
 #include <stdio.h>
 #include <wait.h>
+#include <sys/mman.h>
+#include <stdatomic.h>
 
 struct threadpayload {
 	pthread_t thread;
@@ -18,12 +20,25 @@ struct threadpayload {
 	edbs_handle_t *h;
 	uint32_t *shouldclose;
 	int bytes_to_write_to_buff;
+	uint64_t *totaltimewriting;
+	uint64_t *totaltimereading;
 };
+
+struct shmobj {
+	uint32_t futex_ready; // set to 1 then broadcasted when host is ready for
+	// child proces
+	// to connect
+};
+struct shmobj *shmobj;
+
+const char *shmname = "/10EDBS_00_01_c";
 
 void *gothread(void *v) {
 	struct threadpayload *payload = v;
 	edb_err terr; // cannot use normal err sense we're multi-thread'n
 	int i = 0;
+	uint64_t start = 0,finish = 0,diff = 0;
+	struct timeval startv,end = {0};
 	while(1) {
 
 		// select a job
@@ -45,6 +60,7 @@ void *gothread(void *v) {
 
 		// read from the buffer
 		int j;
+		gettimeofday(&startv,0);
 		for (j = 0; j < payload->bytes_to_write_to_buff; j++) {
 			uint8_t res;
 			int count = 1;
@@ -58,8 +74,14 @@ void *gothread(void *v) {
 				return 0;
 			}
 		}
+		gettimeofday(&end,0);
+		start = (uint64_t)startv.tv_sec*1000000 + startv.tv_usec;
+		finish = (uint64_t)end.tv_sec*1000000 + end.tv_usec;
+		diff = finish - start;
+		atomic_fetch_add(payload->totaltimereading, diff);
 
 		// write to buffer.
+		gettimeofday(&startv,0);
 		for (j = 0; j < payload->bytes_to_write_to_buff; j++) {
 			uint8_t res = j;
 			int count = 1;
@@ -68,7 +90,14 @@ void *gothread(void *v) {
 				test_error("executor: edbs_jobwrite");
 			}
 		}
+		gettimeofday(&end,0);
 		edbs_jobclose(job);
+
+		start = (uint64_t)startv.tv_sec*1000000 + startv.tv_usec;
+		finish = (uint64_t)end.tv_sec*1000000 + end.tv_usec;
+		diff = finish - start;
+		atomic_fetch_add(payload->totaltimewriting, diff);
+
 		i++;
 	}
 	return 0;
@@ -77,10 +106,10 @@ void *gothread(void *v) {
 int main(int argc, const char **argv) {
 
 	////////////////////////////////////////////////////////////////////////////
-	const int handles = 0; // if and only if 0 the current process will be
+	const int handles = 6; // if and only if 0 the current process will be
 	                       // the handle.
 	const int hostthreads = 6; // must be at least 1.
-	const int job_buffq = 10;
+	const int job_buffq = 100;
 	const int jobs_to_install_per_handle = 100;
 	const int bytes_to_write_to_buff = 4096;
 
@@ -109,6 +138,26 @@ int main(int argc, const char **argv) {
 	uint32_t shouldclose;
 	struct threadpayload payloads[hostthreads];
 
+	{
+		// initialize shm object FOR THE PARENT PROC
+		int shmfd = shm_open(shmname, O_RDWR | O_CREAT | O_TRUNC, 0666);
+		if (shmfd == -1) {
+			test_error("shm open");
+			return 1;
+		}
+		ftruncate64(shmfd, 4096);
+		shmobj = mmap(0, sizeof(struct shmobj),
+		              PROT_READ | PROT_WRITE,
+		              MAP_SHARED, shmfd, 0);
+		if (shmobj == MAP_FAILED) {
+			test_error("mmap");
+			return 1;
+		}
+		close(shmfd);
+		madvise(shmobj, 4096, MADV_DONTFORK);
+		shmobj->futex_ready = 0;
+	}
+
 	// start processes
 	int parentpid = getpid();
 	int isparent = 1;
@@ -116,13 +165,18 @@ int main(int argc, const char **argv) {
 		isparent = fork();
 		if(!isparent) break;
 	}
+	int mypid = getpid();
 
 	// if we're the parent: host the shm
 	edbs_handle_t *host;
+	uint64_t totaltimereading = 0, totaltimewritting = 0;
 	if(isparent) {
 		odb_hostconfig_t config = odb_hostconfig_default;
 		config.job_buffq = job_buffq;
-		if((err = edbs_host_init(&host, config))) {
+		err = edbs_host_init(&host, config);
+		shmobj->futex_ready = 1;
+		futex_wake(&shmobj->futex_ready, INT32_MAX);
+		if(err) {
 			test_error("edbs_host_init");
 			return 1;
 		}
@@ -130,16 +184,36 @@ int main(int argc, const char **argv) {
 		// start threads
 		for(int i = 0; i < hostthreads; i++) {
 			payloads[i].h = host;
+			payloads[i].totaltimereading = &totaltimereading;
+			payloads[i].totaltimewriting = &totaltimewritting;
 			payloads[i].name = i+1;
 			payloads[i].bytes_to_write_to_buff = bytes_to_write_to_buff;
 			payloads[i].shouldclose = &shouldclose;
 			pthread_create(&payloads[i].thread, 0, gothread, &payloads[i]);
 		}
+	} else {
+		// child proc initialize shmobject
+		int shmfd = shm_open(shmname, O_RDWR, 0666);
+		if(shmfd == -1) {
+			test_error("shm open 2");
+			return 1;
+		}
+		shmobj = mmap(0, sizeof(struct shmobj),
+		              PROT_READ | PROT_WRITE,
+		              MAP_SHARED, shmfd, 0);
+		if(shmobj == MAP_FAILED) {
+			test_error("mmap 2");
+			return 1;
+		}
+		close(shmfd);
 	}
 
 	// let the chidren install jobs and let the parent accept them
 	// in multi-threaded style
 	if(!isparent || handles == 0) {
+		if(!isparent) {
+			futex_wait(&shmobj->futex_ready, 0);
+		}
 		edbs_handle_t *hndl;
 		if((err = edbs_handle_init(&hndl, parentpid))) {
 			test_error("edbs_handle_init");
@@ -191,8 +265,10 @@ int main(int argc, const char **argv) {
 				}
 			}
 		}
+
 		edbs_handle_free(hndl);
 		if(!isparent) {
+			printf("proc %d finished \n", mypid);
 			return test_waserror;
 		}
 	}
@@ -217,6 +293,12 @@ int main(int argc, const char **argv) {
 	}
 
 	edbs_host_free(host);
+
+	// results
+	printf("total time reading (seconds): %f\n",
+	       (double)totaltimereading/10000000);
+	printf("total time writing (seconds): %f\n",
+		   (double)totaltimewritting/10000000);
 
 
 	// atp: only parent

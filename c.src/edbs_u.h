@@ -289,7 +289,7 @@ typedef struct edbs_handle_t {
 static int futex_wait(uint32_t *uaddr, uint32_t val) {
 	int err = (int)syscall(SYS_futex, uaddr, FUTEX_WAIT, val, 0, 0, 0);
 	if (err == -1 && errno != EAGAIN) {
-		log_debugf("futex returned errno: %d", errno);
+		log_critf("futex returned errno: %d", errno);
 		return -1;
 	}
 	// reset errno to keep it clean.
