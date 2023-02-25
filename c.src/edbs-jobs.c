@@ -172,7 +172,7 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 			// we filled the buffer up writing this message to the other
 			// side's head. We'll put a write hold on ourselves that they'll
 			// be responsilbe for clearing
-			*hold = 2;
+			*hold = 1;
 			i++;
 			break;
 		}

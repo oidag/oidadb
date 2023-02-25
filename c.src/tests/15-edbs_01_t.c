@@ -13,13 +13,14 @@
 #include <wait.h>
 #include <sys/mman.h>
 #include <stdatomic.h>
+#include <malloc.h>
 
 struct threadpayload {
 	pthread_t thread;
 	int name;
 	edbs_handle_t *h;
 	uint32_t *shouldclose;
-	int bytes_to_write_to_buff;
+	int bytes_to_write_to_buff_per, bytes_to_write_to_buff_mul;
 	uint64_t *totaltimewriting;
 	uint64_t *totaltimereading;
 };
@@ -39,6 +40,7 @@ void *gothread(void *v) {
 	int i = 0;
 	uint64_t start = 0,finish = 0,diff = 0;
 	struct timeval startv,end = {0};
+	uint8_t *buff = malloc(payload->bytes_to_write_to_buff_per);
 	while(1) {
 
 		// select a job
@@ -61,15 +63,14 @@ void *gothread(void *v) {
 		// read from the buffer
 		int j;
 		gettimeofday(&startv,0);
-		for (j = 0; j < payload->bytes_to_write_to_buff; j++) {
-			uint8_t res;
-			int count = 1;
-			terr = edbs_jobread(job, &res, count);
+		for (j = 0; j < payload->bytes_to_write_to_buff_mul; j++) {
+			int count = payload->bytes_to_write_to_buff_per;
+			terr = edbs_jobread(job, buff, count);
 			if(terr) {
 				test_error("executor: edbs_jobread");
 				return 0;
 			}
-			if (res != (uint8_t)j) {
+			if (buff[0] != 12) {
 				test_error("executor: bad bytes");
 				return 0;
 			}
@@ -81,11 +82,11 @@ void *gothread(void *v) {
 		atomic_fetch_add(payload->totaltimereading, diff);
 
 		// write to buffer.
+		memset(buff, 98, payload->bytes_to_write_to_buff_per);
 		gettimeofday(&startv,0);
-		for (j = 0; j < payload->bytes_to_write_to_buff; j++) {
-			uint8_t res = j;
-			int count = 1;
-			terr = edbs_jobwrite(job, &res, count);
+		for (j = 0; j < payload->bytes_to_write_to_buff_mul; j++) {
+			int count = payload->bytes_to_write_to_buff_per;
+			terr = edbs_jobwrite(job, buff, count);
 			if(terr) {
 				test_error("executor: edbs_jobwrite");
 			}
@@ -100,18 +101,20 @@ void *gothread(void *v) {
 
 		i++;
 	}
+	free(buff);
 	return 0;
 }
 
 int main(int argc, const char **argv) {
 
 	////////////////////////////////////////////////////////////////////////////
-	const int handles = 6; // if and only if 0 the current process will be
+	const int handles = 1; // if and only if 0 the current process will be
 	                       // the handle.
-	const int hostthreads = 6; // must be at least 1.
-	const int job_buffq = 100;
-	const int jobs_to_install_per_handle = 100;
-	const int bytes_to_write_to_buff = 4096;
+	const int hostthreads = 12; // must be at least 1.
+	const int job_buffq = 1000;
+	const int jobs_to_install_per_handle = 1000;
+	const int bytes_to_write_to_buff_per = 4096;
+	const int bytes_to_write_to_buff_mul = 12;
 
 	// so the handles will install a bunch of jobs, and write
 	// bytes_to_write_to_buff of the number '12' to the buffer, then read
@@ -187,7 +190,8 @@ int main(int argc, const char **argv) {
 			payloads[i].totaltimereading = &totaltimereading;
 			payloads[i].totaltimewriting = &totaltimewritting;
 			payloads[i].name = i+1;
-			payloads[i].bytes_to_write_to_buff = bytes_to_write_to_buff;
+			payloads[i].bytes_to_write_to_buff_per = bytes_to_write_to_buff_per;
+			payloads[i].bytes_to_write_to_buff_mul = bytes_to_write_to_buff_mul;
 			payloads[i].shouldclose = &shouldclose;
 			pthread_create(&payloads[i].thread, 0, gothread, &payloads[i]);
 		}
@@ -233,21 +237,20 @@ int main(int argc, const char **argv) {
 			}
 
 			// fill up the transfer job
-			// this is truely chaos sense we're writting 1 byte at a time.
-			for( int j = 0; j < bytes_to_write_to_buff; j++) {
-				int count = 1;
-				uint8_t b = j;
-				err = edbs_jobwrite(job, &b, count);
+			uint8_t *buff = malloc(bytes_to_write_to_buff_per);
+			memset(buff, 12, bytes_to_write_to_buff_per);
+			for( int j = 0; j < bytes_to_write_to_buff_mul; j++) {
+				int count = bytes_to_write_to_buff_per;
+				err = edbs_jobwrite(job, buff, count);
 				if(err) {
 					test_error("handle: edbs_jobwrite");
 					break;
 				}
 			}
-			// now read 1 byte at a time
-			for( int j = 0; j < bytes_to_write_to_buff; j++) {
-				int count = 1;
-				uint8_t b = 0;
-				err = edbs_jobread(job, &b, count);
+			// now read
+			for( int j = 0; j < bytes_to_write_to_buff_mul; j++) {
+				int count = bytes_to_write_to_buff_per;
+				err = edbs_jobread(job, buff, count);
 				if(err) {
 					if(oneway && err == EDB_ECLOSED) {
 						// if its a 1-way, then we actually expect to get an error
@@ -260,10 +263,11 @@ int main(int argc, const char **argv) {
 					test_error("expected to get error on jobread for 1-way");
 					continue;
 				}
-				if(b !=(uint8_t) j) {
-					test_error("did not read 98 from host");
+				if(buff[0] != 98) {
+					test_error("did not read 98 from host, got %d", buff[0]);
 				}
 			}
+			free(buff);
 		}
 
 		edbs_handle_free(hndl);
@@ -295,10 +299,22 @@ int main(int argc, const char **argv) {
 	edbs_host_free(host);
 
 	// results
+	const double totalbytes = jobs_to_install_per_handle*handles
+	                       *bytes_to_write_to_buff_mul *
+						   bytes_to_write_to_buff_per;
 	printf("total time reading (seconds): %f\n",
-	       (double)totaltimereading/10000000);
+	       ((double)totaltimereading/10000000));
 	printf("total time writing (seconds): %f\n",
 		   (double)totaltimewritting/10000000);
+
+	double MiB = totalbytes/((double)1024*1000);
+	printf("total bytes (MiB): %f\n",
+	       MiB);
+
+	printf("reading speed (MiB/second): %f\n",
+	       MiB/((double)totaltimereading/10000000));
+	printf("writing speed (MiB/second): %f\n",
+	       MiB/((double)totaltimewritting/10000000));
 
 
 	// atp: only parent
