@@ -205,6 +205,9 @@ typedef enum edb_err {
 
 	/// Something happened to the active stream/pipe
 	EDB_EPIPE,
+
+	/// Something was missed
+	EDB_EMISSED,
 } edb_err;
 
 /**
