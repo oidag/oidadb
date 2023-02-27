@@ -20,8 +20,12 @@
 // Define to enable odbtelemtry at all
 #define EDBTELEM
 #ifdef EDBTELEM
-// log_debug message will be generated every telemetry message.
+// log_debug message will be generated every telemetry message. Note: will
+// REALLY slow everything down. Like badly. Use only in desperate situations
 //#define EDBTELEM_DEBUG
+
+// Enable/disable inner-process telemetry.
+#define EDBTELEM_INNERPROC
 #endif
 
 #endif

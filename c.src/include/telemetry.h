@@ -19,16 +19,16 @@
  * `odbtelem` is for debugging, diagnosing, and monitoring the *reactivity* the
  * database has to your application.
  *
- * The odbtelem namespaces looks at process data **within the same process**.
- * This means that you must enable and read telemetry in the same process
- * that \ref odb_host is to be active on.
+ * Accessing `odbtelem` comes in either intra-process or inner-process forms.
+ * Intra-process telemetry is faster than inner-process telemetry for obvious
+ * reasons.
  *
  * The sentiments of odbtelem:
- *   - odbtelem is strictly read/observe-only
- *   - odbtelem (when active) CAN slow down the database operations due to
- *     extra instructions and slow call-backs. So if you don't know what
- *     you're doing, don't use odbtelem (keep it disabled)
- *   - Not all libraries have odbtelem available at all. You'll see
+ *   - odbtelem is strictly read/observe-only.
+ *   - odbtelem (when active) will greatly slow down the database performance
+ *     due to extra instructions and slow call-backs. So if you don't know what
+ *     you're doing, nor why, don't use odbtelem (keep it disabled).
+ *   - Not all libraries have odbtelem fully available, if at all. You'll see
  *     EDB_EVERSION returned a lot in those cases.
  *   - Telemetry is "lossless": this also means that all telemetry data is
  *     analyzed in the order that it happened.
@@ -39,45 +39,100 @@
  * \{
  */
 
+/// \brief Configure various aspects of the telemetry host.
+typedef struct odbtelem_params_t {
+
+	/// \brief Innprocess telemtry
+	///
+	/// If non-0, then outside processes will be able to attach to the
+	/// telemetry via \ref odbtelem_attach.
+	///
+	/// Default value is 0. Some versions may have `odbtelem` return
+	/// EDB_EVERSION if this is enabled.
+	///
+	int innerprocess;
+
+	/// The size of the telemetry poll buffer. A smaller poll will increase
+	/// the likely hood that \ref odbtelem_poll will return EDB_EMISSED.
+	///
+	/// Default value is 32.
+	///
+	/// EDB_EINVAL if buffersize < 1
+	///
+	/// \see The only true fix to avoid EDB_EMISSED is discussed in
+	///      odbtelem_poll
+	int buffersize;
+
+} odbtelem_params_t;
+
 /**
- * \brief Enable/disable telemetry
+ *
+ * \brief Enable/disable telemetry for a host process.
  *
  * By default, the processes will have telemetry disabled. This function will
  * set it as active/deactive depending `enabled`.
  *
+ * When the telemetry is changing state from disabled to enabled, the
+ * structure \ref odbtelem_params is used to configure various the aspects of
+ * the telemetry. Otherwise, this argument is ignored
+ *
  * When turning off telemetry, all telemetry classes and their bindings are
- * destroyed.
+ * destroyed. It will revert everything back to as if odbtelem was never
+ * called in the first place.
  *
  * ## RETURNS
  *   - EDB_EVERSION - telementry not possible because this library was not
- *     built to have it.
+ *                    built to have it.
+ *   - EDB_EVERSION - See `odbtelem_params_t` structure
+ *   - EDB_EINVAL   - See `odbtelem_params_t` structure
  *
- * ## THREADING
- * Not MT-safe.
  */
-edb_err odbtelem(int enabled);
+edb_err odbtelem(int enabled, odbtelem_params_t params);
 
 /**
- * \brief Bind a telemetry class to a callback.
+ * \brief Attach to a hosted database's telemetry stream
  *
- * All telemetry events are seperated into what are known "telemetry classes"
- * . Each telemetry class can have only a single callback bound to them. If
- * `cb` is null, then the class is set to be unbound.
+ * Attach the calling process to whatever process has `path` open and hosted
+ * and access the telemetry data. Note the calling process and host process
+ * can be the same, or different provided that the host process has enabled
+ * innerprocess telemtry.
  *
- * It is very important to note that these callbacks are executed in-thread,
- * so `cb` should be thread-safe sense it will be executed from any one of
- * the host's threads. This also means if your callback takes forever to
- * return, it will slow down the calling thread and thus slowing down the
- * database. Finally, if `cb` causes the thread to crash then this will
- * result in undefined behaviour, possibly ending in a corrupted database.
+ * Once attached, \ref odbtelem_poll can be used to read the stream of
+ * analytics.
  *
- * `cb` will be provided `odbtelem_data`, how to interpret that data will
- * depend on \ref odbtelem_class.
+ * If the host process decides to disable telemetry or shutsdown after
+ * `odbtelem_attach`, then it is as if odbtelem_detach was called.
  *
- * ## RETURNS
- *  - EDB_EINVAL - `class` is not valid
- *  - EDB_ENOENT - telemetry not enabled (see odbtelem())
- *  - EDB_EVERSION - Library version does not have `class` enabled.
+ * ## ERRORS
+ *  - EDB_EVERSION - Library version does not provide telemetry attachments
+ *  - EDB_EERRNO - An error was returned by open(2)... see errno.
+ *  - EDB_ENOTDB - `odbtelem_attach` opened `path` and found not to be a
+ *                 oidadb file.
+ *  - EDB_ENOHOST - The file is a oidadb file, but is not being hosted.
+ *  - EDB_EPIPE   - The host exists and is running, but analytics are not
+ *                  enabled. (See \ref odbtelem)
+ *  - EDB_EOPEN -   Already attached successfully.
+ *  - \ref EDB_ECRIT
+ *
+ * \see odbtelem
+ * \see odbtelem_poll
+ *  \{
+ */
+edb_err odbtelem_attach(const char *path);
+void    odbtelem_detach();
+// odbtelem_attach
+/// \}
+
+/**
+ * \defgroup odbtelem_poll odbtelem_poll
+ *
+ *
+ * ## ERRORS
+ *  - EDB_EPIPE   - Not attached to host process (see \ref odbtelem_attach)
+ *  - EDB_EMISSED - `odbtelem_poll` was called too infrequently and wasn't
+ *                  able to capture all events in the buffer before elements
+ *                  of the buffer had to be replaced. This happens because
+ *                  you were not polling fast enough.
  *
  * \{
  */
@@ -148,11 +203,8 @@ typedef struct odbtelem_data {
 	};
 
 } odbtelem_data;
-
-typedef void(*odbtelem_cb)(odbtelem_data);
-
-edb_err odbtelem_bind(odbtelem_class class, odbtelem_cb cb);
-// odbtelem_bind
+edb_err odbtelem_poll(odbtelem_data *o_data);
+// odbtelem_poll
 /// \}
 
 // odbtelem

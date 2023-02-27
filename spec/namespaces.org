@@ -152,6 +152,7 @@ Can include:
 
  - gman/gman.h (for putting shit on the screen)
  - oidadb.h (for reading and parsing files/processes)
+ - telemetry.h (listening to host)
 
 * odbm/gman/glplotter.h
 Only thing that can import glfw functions. Handles all the logic for
