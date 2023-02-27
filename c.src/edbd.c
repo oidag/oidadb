@@ -43,8 +43,8 @@ static edb_err createfile(int fd, odb_createparams params) {
 
 	// generate the head-intro structure.
 	odb_spec_headintro intro = {0};
-	intro.magic[0] = 0xA6;
-	intro.magic[1] = 0xF0;
+	intro.magic[0] = ODB_SPEC_HEADER_MAGIC[0];
+	intro.magic[1] = ODB_SPEC_HEADER_MAGIC[1];
 	intro.intsize  = sizeof(int);
 	intro.entrysize = sizeof(odb_spec_index_entry);
 	intro.pagesize = syspagesize;

@@ -17,7 +17,7 @@
 // generates the file name for the shared memory
 // buff should be at least 32bytes.
 void static inline shmname(pid_t pid, char *buff) {
-	sprintf(buff, "/EDB_HOST-%d", pid);
+	sprintf(buff, "/odb_host-%d", pid);
 }
 
 // helper function to hostclose, createshm, edb_host_shmunlink, edb_host_shmlink
