@@ -1,4 +1,10 @@
 #include "odb-structures.h"
+#include "errors.h"
+
+#include <fcntl.h>
+#include <errno.h>
+#include <unistd.h>
+
 
 void edba_u_initobj_pages(void *page, odb_spec_object header,
                           uint16_t fixedc, unsigned int objectsperpage) {
@@ -36,4 +42,63 @@ void edba_u_initobj_pages(void *page, odb_spec_object header,
 		// note we don't need to touch the dynamic pointers because they should all be
 		// 0 (null). And we know any byte we don't touch will be 0.
 	}
+}
+
+edb_err edb_host_getpid(const char *path, pid_t *outpid) {
+
+	int err = 0;
+	int fd = 0;
+	struct flock dblock = {0};
+
+	// open the file for the only purpose of reading locks.
+	fd = open(path,O_RDONLY);
+	if (fd == -1) {
+		log_errorf("failed to open pid-check descriptor");
+		return EDB_EERRNO;
+	}
+	// read any fcntl locks
+	dblock = (struct flock){
+			.l_type = F_WRLCK,
+			.l_whence = SEEK_SET,
+			.l_start = 0,
+			.l_len = 1, // first byte but mind you any host should have
+			// locked the entire first page
+			.l_pid = 0,
+	};
+	err = fcntl(fd, F_OFD_GETLK, &dblock);
+	if(err == -1) {
+		int errnotmp = errno;
+		close(fd);
+		log_critf("fcntl(2) returned unexpected errno: %d", errnotmp);
+		errno = errnotmp;
+		return EDB_ECRIT;
+	}
+
+	// read the head to make sure its an odb file
+	odb_spec_head head;
+	ssize_t n = read(fd, &head, sizeof(odb_spec_head));
+	if(n == -1) {
+		int errnotmp = errno;
+		close(fd);
+		log_critf("failed to read file header");
+		errno = errnotmp;
+		return EDB_ECRIT;
+	}
+	// we can close the file now sense we got all the info we needed.
+	close(fd);
+
+	// analyzie head
+	if(n != sizeof(odb_spec_head)
+	   || head.intro.magic[0] != ODB_SPEC_HEADER_MAGIC[0]
+	   || head.intro.magic[1] != ODB_SPEC_HEADER_MAGIC[1]) {
+		return EDB_ENOTDB;
+	}
+	// analyze the results of the lock.
+	if(dblock.l_type == F_UNLCK) {
+		// no host connected to this file.
+		return EDB_ENOHOST;
+	}
+	// host successfully found.
+	*outpid = dblock.l_pid;
+	return 0;
 }

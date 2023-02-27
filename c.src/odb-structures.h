@@ -88,6 +88,8 @@ typedef struct odb_spec_struct_struct {
 //
 //
 
+#define ODB_SPEC_HEADER_MAGIC (uint8_t []){0xA6, 0xF0}
+
 struct odb_spec_headintro {
 	uint8_t magic[2];
 	uint8_t intsize;
@@ -197,5 +199,15 @@ typedef struct odb_spec_dynamic {
 // later: this probably belongs in edbd.
 void edba_u_initobj_pages(void *page, odb_spec_object header,  uint16_t fixedc,
                           unsigned int objectsperpage);
+
+// stored pid of the host for a given database file.
+// does not validate the file itself.
+//
+// Errors:
+//  - EDB_ENOTDB  - opened `path` but found not to be a oidadb file.
+//  - EDB_ENOHOST - no host for file
+//  - EDB_EERRNO  - error with open(2).
+//  - EDB_ECRIT
+edb_err edb_host_getpid(const char *path, pid_t *outpid);
 
 #endif
