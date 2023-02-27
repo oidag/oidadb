@@ -43,6 +43,11 @@ void log_noticef(const char *fmt, ...) {
 	stdlogthing(stdout, "notice");
 }
 
+void log_alertf(const char *fmt, ...) {
+	stdlogthing(stdout, "notice");
+}
+
+
 void log_info(const char *log) {
 	log_infof("%s", log);
 }
