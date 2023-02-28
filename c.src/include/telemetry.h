@@ -52,16 +52,19 @@ typedef struct odbtelem_params_t {
 	///
 	int innerprocess;
 
-	/// The size of the telemetry poll buffer. A smaller poll will increase
-	/// the likely hood that \ref odbtelem_poll will return EDB_EMISSED.
+	/// The size of the telemetry poll buffer in form of an exponent of 2. A
+	/// smaller poll will increase the likely hood that \ref odbtelem_poll
+	/// will return EDB_EMISSED.
 	///
-	/// Default value is 32.
+	/// buffersize_exp must be >= 0 and <= 15
 	///
-	/// EDB_EINVAL if buffersize < 1
+	/// Default value is 5 (2^5 = 32 buffer size).
+	///
+	/// EDB_EINVAL if buffersize_exp < 1
 	///
 	/// \see The only true fix to avoid EDB_EMISSED is discussed in
 	///      odbtelem_poll
-	int buffersize;
+	int buffersize_exp;
 
 } odbtelem_params_t;
 
@@ -85,6 +88,7 @@ typedef struct odbtelem_params_t {
  *                    built to have it.
  *   - EDB_EVERSION - See `odbtelem_params_t` structure
  *   - EDB_EINVAL   - See `odbtelem_params_t` structure
+ *   - EDB_ECRIT
  *
  */
 edb_err odbtelem(int enabled, odbtelem_params_t params);
@@ -107,7 +111,7 @@ edb_err odbtelem(int enabled, odbtelem_params_t params);
  *  - EDB_EVERSION - Library version does not provide telemetry attachments
  *  - EDB_EERRNO - An error was returned by open(2)... see errno.
  *  - EDB_ENOTDB - `odbtelem_attach` opened `path` and found not to be a
- *                 oidadb file.
+ *                  oidadb file.
  *  - EDB_ENOHOST - The file is a oidadb file, but is not being hosted.
  *  - EDB_EPIPE   - The host exists and is running, but analytics are not
  *                  enabled. (See \ref odbtelem)
