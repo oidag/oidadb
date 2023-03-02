@@ -25,7 +25,7 @@
 //#define EDBTELEM_DEBUG
 
 // Enable/disable inner-process telemetry.
-#define EDBTELEM_INNERPROC
+#define EDBTELEM_INNERPROC // todo: remove
 #endif
 
 #endif

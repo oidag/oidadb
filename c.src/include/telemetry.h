@@ -50,7 +50,8 @@ typedef struct odbtelem_params_t {
 	/// Default value is 0. Some versions may have `odbtelem` return
 	/// EDB_EVERSION if this is enabled.
 	///
-	int innerprocess;
+	int innerprocess; // todo: delete this. Make it innerpocess by default.
+	//                         shm file permissions will take care of access.
 
 	/// The size of the telemetry poll buffer in form of an exponent of 2. A
 	/// smaller poll will increase the likely hood that \ref odbtelem_poll
@@ -120,6 +121,7 @@ edb_err odbtelem(int enabled, odbtelem_params_t params);
  *
  * \see odbtelem
  * \see odbtelem_poll
+ * \see odbtelem_image
  *  \{
  */
 edb_err odbtelem_attach(const char *path);
@@ -210,6 +212,54 @@ typedef struct odbtelem_data {
 edb_err odbtelem_poll(odbtelem_data *o_data);
 // odbtelem_poll
 /// \}
+
+/**
+ * \brief Get a full snapshot of the attached host
+ *
+ * odbtelem_image will provide the "full picture" of the attached host.
+ * Unlike odbtelem_poll which only provides the delta, this function provides
+ * the entire landscape of the database.
+ *
+ * Keep in mind that by the time this function returns, `image` may already
+ * be out of date. Being pensive in calling \ref odbtelem_poll is the only
+ * way to stay up to date.
+ *
+ * ## ERRORS
+ *  - EDB_EVERSION - Version does not support imaging.
+ *  - EDB_EPIPE   - Not attached to host process (see \ref odbtelem_attach)
+ *  - EDB_EINVAL - o_image is null
+ */
+typedef struct odbtelem_image_t {
+
+	// total count of pages in the database
+	unsigned long pagec;
+
+	// total count of index pages
+	unsigned int pagec_index;
+
+	// total count of structure pages
+	unsigned int pagec_struct;
+
+	// How many pages are cached and the pages in question
+	unsigned int pagec_cached;
+	edb_pid     *pagec_cachedv;
+
+	// number of workers
+	unsigned int workerc;
+
+	// number of job SLOTS. (not to be confused with jobs installed)
+	// number of jobs installed and their descriptions, as well as their
+	// owners (worker id).
+	// jobdesc = 0 means no job installed
+	unsigned int jobsq;
+	odb_jobdesc  *job_desc;
+	unsigned int *job_workersv;
+
+
+} odbtelem_image_t;
+edb_err odbtelem_image(odbtelem_image_t *o_image);
+
+
 
 // odbtelem
 /// \}

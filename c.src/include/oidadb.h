@@ -838,6 +838,8 @@ typedef enum odb_cmd {
 	EDB_CUSRLKW  = 0x0600,
 } odb_cmd;
 
+typedef unsigned int odb_jobdesc;
+
 
 /**
  * \brief User lock bit constants
