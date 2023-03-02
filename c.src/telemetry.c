@@ -90,6 +90,12 @@ typedef struct telemetry_shm {
 	// set to 0 when host is no longer tending to this shm.
 	int hosted;
 
+	// the current image by the host will be updated before every futex_raster.
+	// All pointers in this will not be actual pointers! They instead will be
+	// uint64_t offsets from the start of shm to where the data begins (sense
+	// shm memory can have no pointers)
+	odbtelem_image_t image;
+
 	// we put this last due to how memcpy works as to know that so long as
 	// this is valid, shmc is also valid. Old fashion way of mutli processing :)
 	const int magicnum;
