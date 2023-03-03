@@ -94,7 +94,13 @@ typedef struct telemetry_shm {
 	// All pointers in this will not be actual pointers! They instead will be
 	// uint64_t offsets from the start of shm to where the data begins (sense
 	// shm memory can have no pointers)
+	//
+	// image_raster, the raster id that the image reflects. image_raster is
+	// only updated AFTER the image has been fully updated. futex_raster is
+	// only updated BEFORE the image is updated. This will allow for a
+	// brute-mutex.
 	odbtelem_image_t image;
+	uint32_t         image_raster;
 
 	// we put this last due to how memcpy works as to know that so long as
 	// this is valid, shmc is also valid. Old fashion way of mutli processing :)
@@ -240,6 +246,40 @@ edb_err odbtelem_poll(odbtelem_data *o_data) {
 	return 0;
 }
 
+edb_err odbtelem_image(odbtelem_image_t *o_image) {
+	// todo: EDB_EVERSION
+	if(!telemetry_listener.attached) {
+		return EDB_EPIPE;
+	}
+	if(!o_image) {
+		return EDB_EINVAL;
+	}
+
+	// get the image from the shm. To avoid mutli-thread tearing, we use a
+	// technique I like to call "a brute's mutex".
+	do {
+		// download the image from the shm
+		*o_image = telemtry_shared.shm->image;
+
+		// sense as per image_raster's documentation. If the futex_raster is
+		// ever not equal to image_raster, this means the host in the middle
+		// of updating shm->image. Thus, we'll just keep trying until we know
+		// no thread-tearing has happened.
+	} while(telemtry_shared.shm->futex_raster
+	        != telemtry_shared.shm->image_raster);
+
+
+	// actualize the pointers
+	o_image->job_desc = (void *)telemtry_shared.shm
+	                    + (uint64_t)o_image->job_desc;
+	o_image->job_workersv = (void *)telemtry_shared.shm
+	                        + (uint64_t)o_image->job_workersv;
+	o_image->pagec_cachedv = (void *)telemtry_shared.shm
+	                         + (uint64_t)o_image->pagec_cachedv;
+
+	return 0;
+}
+
 // installs the data into the buffer. Will override old data.
 static void odbtelem_install(odbtelem_data data) {
 	telemetry_shm *shm = telemtry_shared.shm;
@@ -249,6 +289,13 @@ static void odbtelem_install(odbtelem_data data) {
 	shm->index = (shm->index + 1) % shm->dataq;
 	shm->futex_raster++;
 	shm_datav[shm->index] = data;
+
+	// todo image
+
+
+	// update the image raster
+	shm->image_raster++;
+
 	pthread_mutex_unlock(mutex);
 	futex_wake(&shm->futex_raster, INT32_MAX);
 }
@@ -327,6 +374,8 @@ inline static edb_err setshmbuffer() {
 			.shmc = size,
 			.dataq = buffersize,
 			.futex_raster = 0,
+			.image = {0},
+			.image_raster = 0,
 			.hosted = 1,
 			.index = 0,
 	};
