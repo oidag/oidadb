@@ -214,9 +214,9 @@ edb_err odbtelem_poll(odbtelem_data *o_data);
 /// \}
 
 /**
- * \brief Get a full snapshot of the attached host
+ * \brief Get a full in-memory snapshot of the attached host.
  *
- * odbtelem_image will provide the "full picture" of the attached host.
+ * odbtelem_image will provide the "full picture" of the attached host's memory.
  * Unlike odbtelem_poll which only provides the delta, this function provides
  * the entire landscape of the database.
  *
@@ -231,30 +231,30 @@ edb_err odbtelem_poll(odbtelem_data *o_data);
  */
 typedef struct odbtelem_image_t {
 
-	// total count of pages in the database
+	/// total count of pages in the database
 	unsigned long pagec;
 
-	// total count of index pages
-	unsigned int pagec_index;
-
-	// total count of structure pages
-	unsigned int pagec_struct;
-
-	// How many pages are cached and the pages in question
-	unsigned int pagec_cached;
-	edb_pid     *pagec_cachedv;
-
-	// number of workers
+	/// number of workers
 	unsigned int workerc;
 
-	// number of job SLOTS. (not to be confused with jobs installed)
-	// number of jobs installed and their descriptions, as well as their
-	// owners (worker id).
-	// jobdesc = 0 means no job installed
+	/// The page cache size and an array of equal size describing the page
+	/// id's that are in cache. If a page id is 0, that means that slot has
+	/// no page loaded.
+	unsigned int pagecacheq;
+	edb_pid     *pagecachev;
+
+	// todo: locks?
+
+	/// Associative to pagesc_cachedv: what workers have which pages checked
+	/// out. If 0, then page is not checked out.
+	unsigned int *pagecachev_worker;
+
+	/// Job SLOTS. (not to be confused with jobs installed)
+	/// Rheir descriptions, as well as their owners (worker id).
+	/// jobdesc = 0 means no job installed.
 	unsigned int jobsq;
 	odb_jobdesc  *job_desc;
 	unsigned int *job_workersv;
-
 
 } odbtelem_image_t;
 edb_err odbtelem_image(odbtelem_image_t *o_image);
