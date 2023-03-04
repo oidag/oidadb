@@ -96,7 +96,7 @@ int gman_init() {
 	column_color(selected, color_violet900);
 	column_type(selected, ELM_PAGE);
 	column_viewboxr(selected, (recti_12x16) {0, 0, 1, 14});
-	// pages (buff)
+	// pages (cached)
 	selected = host.pagebuff = column_new();
 	column_color(selected, color_violet700);
 	column_type(selected, ELM_PAGE);
@@ -108,16 +108,32 @@ int gman_init() {
 	shard_new(host.pages);
 	shard_new(host.pages);
 	shard_new(host.pages);
-	shard_new(host.pages);
+	shard_t *s1 = shard_new(host.pages);
+	shard_t *s2 = shard_new(host.pagebuff);
+	ent_arrow_new(s1, s2);
 
 
 	dialog_index_start();
 
 
 
-	// todo: edbw
+	// edbw
+	selected = host.workers = column_new();
+	column_color(selected, color_emerald900);
+	column_type(selected, ELM_WORKER);
+	column_viewboxr(selected, (recti_12x16) {2, 0, 1, 16});
 
-	// todo: edbs
+	// edbs-jobs
+	selected = host.jobs = column_new();
+	column_color(selected, color_cyan900);
+	column_type(selected, ELM_WORKER);
+	column_viewboxr(selected, (recti_12x16) {3, 8, 1, 8});
+
+	// edbs-event
+	selected = host.jobs = column_new();
+	column_color(selected, color_cyan700);
+	column_type(selected, ELM_WORKER);
+	column_viewboxr(selected, (recti_12x16) {3, 0, 1, 8});
 
 
 	// debuger

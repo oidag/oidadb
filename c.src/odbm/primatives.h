@@ -94,6 +94,13 @@ static void inline rect_growi(recti_t *r, int g) {
 	r->heigth += g*2;
 }
 
+// converts the absolute position into relative area (returned)
+static vec2i recti_relative(recti_t area, vec2i absolute) {
+	vec2i ret;
+	;
+
+}
+
 // retuns 1 if intersection, 0 otherwise
 static int inline rect_intersectsi(recti_t a, recti_t b) {
 	return (

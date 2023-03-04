@@ -51,6 +51,8 @@ void dialog_index_start() {
 	//settings = settings;
 	dialog_invalidatef();
 
+	return;
+
 	// todo: testing... open the file and all that shit.
 	const char *file = "t0001_io.oidadb";
 	int fd = open(file, O_RDONLY);

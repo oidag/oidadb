@@ -31,7 +31,7 @@ typedef struct ent_background_t {
 
 int background_start();
 
-void ent_opener_new(void (*onload)());
+//void ent_opener_new(void (*onload)());
 
 // abducts stderr and stdout
 void ent_terminal_start();
