@@ -120,6 +120,7 @@ outside of this domain and its subdomains.
    - shard-job
    - shard-event
  - column
+ - arrow
  - /background/
  - dialog*
    - /dialog-structure/

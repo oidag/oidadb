@@ -73,6 +73,8 @@ typedef vec2i vec2i_12x16;
 
 typedef recti_t recti_12x16;
 
+typedef rect_t rect_12x16;
+
 vec2i static inline vec2i_12x16_real(vec2i_12x16 v, vec2i windowsize) {
 	return (vec2i){
 			.x = windowsize.width/12*v.x,
@@ -126,9 +128,8 @@ void shard_cookie(shard_t *, void *cookie);
 void shard_ondraw(shard_t *, void (*cb)(void *cookie));
 
 // adds an arrow from the src shard to the dest shard.
-void shard_point(shard_t *src, shard_t *dest);
-
-
+typedef struct arrow_t arrow_t;
+arrow_t *ent_arrow_new(shard_t *src, shard_t *dest);
 
 
 

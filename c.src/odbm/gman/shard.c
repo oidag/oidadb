@@ -7,17 +7,32 @@
 extern void column_place_child(column_t *u, graphic_t *shard);
 extern element_type column_typeget(column_t *u);
 
+const int bordersize = 3;
+
 typedef struct shard_t {
 	int isselected;
 	int ishover;
 	column_t *owner;
 	graphic_t *g;
-
 	void *cookie;
-
 	void (*drawselector)(void *cookie);
-
 } shard_t;
+
+
+// exported to arrow.c
+// returns pixel location of the left and right (respectively) attachment point
+// for the arrow.
+void ent_shard_attachmentpoint(shard_t *s, vec2i *o_left, vec2i *o_right) {
+	glp_viewport_t v = glp_viewportget(s->g);
+
+	int y = v.y + v.heigth / 2;
+
+	o_left->x = v.x + bordersize;
+	o_right->x = v.x + v.width - bordersize;
+
+	o_left->y = y;
+	o_right->y = y;
+}
 
 static void draw(graphic_t *g) {
 	shard_t *ent = glp_userget(g);
@@ -107,7 +122,6 @@ static void draw(graphic_t *g) {
 
 	// background
 	// add margin to background (for border)
-	int bordersize = 3;
 	recti_t v = glp_viewportget(g);
 	rect_growi(&v, -bordersize);
 	glViewport(v.x, v.y, v.width, v.heigth);
@@ -170,9 +184,6 @@ void shard_cookie(shard_t *s, void *cookie) {
 void shard_ondraw(shard_t *s, void (*cb)(void *cookie)) {
 	s->drawselector = cb;
 }
-
-// adds an arrow from the src shard to the dest shard.
-void shard_point(shard_t *src, shard_t *dest);
 
 // start
 shard_t *shard_new(column_t *owner) {
