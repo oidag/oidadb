@@ -922,7 +922,7 @@ Fuck.
 
 \see odbh_structs
  */
-edb_err edbh_job(odbh *handle, unsigned int jobclass, ... /* args */);
+edb_err edbh_job(odbh *handle, odb_jobdesc jobclass, ... /* args */);
 
 
 /**

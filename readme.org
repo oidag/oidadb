@@ -40,6 +40,9 @@ The big fucking library I'm making. The whole project.
 The (o)ida(db) (m)onitor. OpenGL graphical interface for monitoring
 oidadb files.
 
+ - apt install libgl1-mesa-dev xorg-dev
+ - what ever deps are in go.src/go.module
+
 ** tests targets
 Tests files for when you run `make test`. Also contains
 benchmarks. Each test is a different =main()=. See [[Tests]].
