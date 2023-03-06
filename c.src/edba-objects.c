@@ -141,8 +141,8 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	edba_u_locktrashstartoff(h, pageid);
 
 	// check for trashfault
-	edbp_start(&h->edbphandle, pageid);
-	odb_spec_object *o = edbp_graw(&h->edbphandle);
+	edbp_start(h->edbphandle, pageid);
+	odb_spec_object *o = edbp_graw(h->edbphandle);
 	if(o->trashstart_off == (uint16_t)-1) {
 
 		// if we're in here then what has happened is a trash fault.
@@ -194,7 +194,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// get some pointers to the object data, we'll need these these
 	// now to get the next item on the trash list to set to trashstartoff
 	// before we can release it
-	edbp_t *page = edbp_graw(h->edbphandle);
+	void *page = edbp_graw(h->edbphandle);
 	assignobject(h, page, intrapagebyteoff, structdat);
 
 
@@ -310,13 +310,13 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	// redundancy check (required)
 	if(edba_objectdeleted(h)) {
 		log_infof("attempted to delete already deleted object: oid#%ld",
-				  edbp_gpid(&h->edbphandle));
+				  edbp_gpid(h->edbphandle));
 		return 0;
 	}
 
 	// as per spec we must lock the trash field. We can do this with the page loaded
 	// because we have the record itself XL locked.
-	edba_u_locktrashstartoff(h, edbp_gpid(&h->edbphandle));
+	edba_u_locktrashstartoff(h, edbp_gpid(h->edbphandle));
 	// **defer: edba_u_locktransstartoff_release(h);
 
 	// mark as deleted
@@ -337,7 +337,7 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	}
 
 	// get the header of the object page
-	odb_spec_object *objheader = edbp_graw(&h->edbphandle);
+	odb_spec_object *objheader = edbp_graw(h->edbphandle);
 	int trashcrit1 = EDB_TRASHCRITCALITY(objheader->trashc, h->clutchedentry->objectsperpage);
 	// add to the trash linked list
 	*(uint16_t *)(h->content) = objheader->trashstart_off;
@@ -366,14 +366,14 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	edba_u_entrytrashlk(h, EDBL_AXL);
 #ifdef EDB_FUCKUPS
 	if(objheader->trashvor != 0 ||
-	   h->clutchedentry->trashlast == edbp_gpid(&h->edbphandle)) {
+	   h->clutchedentry->trashlast == edbp_gpid(h->edbphandle)) {
 		// oddly enough, this page is already inside of the trash cycle.
 		log_critf("page already in trash yet trash criticality delta said it shouldn't be");
 		return 0;
 	}
 #endif
 	objheader->trashvor = h->clutchedentry->trashlast;
-	h->clutchedentry->trashlast = edbp_gpid(&h->edbphandle);
+	h->clutchedentry->trashlast = edbp_gpid(h->edbphandle);
 	edba_u_entrytrashlk(h, EDBL_ARELEASE);
 	return 0;
 }
@@ -389,12 +389,12 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 	// redundancy check (required)
 	if(!edba_objectdeleted(h)) {
 		log_infof("attempted to un-delete already existing object: oid#%ld",
-		          edbp_gpid(&h->edbphandle));
+		          edbp_gpid(h->edbphandle));
 		return 0;
 	}
 
 	// get the header of the object page
-	void *objpage = edbp_graw(&h->edbphandle);
+	void *objpage = edbp_graw(h->edbphandle);
 	odb_spec_object *objheader = objpage;
 
 #ifdef EDB_FUCKUPS
@@ -405,7 +405,7 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 #endif
 
 	// See locking.org for all of this.
-	edba_u_locktrashstartoff(h, edbp_gpid(&h->edbphandle));
+	edba_u_locktrashstartoff(h, edbp_gpid(h->edbphandle));
 	// **defer: edba_u_locktransstartoff_release(h);
 
 	// later: it may be adventagous to have a doubly-linked list here so we don't

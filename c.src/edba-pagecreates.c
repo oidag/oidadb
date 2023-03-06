@@ -484,7 +484,9 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 	edbphandle_t *edbp = handle->edbphandle;
 	edb_err err;
 	edbd_t *descriptor = handle->parent->descriptor;
-	unsigned int objectsperpage = (edbd_size(handle->edbphandle.parent->fd) - ODB_SPEC_HEADSIZE) / strct->fixedc;
+	unsigned int objectsperpage = (edbd_size(handle->parent->descriptor) -
+			ODB_SPEC_HEADSIZE)
+			/ strct->fixedc;
 
 	// later: need to reuse deleted pages rather than creating them by utilizing the
 	//        deleted page / trash line

@@ -83,7 +83,7 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	// easy pointers
 	odb_spec_index_entry *entry = h->clutchedentry;
 	edbd_t *descriptor = h->parent->descriptor;
-	edbphandle_t *edbphandle = &h->edbphandle;
+	edbphandle_t *edbphandle = h->edbphandle;
 	const odb_spec_struct_struct *strck;
 	edb_err err;
 
@@ -170,8 +170,9 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	// 0 out the reserved block just for future refeance.
 	e.rsvd = 0;
 	//e.type = EDB_TOBJ; (just to make corruptiong VERY obvious, we'll save this after)
-	e.lookupsperpage = (edbd_size(edbphandle->parent->fd) - ODB_SPEC_HEADSIZE) / sizeof(odb_spec_lookup_lref);
-	e.objectsperpage = (edbd_size(edbphandle->parent->fd) - ODB_SPEC_HEADSIZE) / strck->fixedc;
+	e.lookupsperpage = (edbd_size(h->parent->descriptor) - ODB_SPEC_HEADSIZE) / sizeof(odb_spec_lookup_lref);
+	e.objectsperpage = (edbd_size(h->parent->descriptor) - ODB_SPEC_HEADSIZE) /
+			strck->fixedc;
 	e.trashlast = 0;
 
 	// we're all done, save to persistant memory.

@@ -15,14 +15,16 @@ typedef enum {
 //
 // edba_host_t - for use in edba_handle
 // edba_host_init - initialize a host
-// edba_host_decom - deallocate said host
+// edba_host_free - deallocate said host
 typedef struct edba_host_st {
 	edbl_host_t *lockhost;
 	edbpcache_t *pagecache;
 	edbd_t      *descriptor;
 } edba_host_t;
-edb_err edba_host_init(edba_host_t *o_host, edbpcache_t *pagecache, edbd_t *descriptor);
-void    edba_host_decom(edba_host_t *host);
+edb_err edba_host_init(edba_host_t **o_host,
+					   edbpcache_t *pagecache,
+					   edbd_t *descriptor);
+void    edba_host_free(edba_host_t *host);
 
 // edb_struct_full_t is the structure that fills all edbp_struct pages.
 typedef struct{
@@ -63,7 +65,7 @@ typedef struct edba_handle_st {
 
 
 } edba_handle_t;
-edb_err edba_handle_init(edba_host_t *host, edba_handle_t *o_handle);
+edb_err edba_handle_init(edba_host_t *host, edba_handle_t **o_handle);
 void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 
 // todo: rename

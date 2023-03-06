@@ -274,8 +274,8 @@ edb_err odbtelem_image(odbtelem_image_t *o_image) {
 	                    + (uint64_t)o_image->job_desc;
 	o_image->job_workersv = (void *)telemtry_shared.shm
 	                        + (uint64_t)o_image->job_workersv;
-	o_image->pagec_cachedv = (void *)telemtry_shared.shm
-	                         + (uint64_t)o_image->pagec_cachedv;
+
+	// todo!: other pointers
 
 	return 0;
 }

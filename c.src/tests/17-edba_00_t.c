@@ -1,4 +1,5 @@
 #include "../edbd.h"
+#include "../edba.h"
 #include "../include/telemetry.h"
 #include "../include/oidadb.h"
 #include "teststuff.h"
@@ -6,6 +7,8 @@
 
 #include <stdio.h>
 int newdeletedpages = 0;
+
+const int cachesize = 256;
 
 void newdel(odbtelem_data d) {
 	newdeletedpages++;
@@ -30,7 +33,7 @@ int main(int argc, const char **argv) {
 		return 1;
 	}
 
-	// edbd open the file
+	// edbd
 	edbd_t dfile;
 	edbd_config config;
 	config.delpagewindowsize = 1;
@@ -40,7 +43,34 @@ int main(int argc, const char **argv) {
 		return 1;
 	}
 
+	// edbp
+	edbpcache_t *cache;
+	err = edbp_cache_init(&dfile, &cache);
+	if(err) {
+		test_error("edbp_cache_init");
+		return 1;
+	}
+	err = edbp_cache_config(cache, EDBP_CONFIG_CACHESIZE, cachesize);
+	if(err) {
+		test_error("edbp_cache_config");
+		return 1;
+	}
 
+	// edba
+	edba_host_t *edbahost;
+	if((err = edba_host_init(&edbahost, cache, &dfile))) {
+		test_error("host");
+		return 1;
+	}
+	edba_handle_t *edbahandle;
+	if((err = edba_handle_init(edbahost, &edbahandle))) {
+		test_error("handle");
+		return 1;
+	}
+
+
+	edba_host_free(edbahost);
+	edbp_cache_free(cache);
 	edbd_close(&dfile);
 	close(fd);
 }

@@ -19,6 +19,7 @@ void edba_u_clutchentry_release(edba_handle_t *host);
 // places an XL lock on the =trashlast= field.
 // This effects the entry you put the clutchlock on.
 // must be called AFTER edba_u_clutchentry
+// todo: replace with edbl direct calls.
 void edba_u_entrytrashlk(edba_handle_t *handle, edbl_act type);
 
 // must be called AFTER edba_u_clutchentry
