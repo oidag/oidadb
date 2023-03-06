@@ -1,25 +1,25 @@
 package main
 
-import "github.com/go-gl/glfw/v3.3/glfw"
+import (
+	"odbm/gman"
+	"odbm/gman/glplotter"
+	"runtime"
+)
+
+func init() {
+	// This is needed to arrange that main() runs on main thread.
+	// See documentation for functions that are only allowed to be called from the main thread.
+	runtime.LockOSThread()
+}
 
 func main() {
-	println("d")
-	err := glfw.Init()
+	err := glplotter.Init()
 	if err != nil {
 		panic(err)
 	}
 
-	w, err := glfw.CreateWindow(1200, 800, "test", nil, nil)
-	if err != nil {
-		panic(err)
-	}
+	gman.Debug.Init()
 
-	w.SetPos(2560*2+100, 100)
-	w.MakeContextCurrent()
-
-	for !w.ShouldClose() {
-		w.SwapBuffers()
-		glfw.PollEvents()
-	}
+	glplotter.Serve()
 
 }
