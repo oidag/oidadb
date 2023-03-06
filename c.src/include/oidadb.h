@@ -300,6 +300,14 @@ typedef enum edb_log_channel {
  */
 void edb_setlogger(odbh *handle, unsigned int logmask,
                    void (*cb)(edb_log_channel logtype, const char *log));
+
+// todo: use polling method instead:
+typedef struct odb_log_t {
+	edb_log_channel channel;
+	const char *log;
+} odb_log_t;
+edb_err odb_log_poll(odbh *handle, odb_log_t *o_log);
+
 /// \}
 
 
