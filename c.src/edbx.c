@@ -46,7 +46,7 @@ typedef struct edb_host_st {
 	edb_worker_t *workerv;
 
 	// page IO, see pages.h
-	edba_host_t ahost;
+	edba_host_t *ahost;
 	edbpcache_t *pcache;
 
 
@@ -224,7 +224,7 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 	if(eerr) {
 		goto ret;
 	}
-	// **defer: edba_host_decom(edba_host_t *host);
+	// **defer: edba_host_free(edba_host_t *host);
 	host.state = HOST_OPENING_WORKERS;
 
 	// configure all the workers.
@@ -243,7 +243,7 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 
 
 	for(int i = 0; i < host.config.worker_poolsize; i++) {
-		eerr = edbw_init(&(host.workerv[i]), &host.ahost, host.shm);
+		eerr = edbw_init(&(host.workerv[i]), host.ahost, host.shm);
 		if(eerr) {
 			goto ret;
 		}
@@ -308,7 +308,7 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 			// fallthrough
 		case HOST_OPENING_WORKERS:
 			log_infof("decommissioning file articulator...");
-			edba_host_decom(&host.ahost);
+			edba_host_free(host.ahost);
 			// fallthrough
 		case HOST_OPENING_ARTICULATOR:
 			log_infof("decommissioning page buffer...");

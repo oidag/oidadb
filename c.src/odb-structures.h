@@ -3,6 +3,7 @@
 
 #include "include/oidadb.h"
 
+#include <unistd.h>
 #include <stdint.h>
 
 // Always use this instead of sizeof(edbp_head) because
