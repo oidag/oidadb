@@ -69,11 +69,13 @@ int main(int argc, const char **argv) {
 	}
 
 
+	const int fixedc = 100;
+
 	// structure create
 	edb_sid structid;
 	{
 		odb_spec_struct_struct strct;
-		strct.fixedc = 100;
+		strct.fixedc = fixedc;
 		strct.flags = 0;
 		strct.data_ptrc = 0;
 		strct.confc = 0;
@@ -107,6 +109,23 @@ int main(int argc, const char **argv) {
 			return 1;
 		}
 		edba_entryclose(edbahandle);
+	}
+
+	// insert a load of records
+	for(int i = 0; i < 40; i++) {
+		edb_oid oid;
+		if((err = edba_objectopenc(edbahandle, &oid, EDBA_FWRITE |
+		EDBA_FCREATE))) {
+			test_error("creating %d", i);
+		}
+		uint8_t *data = edba_objectfixed(edbahandle);
+
+		for(int j = 0; j < fixedc; j++) {
+			data[j] = (uint8_t)j;
+		}
+
+		test_log("created object %ld", oid);
+		edba_objectclose(edbahandle);
 	}
 
 
