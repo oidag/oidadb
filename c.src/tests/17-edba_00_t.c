@@ -63,12 +63,54 @@ int main(int argc, const char **argv) {
 		return 1;
 	}
 	edba_handle_t *edbahandle;
-	if((err = edba_handle_init(edbahost, &edbahandle))) {
+	if((err = edba_handle_init(edbahost, 69, &edbahandle))) {
 		test_error("handle");
 		return 1;
 	}
 
 
+	// structure create
+	edb_sid structid;
+	{
+		odb_spec_struct_struct strct;
+		strct.fixedc = 100;
+		strct.flags = 0;
+		strct.data_ptrc = 0;
+		strct.confc = 0;
+		err = edba_structopenc(edbahandle, &structid, strct);
+		if(err) {
+			test_error("struct create");
+			return 1;
+		}
+		edba_structclose(edbahandle);
+	}
+
+
+	// entry create
+	{
+		odb_spec_index_entry entryparams;
+		edb_eid eid;
+
+
+		entryparams.type = EDB_TOBJ;
+		entryparams.memory = 0x2202;
+		entryparams.structureid = structid;
+
+		err = edba_entryopenc(edbahandle, &eid, EDBA_FCREATE | EDBA_FWRITE);
+		if (err) {
+			test_error("openc");
+			return 1;
+		}
+		err = edba_entryset(edbahandle, entryparams);
+		if (err) {
+			test_error("entryset");
+			return 1;
+		}
+		edba_entryclose(edbahandle);
+	}
+
+
+	edba_handle_decom(edbahandle);
 	edba_host_free(edbahost);
 	edbp_cache_free(cache);
 	edbd_close(&dfile);

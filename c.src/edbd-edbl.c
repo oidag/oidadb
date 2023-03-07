@@ -18,3 +18,9 @@ unsigned int edbl_pageoffset(const edbd_t *file, edb_eid eid) {
 	       + ODB_SPEC_HEADSIZE // skip the head of that page.
 		   + (eid % file->enteriesperpage *sizeof(odb_spec_index_entry));
 }
+
+
+// returns a pointer to the persistent memory of the structure pages.
+void *edba_structurespages(const edbd_t *file) {
+	return file->edb_structv;
+}

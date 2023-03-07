@@ -22,13 +22,14 @@ void edbd_u_initindexpage(void *page, unsigned int psize)  {
 	}
 }
 
-void edbd_u_initstructpage(void *page, unsigned int pszie) {
+// requires pageid
+void edbd_u_initstructpage(void *page, unsigned int pszie, edb_pid trashvor) {
 	// 0 the whole page
 	bzero(page, pszie);
 	odb_spec_object header;
 	header.structureid = 0;
 	header.entryid = EDBD_EIDSTRUCT;
-	header.trashvor = 0;
+	header.trashvor = trashvor; // link forward
 	header.head.pleft = 0;
 
 	unsigned int objectsperpage = (pszie - ODB_SPEC_HEADSIZE)/sizeof
@@ -74,6 +75,7 @@ void edbd_u_initindex_rsvdentries(void *page,
 			(odb_spec_struct_struct);
 	rsvd_struct->ref0c = structurepagec;
 	rsvd_struct->ref0 = structstart;
+	rsvd_struct->trashlast = structstart;
 	// todo: dynamic pages: structures need dynamic info
 
 	// deleted

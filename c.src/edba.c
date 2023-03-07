@@ -30,7 +30,9 @@ void    edba_host_free(edba_host_t *host) {
 }
 
 edb_err edba_handle_init(edba_host_t *host,
+						 int name,
 						 edba_handle_t **o_handle) {
+	edb_err err;
 	edba_handle_t *ret = malloc(sizeof(edba_handle_t));
 	if(ret == 0) {
 		log_critf("malloc");
@@ -38,11 +40,21 @@ edb_err edba_handle_init(edba_host_t *host,
 	}
 	*o_handle = ret;
 	bzero(ret, sizeof(edba_handle_t));
-	edbl_handle_init(host->lockhost, &ret->lockh);
+	ret->parent = host;
+	if((err = edbl_handle_init(host->lockhost, &ret->lockh))) {
+		free(ret);
+		return err;
+	}
+	if((err = edbp_handle_init(ret->parent->pagecache, name, &ret->edbphandle))) {
+		edbl_handle_free(ret->lockh);
+		free(ret);
+		return err;
+	}
 	return 0;
 }
 
 void edba_handle_decom(edba_handle_t *src) {
 	edbl_handle_free(src->lockh);
+	edbp_handle_free(src->edbphandle);
 	free(src);
 }

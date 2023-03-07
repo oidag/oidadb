@@ -15,7 +15,7 @@ edb_err edbw_u_entjob(edb_worker_t *self) {
 	switch (jobdesc & 0xFF00) {
 		case EDB_CCREATE:
 			edbs_jobread(job, &entryparams, sizeof(entryparams));
-			err = edba_entryopenc(handle, &eid, EDBA_FCREATE);
+			err = edba_entryopenc(handle, &eid, EDBA_FCREATE | EDBA_FWRITE);
 			if(err) {
 				edbs_jobwrite(job, &err, sizeof(err));
 				return err;

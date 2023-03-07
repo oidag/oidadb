@@ -82,6 +82,15 @@ typedef struct odb_spec_struct_struct {
 	// const void    *confv;        // = (edb_struct_t*) + sizeof(edb_struct_t) + sizeof(uint8_t) * data_ptrc
 } odb_spec_struct_struct;
 
+// odb_spec_struct_full_t is the structure that fills all edbp_struct pages.
+// It inherits its first 2 fields form it being accounted for as object pages.
+// See spec.
+typedef struct{
+	odb_spec_object_flags obj_flags;
+	edb_dyptr dy_pointer;
+	odb_spec_struct_struct content;
+} odb_spec_struct_full_t;
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
