@@ -98,6 +98,9 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// cluth lock the entry
 	edba_u_oidextract(*o_oid, &eid, &rid);
+	if(eid < EDBD_EIDSTART) {
+		return EDB_EINVAL;
+	}
 	err = edba_u_clutchentry(h, eid, 0);
 	if(err) {
 		return err;

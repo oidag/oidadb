@@ -93,7 +93,7 @@ void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 // edba_objectopenc
 //   open an object that has been marked as deleted (outputs oid of what is found).
 //   Use EDBA_FCREATE to create room for a new one if no deleted ones
-//   are found. o_oid must have a valid entry id. the row id is set as output.
+//   are found. *o_oid must have a valid entry id.* the row id is set as output.
 //   The returned object will automatically be UNDELETED status.
 //   todo: why not consolidate this into edba_objectopen using flags?
 //
@@ -107,6 +107,7 @@ void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 // RETURNS:
 //  - EDB_EINVAL - oid's entry id was invalid (below min/above max)
 //  - EDB_NOENT - oid's rowid was too high
+//  - EDB_EEOF - oid's entryid was too high (did you set oid's entryid?)
 //  - EDB_ENOSPACE - (edba_objectopenc w/ EDBA_FCREATE) failed to allocate more space, disk/file ful)
 //  - EDB_ENOSPACE - (edba_objectopenc w/o EDBA_FCREATE) no free space without needing creation
 edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags);

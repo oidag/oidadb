@@ -37,7 +37,7 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	// note the absence of edba_u_clutchentry. We manually clutch it here because
 	// we need to surf through the index.
 	// find the first EDB_TINIT
-	for (h->clutchedentryeid = 0; !err; h->clutchedentryeid++) {
+	for (h->clutchedentryeid = EDBD_EIDSTART; !err; h->clutchedentryeid++) {
 		err = edbd_index(descriptor, h->clutchedentryeid, &h->clutchedentry);
 		if(h->clutchedentry->type == EDB_TINIT) {
 			break;
