@@ -26,13 +26,6 @@ edb_err edba_host_init(edba_host_t **o_host,
 					   edbd_t *descriptor);
 void    edba_host_free(edba_host_t *host);
 
-// edb_struct_full_t is the structure that fills all edbp_struct pages.
-typedef struct{
-	odb_spec_object_flags obj_flags;
-	edb_dyptr dy_pointer;
-	odb_spec_struct_struct content;
-} edb_struct_full_t;
-
 typedef struct edba_handle_st {
 	edba_host_t *parent;
 	edbl_handle_t *lockh;
@@ -56,7 +49,7 @@ typedef struct edba_handle_st {
 	// Variables when opened == EDB_TSTRCT
 	//
 	// strct - points to persistent mem.
-	edb_struct_full_t *strct;
+	odb_spec_struct_full_t *strct;
 	edb_sid            strctid;
 
 	edbl_lock lock;
@@ -65,7 +58,7 @@ typedef struct edba_handle_st {
 
 
 } edba_handle_t;
-edb_err edba_handle_init(edba_host_t *host, edba_handle_t **o_handle);
+edb_err edba_handle_init(edba_host_t *host, int name, edba_handle_t **o_handle);
 void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 
 // todo: rename

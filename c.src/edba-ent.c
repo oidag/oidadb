@@ -26,7 +26,7 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	// easy pointers
 	edbd_t *descriptor = h->parent->descriptor;
 	edbl_handle_t *lockh = h->lockh;
-	edb_err err;
+	edb_err err = 0;
 
 	// as per spec, lock the mutex and obtain a XL clutch lock
 	// **defer: edbl_entrycreaiton_release
@@ -37,8 +37,11 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	// note the absence of edba_u_clutchentry. We manually clutch it here because
 	// we need to surf through the index.
 	// find the first EDB_TINIT
-	for (h->clutchedentryeid = 0; !err && h->clutchedentry->type != EDB_TINIT; h->clutchedentryeid++) {
+	for (h->clutchedentryeid = 0; !err; h->clutchedentryeid++) {
 		err = edbd_index(descriptor, h->clutchedentryeid, &h->clutchedentry);
+		if(h->clutchedentry->type == EDB_TINIT) {
+			break;
+		}
 	}
 	if(err) {
 		edbl_set(lockh, EDBL_ARELEASE, (edbl_lock){

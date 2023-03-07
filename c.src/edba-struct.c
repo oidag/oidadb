@@ -3,6 +3,11 @@
 #include "edbl.h"
 #include "edba_u.h"
 
+// special imports from edbd
+
+// returns a pointer to the persistent memory of the structure pages.
+void *edba_structurespages(const edbd_t *);
+
 edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 
 	// easy ptrs
@@ -34,7 +39,7 @@ edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 
 	// assign the handle fields.
 	h->strctid = sid;
-	h->strct = (edb_struct_full_t *)(o + ODB_SPEC_HEADSIZE + sizeof(edb_struct_full_t) * o->trashstart_off);
+	h->strct = (odb_spec_struct_full_t *)(o + ODB_SPEC_HEADSIZE + sizeof(odb_spec_struct_full_t) * o->trashstart_off);
 
 	// make sure the structure isn't deleted.
 	if(h->strct->obj_flags & EDB_FDELETED) {
@@ -72,7 +77,6 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 
 	// as per spec we lock the creation structure index.
 	edba_u_clutchentry(h, eid, 1);
-	uint16_t i;
 
 	// but after that lock that's all we need to do. No need to lock anything else.
 
@@ -86,7 +90,7 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 	// sense we know structure pages are all loaded and are all in a striat,
 	// we just need to get the offset of the trashpage.
 	unsigned int trashpage_offset;
-	void *structpages; // todo: where are we storing the structurepages?
+	void *structpages = edba_structurespages(h->parent->descriptor);
 	seektrashlast:
 	trashpage_offset = h->clutchedentry->trashlast - h->clutchedentry->ref0;
 
@@ -102,8 +106,15 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 
 	// and just as easy as that, we have all the info to get the writable structure data.
 	// much more simple than dealing with normal edbp_object pages.
-	h->strctid = *o_sid = trashpage_offset * h->clutchedentry->objectsperpage + o->trashstart_off;
-	h->strct = (edb_struct_full_t *)(o + ODB_SPEC_HEADSIZE + sizeof(edb_struct_full_t) * o->trashstart_off);
+	h->strctid = *o_sid = trashpage_offset * h->clutchedentry->objectsperpage
+			+ o->trashstart_off;
+	h->strct = (odb_spec_struct_full_t *)( (void*)o
+			+ ODB_SPEC_HEADSIZE
+			+ sizeof(odb_spec_struct_full_t)
+			* o->trashstart_off);
+
+	// assing the structure
+	h->strct->content = strct;
 
 	// todo: allocate space for arbitrary configuration when edbp_dynamics are
 	//       implemented. See h->strct.confc
@@ -117,7 +128,8 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 		// edbd_struct are aligned.
 		const odb_spec_struct_struct *test;
 		edbd_struct(file, *o_sid, &test);
-		if(test != &h->strct->content) {
+		odb_spec_struct_struct *addr = &h->strct->content;
+		if(test != addr) {
 			log_critf("edbd_struct and structure search logic misaligned.");
 			edba_u_clutchentry_release(h);
 			return EDB_ECRIT;

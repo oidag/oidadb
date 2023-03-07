@@ -18,6 +18,7 @@
 #include <error.h>
 #include <errno.h>
 #include <pthread.h>
+#include <stddef.h>
 
 // helper function to edb_open. returns 0 on success.
 // it is assumed that path does not exist.
@@ -90,6 +91,7 @@ static edb_err createfile(int fd, odb_createparams params) {
 
 
 	// initialize the index pages
+	edb_pid thispid = 1;
 	for(int i = 0; i < params.indexpages; i++) {
 		void *page = mmap64(0,
 		                    finalpsize,
@@ -112,10 +114,11 @@ static edb_err createfile(int fd, odb_createparams params) {
 			edbd_u_initindexpage(page, finalpsize);
 		}
 		munmap(page, finalpsize);
+		thispid++;
 	}
 
 	// initialize the structure pages
-	for(int i = 0; i < params.indexpages; i++) {
+	for(int i = 0; i < params.structurepages; i++) {
 		void *page = mmap64(0,
 		                    finalpsize,
 		                    PROT_READ | PROT_WRITE,
@@ -126,8 +129,13 @@ static edb_err createfile(int fd, odb_createparams params) {
 			log_critf("mmap64 failed");
 			return EDB_ECRIT;
 		}
-		edbd_u_initstructpage(page, finalpsize);
+		if(i+1 == params.structurepages) {
+			edbd_u_initstructpage(page, finalpsize, 0);
+		} else {
+			edbd_u_initstructpage(page, finalpsize, thispid+1);
+		}
 		munmap(page, finalpsize);
+		thispid++;
 	}
 
 
@@ -451,8 +459,11 @@ edb_err edbd_struct(const edbd_t *file, uint16_t structureid,
 	             + ODB_SPEC_HEADSIZE;
 
 	// now do the intra-page offset
-	*o_struct = page + (structureid % file->structsperpage)*sizeof
-			(odb_spec_struct_struct);
+	*o_struct = page
+			+ (structureid % file->structsperpage)
+			* sizeof(odb_spec_struct_full_t)
+			+ offsetof(odb_spec_struct_full_t, content) ;
+
 	return 0;
 
 }
