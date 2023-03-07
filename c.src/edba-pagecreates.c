@@ -354,7 +354,9 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	});
 
 	// and then let the trash collection know these pages are now in circulation.
-	entry->trashlast = newobjectpid + straitc;
+	// we -1 here to convert created count to page id, otherwise we'd be
+	// pointing to a page that doesn't exist yet.
+	entry->trashlast = newobjectpid + straitc-1;
 
 	// We're done here.
 	return 0;
