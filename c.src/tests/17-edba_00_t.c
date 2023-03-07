@@ -13,7 +13,7 @@ const int cachesize = 256;
 void newdel(odbtelem_data d) {
 	newdeletedpages++;
 };
-
+edbpcache_t *globalcache;
 int main(int argc, const char **argv) {
 
 	// create an empty file
@@ -44,13 +44,12 @@ int main(int argc, const char **argv) {
 	}
 
 	// edbp
-	edbpcache_t *cache;
-	err = edbp_cache_init(&dfile, &cache);
+	err = edbp_cache_init(&dfile, &globalcache);
 	if(err) {
 		test_error("edbp_cache_init");
 		return 1;
 	}
-	err = edbp_cache_config(cache, EDBP_CONFIG_CACHESIZE, cachesize);
+	err = edbp_cache_config(globalcache, EDBP_CONFIG_CACHESIZE, cachesize);
 	if(err) {
 		test_error("edbp_cache_config");
 		return 1;
@@ -58,7 +57,7 @@ int main(int argc, const char **argv) {
 
 	// edba
 	edba_host_t *edbahost;
-	if((err = edba_host_init(&edbahost, cache, &dfile))) {
+	if((err = edba_host_init(&edbahost, globalcache, &dfile))) {
 		test_error("host");
 		return 1;
 	}
@@ -131,7 +130,7 @@ int main(int argc, const char **argv) {
 
 	edba_handle_decom(edbahandle);
 	edba_host_free(edbahost);
-	edbp_cache_free(cache);
+	edbp_cache_free(globalcache);
 	edbd_close(&dfile);
 	close(fd);
 }
