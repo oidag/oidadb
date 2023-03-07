@@ -120,7 +120,7 @@ int main(int argc, const char **argv) {
 		}
 		uint8_t *data = edba_objectfixed(edbahandle);
 
-		for(int j = 0; j < fixedc; j++) {
+		for(int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
 			data[j] = (uint8_t)j;
 		}
 
