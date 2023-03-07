@@ -488,9 +488,6 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 			ODB_SPEC_HEADSIZE)
 			/ strct->fixedc;
 
-	// later: need to reuse deleted pages rather than creating them by utilizing the
-	//        deleted page / trash line
-
 	// create the pages
 	err = edbd_add(descriptor, straitc, o_pid);
 	if(err) {
@@ -500,7 +497,7 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 	// now we must loop through each page and initalize it.
 	for(int i = 0; i < straitc; i++) {
 		// start the page
-		err = edbp_start(edbp, *o_pid);
+		err = edbp_start(edbp, *o_pid+i);
 		if (err) {
 			log_debugf("failed to start page after it's creation, "
 			           "to prevent if from going unrefanced, will be attempting to delete it.");
