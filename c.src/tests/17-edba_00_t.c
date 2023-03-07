@@ -89,9 +89,9 @@ int main(int argc, const char **argv) {
 
 
 	// entry create
+	edb_eid eid;
 	{
 		odb_spec_index_entry entryparams;
-		edb_eid eid;
 
 
 		entryparams.type = EDB_TOBJ;
@@ -113,7 +113,7 @@ int main(int argc, const char **argv) {
 
 	// insert a load of records
 	for(int i = 0; i < 40; i++) {
-		edb_oid oid;
+		edb_oid oid = ((edb_oid)eid) << 0x30;
 		if((err = edba_objectopenc(edbahandle, &oid, EDBA_FWRITE |
 		EDBA_FCREATE))) {
 			test_error("creating %d", i);
