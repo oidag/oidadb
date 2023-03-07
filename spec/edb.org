@@ -564,9 +564,9 @@ of the objects would be.
 
 | Name             | type   | Des                                                           |
 |------------------+--------+---------------------------------------------------------------|
+| =trashvor=       | uint64 | Page id or 0, See [[Trash Management]].                           |
 | Structure ID     | uint16 | Redundant to the chapter, but the structure ID of the objects |
 | =trashstart_off= | uint16 | Intra-page row offset or -1. See [[Trash Management]].            |
-| =trashvor=       | uint64 | Page id or 0, See [[Trash Management]].                           |
 | =trashc=         | uint16 | the amount of trash recrods in the trash linked list.         |
 | EntryID          | uint16 | the entry id this page belongs too. use only for pmaint |
 
