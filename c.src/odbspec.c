@@ -1,10 +1,41 @@
 #include "odb-structures.h"
+#include "options.h"
 #include "errors.h"
 
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
 
+#ifdef EDB_FUCKUPS
+__attribute__((constructor))
+static void checkstructures() {
+	// all structures must be headsize
+	if(sizeof(odb_spec_lookup) != ODB_SPEC_HEADSIZE) {
+		log_critf("not headsize (%d): odb_spec_lookup (%d)",
+				  ODB_SPEC_HEADSIZE, sizeof(odb_spec_lookup));
+	}
+	if(sizeof(odb_spec_object) != ODB_SPEC_HEADSIZE) {
+		log_critf("not headsize (%d): odb_spec_object (%d)",
+		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_object));
+	}
+	if(sizeof(odb_spec_dynamic) != ODB_SPEC_HEADSIZE) {
+		log_critf("not headsize (%d): odb_spec_dynamic (%d)",
+		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_dynamic));
+	}
+	if(sizeof(odb_spec_struct) != ODB_SPEC_HEADSIZE) {
+		log_critf("not headsize (%d): odb_spec_struct (%d)",
+		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_struct));
+	}
+	if(sizeof(odb_spec_index) != ODB_SPEC_HEADSIZE) {
+		log_critf("not headsize (%d): odb_spec_index (%d)",
+		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_index));
+	}
+	if(sizeof(odb_spec_deleted) != ODB_SPEC_HEADSIZE) {
+		log_critf("not headsize (%d): odb_spec_deleted (%d)",
+		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_deleted));
+	}
+}
+#endif
 
 void edba_u_initobj_pages(void *page, odb_spec_object header,
                           uint16_t fixedc, unsigned int objectsperpage) {
