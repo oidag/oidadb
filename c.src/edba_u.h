@@ -16,12 +16,6 @@
 edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl);
 void edba_u_clutchentry_release(edba_handle_t *host);
 
-// places an XL lock on the =trashlast= field.
-// This effects the entry you put the clutchlock on.
-// must be called AFTER edba_u_clutchentry
-// todo: replace with edbl direct calls.
-void edba_u_entrytrashlk(edba_handle_t *handle, edbl_act type);
-
 // must be called AFTER edba_u_clutchentry
 // must be called AFTER edba_u_entrytrashlk (XL)
 //
@@ -45,12 +39,6 @@ void edba_u_entrytrashlk(edba_handle_t *handle, edbl_act type);
 //   - EDB_ENOSPACE - no more space left in file / cannot expand (will output in crit)
 //   - Everything else - either criticals or fuckups
 edb_err edba_u_lookupdeepright(edba_handle_t *handle);
-
-// places a XL lock on the =trashstart_off= as per
-// locking spec for autoid creation.
-// todo: EDBL_LTRASHOFF
-void edba_u_locktrashstartoff(edba_handle_t *handle, edb_pid pageid);
-void edba_u_locktransstartoff_release(edba_handle_t *handle);
 
 // loads and unloads pages into the handle's page assignment.
 // between pageload and pagedeload you can use edbp_ functions
@@ -119,7 +107,8 @@ void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entry,
 edb_err edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
                          edb_pid chapter_pageoff, edb_pid *o_pid);
 
-void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid *o_rid) {
+static void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid
+*o_rid) {
 	*o_eid = oid >> 0x30;
 	*o_rid = oid & 0x0000FFFFFFFFFFFF;
 }
@@ -130,6 +119,7 @@ void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid *o_rid) {
 // ERRORS:
 //   - EDB_EINVAL: dynamicptr is 0
 //   - Everything else: EDB_ECRIT (ie: invalid pointer)
-edb_err edba_u_dynamicdelete(edba_handle_t *handle, uint64_t dynamicptr);
+static edb_err edba_u_dynamicdelete(edba_handle_t *handle, uint64_t
+dynamicptr){ return 0; } // todo
 
 #endif

@@ -435,3 +435,24 @@ edb_err edbd_index(const edbd_t *file, edb_eid eid
 			(odb_spec_index_entry);
 	return 0;
 }
+
+edb_err edbd_struct(const edbd_t *file, uint16_t structureid,
+                    const odb_spec_struct_struct **o_struct) {
+
+	int pageoff = structureid / file->structsperpage;
+
+	// check for EDB_EEOF
+	if(pageoff >= file->edb_structc) {
+		return EDB_EEOF;
+	}
+
+	// go to the body section on that page
+	void *page = file->edb_structv + pageoff * edbd_size(file)
+	             + ODB_SPEC_HEADSIZE;
+
+	// now do the intra-page offset
+	*o_struct = page + (structureid % file->structsperpage)*sizeof
+			(odb_spec_struct_struct);
+	return 0;
+
+}
