@@ -167,12 +167,12 @@ typedef odb_spec_object odb_spec_struct;
 
 typedef struct odb_spec_lookup {
 	_odb_stdhead head;
+	uint64_t parentlookup;
 	uint16_t entryid;
 	uint16_t refc;
-	uint64_t parentlookup;
 	uint8_t depth;
 	uint8_t rsvd0;
-	uint8_t rsvd1;
+	uint16_t rsvd1;
 
 	// in memeory after this is lookup entries..
 	//edb_lref_t objects;
