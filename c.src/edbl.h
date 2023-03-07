@@ -30,7 +30,7 @@ void    edbl_host_free(edbl_host_t *h);
 edb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **o_handle);
 void    edbl_handle_free(edbl_handle_t *handle);
 
-typedef enum {
+typedef enum edbl_act {
 
 	// Shared lock. Unlimited amount of shared locks
 	// can be placed on something so long there is not

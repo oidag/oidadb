@@ -115,7 +115,7 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 	{
 		// some redundant logic to make sure that structdat and
 		// edbd_struct are aligned.
-		odb_spec_struct_struct *test;
+		const odb_spec_struct_struct *test;
 		edbd_struct(file, *o_sid, &test);
 		if(test != &h->strct->content) {
 			log_critf("edbd_struct and structure search logic misaligned.");

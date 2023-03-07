@@ -58,3 +58,10 @@ void log_infof(const char *fmt, ...) {
 void log_warnf(const char *fmt, ...) {
 	stdlogthing(stdout, "warn");
 }
+
+void implementme() {
+
+	// cause a segfaut and div0.
+	int *throw = (void *)(0);
+	*throw = 1;
+}
