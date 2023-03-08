@@ -231,6 +231,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// calculate the id
 	*o_oid = ((odb_spec_object *)page)->head.pleft * (uint64_t)h->clutchedentry->objectsperpage + intrapagerowoff;
+	*o_oid = *o_oid | ((edb_oid)eid << 0x30);
 
 	// as per this function's description, and the fact we just removed it
 	// from the trash management, we will make sure its not marked as deleted.
