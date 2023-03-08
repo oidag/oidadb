@@ -104,7 +104,7 @@ void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entry,
 //
 // ERRORS:
 //   EDB_EEOF - chapter_pageoff was out of bounds.
-edb_err edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
+edb_err  edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
                          edb_pid chapter_pageoff, edb_pid *o_pid);
 
 static void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid
@@ -119,7 +119,7 @@ static void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid
 // ERRORS:
 //   - EDB_EINVAL: dynamicptr is 0
 //   - Everything else: EDB_ECRIT (ie: invalid pointer)
-static edb_err edba_u_dynamicdelete(edba_handle_t *handle, uint64_t
-dynamicptr){ return 0; } // todo
+static edb_err edba_u_dynamicdelete(edba_handle_t *handle,
+									uint64_t dynamicptr){ return 0; } // todo
 
 #endif
