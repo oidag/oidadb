@@ -845,7 +845,7 @@ structure.
 
 *** Start/End Off.
 Depending on the depth, this field can either mean the starting page
-offset of the referenced branch, or the end page offset of the
+offset of the referenced branch, or the last page's offset of the
 referenced leaf. Thus, to know what the number means, you need to know
 if this reference is either a branch or a leaf.
 
