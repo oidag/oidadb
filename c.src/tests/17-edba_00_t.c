@@ -9,6 +9,7 @@
 int newdeletedpages = 0;
 
 const int cachesize = 256;
+const int records   = 40;
 
 void newdel(odbtelem_data d) {
 	newdeletedpages++;
@@ -111,9 +112,10 @@ int main(int argc, const char **argv) {
 	}
 
 	// insert a load of records
-	for(int i = 0; i < 40; i++) {
-		edb_oid oid = ((edb_oid)eid) << 0x30;
-		if((err = edba_objectopenc(edbahandle, &oid, EDBA_FWRITE |
+	edb_oid oids[records];
+	for(int i = 0; i < records; i++) {
+		oids[i] = ((edb_oid)eid) << 0x30;
+		if((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE |
 		EDBA_FCREATE))) {
 			test_error("creating %d", i);
 		}
@@ -123,7 +125,45 @@ int main(int argc, const char **argv) {
 			data[j] = (uint8_t)j;
 		}
 
-		test_log("created object %ld", oid);
+		test_log("created object 0x%lx", oids[i]);
+		edba_objectclose(edbahandle);
+	}
+
+	// todo: close the database here to test persistancy.
+
+	// read through the records and make sure their as expected.
+	for(int i = 0; i < records; i++) {
+
+		if((err = edba_objectopen(edbahandle, oids[i], EDBA_FWRITE))) {
+			test_error("reading %d", i);
+		}
+		uint8_t *data = edba_objectfixed(edbahandle);
+		for(int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
+			if(data[j] != (uint8_t)j) {
+				test_error("invalid value");
+				return 1;
+			}
+		}
+		// make sure struct works.
+		const odb_spec_struct_struct *strc = edba_objectstruct(edbahandle);
+		if(strc->fixedc != 100) {
+			test_error("failed to get structure");
+			return 1;
+		}
+		// delete it if its i % 11
+		if(i % 11 == 0) {
+			if((err = edba_objectdelete(edbahandle))) {
+				test_error("delete");
+				return 1;
+			}
+			if(!edba_objectdeleted(edbahandle)) {
+				test_error("deleted object not deleted");
+				return 1;
+			}
+		} else if(edba_objectdeleted(edbahandle)) {
+			test_error("non-deleted object is deleted");
+			return 1;
+		}
 		edba_objectclose(edbahandle);
 	}
 

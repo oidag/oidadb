@@ -29,6 +29,12 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 	edbp_mod(handle->edbphandle, EDBP_CACHEHINT, h);
 	odb_spec_lookup *l = edbp_graw(handle->edbphandle);
 	odb_spec_lookup_lref *refs = (void*)l + ODB_SPEC_HEADSIZE;
+#ifdef EDB_FUCKUPS
+	if(l->refc == 0) {
+		log_critf("edba_u_lookupoid was called and referenced lookup node has "
+		          "no referenced");
+	}
+#endif
 
 	if(depth == 0) {
 		// if depth is 0 that means this page is full of leaf node references.
@@ -63,6 +69,11 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 		return 0;
 	}
 
+	// atp: we are not at the deepest page, so we have to travel further down
+	//      the b-tree
+
+	// search in the list of references of this page to find out where we
+	// need to go next.
 	int i;
 	for(i = 0; i < l->refc; i++) {
 		if(i+1 == l->refc || refs[i+1].startoff_strait > chapter_pageoff) {
@@ -77,6 +88,12 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 		}
 	}
 	// note: based on our logic in the if statement, i will never equal l->refc.
+#ifdef EDB_FUCKUPS
+	if(i == l->refc) {
+		log_critf("failed to find child lookup page under the "
+				  "logical assumption that it exists.");
+	}
+#endif
 
 	// at this point, we know that refs[i] is the reference we must follow.
 	// Lets throw the important number in our stack.
@@ -97,5 +114,13 @@ edb_err edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
 	if(chapter_pageoff >= entry->ref0c) {
 		return EDB_EEOF;
 	}
-	return edba_u_lookup_rec(handle, entry->ref1, chapter_pageoff, o_pid, entry->memory >> 12);
+	edb_err err = edba_u_lookup_rec(handle, entry->ref1, chapter_pageoff,
+									o_pid,entry->memory >> 12);
+#ifdef EDB_FUCKUPS
+	if(*o_pid == 0) {
+		log_critf("o_pid returned 0 from lookup despite it being in page "
+				  "range");
+	}
+#endif
+	return err;
 }
