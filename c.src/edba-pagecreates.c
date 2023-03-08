@@ -201,7 +201,8 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	// initialize newreference with our object pages sense we have our
 	// leaf-bearing lookup page loaded currently.
 	newreference.ref = newobjectpid;
-	newreference.startoff_strait = newobjectpage_offsetid + straitc;
+	// note: we use -1 here because we need the offset, not the length.
+	newreference.startoff_strait = newobjectpage_offsetid + straitc-1;
 
 	// note: '>=' because depth is 0-based
 	int i;
@@ -519,6 +520,7 @@ edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 		// initobjectspage uses the trashvor/pleaft supplied by the caller of this
 		// function.
 		header.trashvor = *o_pid + i;
+		header.head.pleft++;
 
 		// set hints and close
 		edbp_mod(edbp, EDBP_CACHEHINT, EDBP_HDIRTY);
