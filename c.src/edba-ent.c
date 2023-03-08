@@ -140,34 +140,73 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	// fill out lastlookup, last lookup must point to a page of max depth.
 	edb_pid parentid = 0;
 	edb_pid lookuppages[depth+1];
-	for (int i = 0; i <= depth; i ++) { // "<=" because depth is 0-based.
+	// our for-loop, we go backwards, creating the depthest page first so
+	// that we can reference that child page to its parent in the subsequent
+	// itoration.
+	odb_spec_lookup_lref childref = {0};
+	for (int i = depth; i >= 0; i--) { // ">=" because depth is 0-based.
 		odb_spec_lookup lookup_header;
 		lookup_header.entryid = h->clutchedentryeid;
-		lookup_header.parentlookup = parentid;
+		//lookup_header.parentlookup = ???; // see note after loop
 		lookup_header.depth = i;
 		lookup_header.head.pleft = 0;
 		lookup_header.head.pright = 0;
-		err = edba_u_pagecreate_lookup(h, lookup_header, &lookuppages[i], (odb_spec_lookup_lref){0});
+		err = edba_u_pagecreate_lookup(h, lookup_header, &lookuppages[i], childref);
 		if(err) {
 			// failed for whatever reason,
 			// roll back page creations
-			i--; // roll back to the last itoration where we did successfully create a page.
-			for( ; i >= 0; i--) {
+			i++; // roll back to the last itoration where we did successfully
+			// create a page.
+			for( ; i <= depth; i++) {
 				if(edbd_del(descriptor, 1, lookuppages[i])) {
 					log_critf("page leak: %ld", lookuppages[i]);
 				}
 			}
 			return err;
 		}
+		if(i == depth) {
+			// this is our currently deepest rightest lookup page.
+			e.lastlookup = lookuppages[i];
+		}
 		if(i == 0) {
 			// this is the root page so it's ref1.
 			e.ref1 = lookuppages[i];
 		}
-		parentid = lookuppages[i];
+
+		// build the child reference for our parent page.
+		childref.ref = lookuppages[i];
+		childref.startoff_strait = 0;
 	}
-	// parentid will be set to the deepest lookup page, and sense
-	// this is our only branch, this is by definition the deep-right.
-	e.lastlookup = parentid;
+
+	// one last step. The children do not have their
+	// header->parentlookup set. Lets go through now and set this back
+	// reference.
+	//
+	// We could have done this a more
+	// efficient loop but this function is rarely called. so we can be a bit
+	// lazy.
+	for (int i = 0; i <= depth; i ++) {
+		err = edbp_start(edbphandle, lookuppages[i]);
+		if(err) {
+			// bail out
+			for( i=0 ; i <= depth; i++) {
+				if(edbd_del(descriptor, 1, lookuppages[i])) {
+					log_critf("page leak: %ld", lookuppages[i]);
+				}
+			}
+			return err;
+		}
+		odb_spec_lookup *page = edbp_graw(edbphandle);
+		if(i == 0) {
+			// root page, no parent.
+			page->parentlookup = 0;
+		} else {
+			page->parentlookup = lookuppages[i];
+		}
+
+		edbp_finish(edbphandle);
+	}
+
 
 	// remaining red-tape
 	// 0 out the reserved block just for future refeance.
