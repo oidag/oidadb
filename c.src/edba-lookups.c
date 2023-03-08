@@ -97,7 +97,7 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle, edb_pid lookuproot,
 
 	// at this point, we know that refs[i] is the reference we must follow.
 	// Lets throw the important number in our stack.
-	edb_pid nextstep = refs[i].ref;
+	lookuproot = refs[i].ref;
 
 	// So lets finish out of this page...
 	edbp_finish(handle->edbphandle);
