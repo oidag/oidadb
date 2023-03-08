@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <libgen.h>
+#include <sys/time.h>
 
 edb_err err;
 static int test_waserror = 0;
@@ -42,6 +43,26 @@ static void test_log(const char *fmt, ...)  {
 	stdlogthing(stdout, "test")
 }
 
+
+typedef uint64_t timer;
+typedef uint64_t timepassed;
+
+// returns a timer to be used with timerend()
+timer static timerstart() {
+	struct timeval tv;
+	gettimeofday(&tv,0);
+	return (uint64_t)tv.tv_sec*1000000 + tv.tv_usec;
+}
+// returns nanoseconds that passed between start and end.
+timepassed static timerend(timer t) {
+	struct timeval tv;
+	gettimeofday(&tv,0);
+	uint64_t finisht = (uint64_t)tv.tv_sec*1000000 + tv.tv_usec;
+	return finisht - t;
+}
+double static timetoseconds(timepassed t) {
+	return (double)t/1000000;
+}
 
 
 // creates build/tests if it wasn't already created.
