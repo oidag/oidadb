@@ -4,12 +4,19 @@
 #include "../include/oidadb.h"
 #include "teststuff.h"
 
-
+#include <mariadb/mysql.h>
 #include <stdio.h>
+#include <malloc.h>
+
 int newdeletedpages = 0;
 
 const int cachesize = 256;
-const int records   = 1000000;
+const int records   = 10000;
+
+
+uint64_t totalmysqlinsert = 0;
+uint64_t totalmysqlupdate = 0;
+void mysql();
 
 void newdel(odbtelem_data d) {
 	newdeletedpages++;
@@ -111,10 +118,13 @@ int main(int argc, const char **argv) {
 		edba_entryclose(edbahandle);
 	}
 
+	uint64_t totaltimeinsert = 0, totaltimereadupdate = 0;
+
 	// insert a load of records
 	test_log("inserting %ld rows...", records);
-	edb_oid oids[records];
+	edb_oid *oids = malloc(sizeof(edb_oid) * records);
 	for(int i = 0; i < records; i++) {
+		timer t = timerstart();
 		oids[i] = ((edb_oid)eid) << 0x30;
 		if((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE |
 		EDBA_FCREATE))) {
@@ -126,6 +136,7 @@ int main(int argc, const char **argv) {
 			data[j] = (uint8_t)j;
 		}
 		edba_objectclose(edbahandle);
+		totaltimeinsert += timerend(t);
 	}
 
 
@@ -135,6 +146,7 @@ int main(int argc, const char **argv) {
 	test_log("reading %ld rows...", records);
 	for(int i = 0; i < records; i++) {
 
+		timer t = timerstart();
 		if((err = edba_objectopen(edbahandle, oids[i], EDBA_FWRITE))) {
 			test_error("reading %d", i);
 		}
@@ -145,6 +157,7 @@ int main(int argc, const char **argv) {
 				return 1;
 			}
 		}
+		totaltimereadupdate += timerend(t);
 		// make sure struct works.
 		const odb_spec_struct_struct *strc = edba_objectstruct(edbahandle);
 		if(strc->fixedc != 100) {
@@ -168,10 +181,109 @@ int main(int argc, const char **argv) {
 		edba_objectclose(edbahandle);
 	}
 
-
+	free(oids);
 	edba_handle_decom(edbahandle);
 	edba_host_free(edbahost);
 	edbp_cache_free(globalcache);
 	edbd_close(&dfile);
 	close(fd);
+
+	printf("oidadb total time inserting %d rows: %fs\n", records, timetoseconds
+	(totaltimeinsert));
+	printf("oidadb total time key-updating %d rows: %fs\n", records,
+		   timetoseconds
+			(totaltimereadupdate));
+	printf("oidadb time-per-insert: %fns\n", (double)totaltimeinsert/(double)
+	records);
+	printf("oidadb time-per-update: %fs\n", (double)totaltimereadupdate/(double)
+			records);
+
+	// hmmm... lets do a mysql benchmark
+	mysql();
+
+	printf("mysql total time inserting %d rows: %fs\n", records, timetoseconds
+			(totalmysqlinsert));
+	printf("mysql total time key-updating %d rows: %fs\n", records,
+		   timetoseconds
+			(totalmysqlupdate));
+	printf("mysql time-per-insert: %fns\n", (double)totalmysqlinsert/(double)
+			records);
+	printf("mysql time-per-update: %fns\n", (double)totalmysqlupdate/(double)
+			records);
+}
+
+void mysql() {
+	printf("executing mysql...\n");
+	MYSQL *con = mysql_init(NULL);
+	if (mysql_real_connect(con, "localhost", "admin", "admin",
+	                       "test", 0, NULL, 0) == NULL)
+	{
+		fprintf(stderr, "%s\n", mysql_error(con));
+		mysql_close(con);
+		return;
+	}
+
+	const char *q0 = "truncate table test";
+	mysql_query(con, q0);
+
+	MYSQL_STMT *stmt = mysql_stmt_init(con);
+	MYSQL_STMT *stmt2 = mysql_stmt_init(con);
+	const char *q = "insert into test (bin) values (?)";
+	const char *q2 = "update test set bin=? where id=?";
+	mysql_stmt_prepare(stmt, q, strlen(q));
+	mysql_stmt_prepare(stmt2, q2, strlen(q2));
+	MYSQL_BIND bind[2];
+	bind[0].buffer_type = MYSQL_TYPE_BLOB;
+	bind[0].is_null = 0;
+	bind[0].buffer_length = 100;
+	bind[0].length = 0;
+	char buff[100];
+	bind[0].buffer = buff;
+
+	bind[1].buffer_type = MYSQL_TYPE_LONGLONG;
+	bind[1].is_null = 0;
+	bind[1].length = 0;
+	bind[1].buffer = buff;
+	if(mysql_stmt_bind_param(stmt, bind)) {
+		test_error("mysql stmt bind");
+	}
+	if(mysql_stmt_bind_param(stmt2, bind)) {
+		test_error("mysql stmt bind");
+	}
+
+	long long *oids = malloc(sizeof(long long) * records);
+
+	// inserts
+	for(int i = 0; i < records; i++) {
+		timer t = timerstart();
+		for(int j = 0; j < 100; j++) {
+			buff[j] = (char)j;
+		}
+		if(mysql_stmt_execute(stmt)) {
+			test_error("execute error");
+		}
+		oids[i] = mysql_stmt_insert_id(stmt);
+		totalmysqlinsert += timerend(t);
+	}
+
+	// selects/updates
+	for(int i = 0; i < records; i++) {
+		timer t = timerstart();
+
+		bind[1].buffer = &oids[i];
+		for(int j = 99; j >= 0; j--) {
+			buff[j] = (char)(100-j);
+		}
+		if(mysql_stmt_execute(stmt2)) {
+			test_error("execute error");
+		}
+		totalmysqlupdate += timerend(t);
+	}
+	free(oids);
+	mysql_stmt_close(stmt);
+	mysql_stmt_close(stmt2);
+	mysql_close(con);
+
+
+	//printf("MySQL client version: %s\n", mysql_get_client_info());
 }

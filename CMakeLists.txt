@@ -60,6 +60,7 @@ add_executable(edba_00 ${stdtestfiles}
         ${edbl_t}
         ${edbd_t}
         ${edbp_t})
+target_link_libraries(edba_00 mariadb ${stdtestlibs}) # todo: add "apt install libmariadb-dev" to readme for testing
 
 
 #add_executable       (edbd_00 ${stdtestfiles} c.src/tests/20-edbx_00_t.c c.src/edbh.c c.src/edbd.c c.src/edbd-init.c)
