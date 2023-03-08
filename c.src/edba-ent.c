@@ -201,7 +201,7 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 			// root page, no parent.
 			page->parentlookup = 0;
 		} else {
-			page->parentlookup = lookuppages[i];
+			page->parentlookup = lookuppages[i-1];
 		}
 
 		edbp_finish(edbphandle);

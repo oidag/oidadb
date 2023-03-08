@@ -9,7 +9,7 @@
 int newdeletedpages = 0;
 
 const int cachesize = 256;
-const int records   = 40;
+const int records   = 1000000;
 
 void newdel(odbtelem_data d) {
 	newdeletedpages++;
@@ -112,6 +112,7 @@ int main(int argc, const char **argv) {
 	}
 
 	// insert a load of records
+	test_log("inserting %ld rows...", records);
 	edb_oid oids[records];
 	for(int i = 0; i < records; i++) {
 		oids[i] = ((edb_oid)eid) << 0x30;
@@ -124,14 +125,14 @@ int main(int argc, const char **argv) {
 		for(int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
 			data[j] = (uint8_t)j;
 		}
-
-		test_log("created object 0x%lx", oids[i]);
 		edba_objectclose(edbahandle);
 	}
+
 
 	// todo: close the database here to test persistancy.
 
 	// read through the records and make sure their as expected.
+	test_log("reading %ld rows...", records);
 	for(int i = 0; i < records; i++) {
 
 		if((err = edba_objectopen(edbahandle, oids[i], EDBA_FWRITE))) {
