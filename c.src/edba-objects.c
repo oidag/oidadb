@@ -349,7 +349,7 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	// we'd rather have it marked as deleted so future query processes won't try to use it.
 	// It'll be up to pmaint to finally put it in the trash linked list in that case.
 	odb_spec_object_flags *objflags = h->objectflags;
-	*objflags = *objflags & EDB_FDELETED;
+	*objflags = *objflags | EDB_FDELETED;
 
 	// delete all dynamic data. We'll 0-out the pointers as their deleted just incase
 	// of a crash (see above logic with setting EDB_FDELETED first).
