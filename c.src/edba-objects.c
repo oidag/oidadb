@@ -301,7 +301,14 @@ edb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk) {
 		log_errorf("invalid user lock according to normalization mask");
 		return EDB_EINVAL;
 	}
-	 *(odb_usrlk *)h->objectflags = *(odb_usrlk *)h->objectflags & lk;
+	odb_spec_object_flags *objflags = h->objectflags;
+
+	// clear out whatever was there.
+	*objflags = *objflags & ~_EDB_FUSRLALL;
+
+	// set the new value
+	*objflags = *objflags | lk;
+
 	return 0;
 }
 
