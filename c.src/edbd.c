@@ -57,10 +57,10 @@ static edb_err createfile(int fd, odb_createparams params) {
     {
 		struct timeval tv;
 		gettimeofday(&tv, 0);
-		srand(tv.tv_sec + tv.tv_usec + getpid());
+		unsigned int seed = tv.tv_sec + tv.tv_usec + getpid();
 		int neededints = sizeof(newhead.intro.id) / sizeof(int);
 		for (int i = 0; i < neededints; i++) {
-			int rint = rand();
+			int rint = rand_r(&seed);
 			*((int *)(&(newhead.intro.id[i * sizeof(int)]))) = rint;
 		}
 	}
