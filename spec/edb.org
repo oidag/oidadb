@@ -710,11 +710,11 @@ The content of each element is arbitrary. However, each record has a
 small prefix that allows means to control locking and restrictions on
 given elements.
 
-| Name        | clang         | def                                                      |
-|-------------+---------------+----------------------------------------------------------|
-| obj_flags   | uint32_t      | see [[Record Flags]]                                         |
-| dy_pointers | uint64_t[]... | pointers to dynamic data                                 |
-| content     | char[]...     | the raw content of the row (count is found in structure) |
+| Name        | clang         | def                                                                                                                   |
+|-------------+---------------+-----------------------------------------------------------------------------------------------------------------------|
+| obj_flags   | uint32_t      | see [[Record Flags]]                                                                                                      |
+| dy_pointers | uint64_t[]... | pointers to dynamic data                                                                                              |
+| content     | char[]...     | the raw content of the row (count is found in structure). Can also be used to store data regarding trash linked list. |
 
 ** Record Flags
 *** TODO System Locks

@@ -38,7 +38,7 @@ typedef struct edba_handle_st {
 	odb_spec_index_entry *clutchedentry;
 	edb_eid clutchedentryeid;
 
-	uint16_t          objectoff; // byte offset from the page until objectflags.
+	uint16_t          objectrowoff; // intra-page row offset.
 	unsigned int      objectc; // same as the object's struct->fixedc
 	odb_spec_object_flags *objectflags; // pointer to the very start of the object
 	unsigned int      dy_pointersc;
