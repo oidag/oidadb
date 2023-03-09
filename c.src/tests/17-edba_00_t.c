@@ -7,11 +7,12 @@
 #include <mariadb/mysql.h>
 #include <stdio.h>
 #include <malloc.h>
+#include <stdlib.h>
 
 int newdeletedpages = 0;
 
 const int cachesize = 256;
-const int records   = 10000;
+const int records   = 10;
 
 
 uint64_t totalmysqlinsert = 0;
@@ -22,7 +23,22 @@ void newdel(odbtelem_data d) {
 	newdeletedpages++;
 };
 edbpcache_t *globalcache;
+
+void scramble(edb_oid *oids, edb_oid *o_random, int records) {
+
+	memcpy(o_random, oids, records * sizeof(edb_oid ));
+	size_t i;
+	for (i = 0; i < records - 1; i++)
+	{
+		size_t j = i + rand() / (RAND_MAX / (records - i) + 1);
+		edb_oid t = o_random[j];
+		o_random[j] = o_random[i];
+		o_random[i] = t;
+	}
+}
+
 int main(int argc, const char **argv) {
+	srand(47237427);
 
 	// create an empty file
 	test_mkdir();
@@ -164,23 +180,98 @@ int main(int argc, const char **argv) {
 			test_error("failed to get structure");
 			return 1;
 		}
-		// delete it if its i % 11
-		if(i % 11 == 0) {
-			if((err = edba_objectdelete(edbahandle))) {
-				test_error("delete");
-				return 1;
-			}
-			if(!edba_objectdeleted(edbahandle)) {
-				test_error("deleted object not deleted");
-				return 1;
-			}
-		} else if(edba_objectdeleted(edbahandle)) {
+		if(edba_objectdeleted(edbahandle)) {
 			test_error("non-deleted object is deleted");
 			return 1;
+		}
+		// also if their oid is % 11 then give them a flag. We'll test this
+		// below.
+		if(oids[i] % 11 == 0) {
+			edba_objectlocks_set(edbahandle, EDB_FUSRLWR);
 		}
 		edba_objectclose(edbahandle);
 	}
 
+	// delete the records in random order
+	edb_oid *oids_random = malloc(sizeof(edb_oid ) * records);
+	scramble(oids, oids_random, records);
+	test_log("deleting %ld rows...", records);
+	for(int i = 0; i < records; i++) {
+		if((err = edba_objectopen(edbahandle, oids_random[i], EDBA_FWRITE))) {
+			test_error("open-delete %d", i);
+			return 1;
+		}
+		if((err = edba_objectdelete(edbahandle))) {
+			test_error("delete");
+			return 1;
+		}
+		if(!edba_objectdeleted(edbahandle)) {
+			test_error("deleted onbject not deleted");
+			return 1;
+		}
+		test_log("deleted rowid %lx", oids_random[i] - 81*3);
+		edba_objectclose(edbahandle);
+	}
+
+	struct test {
+		odb_spec_object_flags flags;
+		uint16_t nextinlist;
+		char data[94];
+	};
+	struct test test;
+
+	// now recreate using half using autoid, and the other half non id.
+	// non-auto
+	test_log("manual-id creating %ld rows...", records/2);
+	for(int i = 0; i < records/2; i++) {
+		// We do NOT use EDBA_FCREATE here because we know for a fact we have
+		// space sense we've previously made room.
+		if((err = edba_objectopen(edbahandle, oids[i], EDBA_FWRITE))) {
+			test_error("open-post-delete %d", i);
+			return 1;
+		}
+		// we know that everything in oids[] is deleted
+		if(!edba_objectdeleted(edbahandle)) {
+			test_error("opening a record not marked as deleted that should "
+					   "have been deleted");
+			return 1;
+		}
+		test_log("undeleteding rowid %lx...", oids[i] - 81*3);
+		if((err = edba_objectundelete(edbahandle))) {
+			test_error("undelete");
+		}
+		uint8_t *data = edba_objectfixed(edbahandle);
+		for(int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
+			data[j] = (uint8_t)j;
+		}
+		// test the lock-set condition we set up during the reading phase.
+		if(oids[i] % 11 == 0) {
+			odb_usrlk locks = edba_objectlocks_get(edbahandle);
+			if(locks != EDB_FUSRLWR) {
+				test_error("locks failed to install on oid with mod 11 "
+						   "condition");
+				return 1;
+			}
+		}
+		edba_objectclose(edbahandle);
+	}
+	// auto-id
+	test_log("auto-id creating %ld rows...", records-records/2);
+	for(int i = records/2; i < records; i++) {
+		// We do NOT use EDBA_FCREATE here because we know for a fact we have
+		// space sense we've previously made room.
+		if((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE))) {
+			test_error("creating-post-delete %d", i);
+			return 1;
+		}
+		uint8_t *data = edba_objectfixed(edbahandle);
+		for(int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
+			data[j] = (uint8_t)j;
+		}
+		edba_objectclose(edbahandle);
+	}
+
+	free(oids_random);
 	free(oids);
 	edba_handle_decom(edbahandle);
 	edba_host_free(edbahost);
@@ -199,17 +290,7 @@ int main(int argc, const char **argv) {
 			records);
 
 	// hmmm... lets do a mysql benchmark
-	mysql();
-
-	printf("mysql total time inserting %d rows: %fs\n", records, timetoseconds
-			(totalmysqlinsert));
-	printf("mysql total time key-updating %d rows: %fs\n", records,
-		   timetoseconds
-			(totalmysqlupdate));
-	printf("mysql time-per-insert: %fns\n", (double)totalmysqlinsert/(double)
-			records);
-	printf("mysql time-per-update: %fns\n", (double)totalmysqlupdate/(double)
-			records);
+	//mysql();
 }
 
 void mysql() {
@@ -285,5 +366,14 @@ void mysql() {
 	mysql_close(con);
 
 
+	printf("mysql total time inserting %d rows: %fs\n", records, timetoseconds
+			(totalmysqlinsert));
+	printf("mysql total time key-updating %d rows: %fs\n", records,
+	       timetoseconds
+			       (totalmysqlupdate));
+	printf("mysql time-per-insert: %fns\n", (double)totalmysqlinsert/(double)
+			records);
+	printf("mysql time-per-update: %fns\n", (double)totalmysqlupdate/(double)
+			records);
 	//printf("MySQL client version: %s\n", mysql_get_client_info());
 }
