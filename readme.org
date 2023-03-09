@@ -68,6 +68,13 @@ Each test will have a exit code of 1 if they failed and and all errornous
 ouput will be exclusively through stderr. stdout will be used
 liberally.
 
+TEST IDEA: Create 2 database files: execute the exact same jobs
+between them. Then close the databases' hosts. 0-out the database id
+(in their respective header) and check to make sure their sha1s are
+equal. The purpose is to prove that the same jobs will always provide
+the same changes to the file. And the databases' only difference is
+their unique db id.
+
 * Links
   - Kanban: https://oidadb.youtrack.cloud/
 
