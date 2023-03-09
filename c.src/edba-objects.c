@@ -228,6 +228,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// for a deleted record, the first 2 bytes after the uint32_t header
 	// is a rowid of the next item.
 	o->trashstart_off = *(uint16_t *)(h->content);
+	o->trashc--;
 	// trashstart_off is updated. we can unlock it. note we still have our
 	// h->lock on the entry itself.
 	edbl_set(h->lockh, EDBL_ARELEASE, (edbl_lock){
@@ -467,7 +468,10 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 			*ll_ref = ll_ref_after;
 			break;
 		}
-		ll_ref = (uint16_t *)(objpage+(*ll_ref)+sizeof(odb_spec_object_flags));
+		ll_ref = (uint16_t *)(objpage
+				+ ODB_SPEC_HEADSIZE
+				+ (*ll_ref * h->objectc)
+				+ sizeof(odb_spec_object_flags));
 	}
 	objheader->trashc--;
 #ifdef EDB_FUCKUPS
