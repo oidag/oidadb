@@ -19,9 +19,15 @@ static void inline assignobject(edba_handle_t *h,
 								void *page,
 								uint16_t intrapagebyteoff,
 								const odb_spec_struct_struct *structdat) {
-	h->objectoff  = intrapagebyteoff;
-	h->objectc    = structdat->fixedc;
-	h->objectflags = page + intrapagebyteoff;
+	h->objectrowoff  = (intrapagebyteoff - ODB_SPEC_HEADSIZE) / structdat->fixedc;
+#ifdef EDB_FUCKUPS
+	if((intrapagebyteoff - ODB_SPEC_HEADSIZE) % structdat->fixedc != 0) {
+		log_critf("assignobject called with an intra-page byte offset not "
+				  "aligned to the start of a row");
+	}
+#endif
+	h->objectc       = structdat->fixedc;
+	h->objectflags   = page + intrapagebyteoff;
 	h->dy_pointersc = structdat->data_ptrc;
 	h->dy_pointers  = (void *)h->objectflags + sizeof(odb_spec_object_flags);
 	h->contentc   = structdat->fixedc
@@ -243,7 +249,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// double check that this record is indeed trash.
 	// Note these errors are only critical if we eneded up here via
 	// a auto-id creation.
-	if(!(*objflags & EDB_FDELETED) || (*objflags & EDB_FUSRLCREAT)) {
+	if(!(*objflags & EDB_FDELETED)) {
 		log_critf("recovered a deleted record out of trash that was not marked as deletion. "
 				  "This could cause for concern for a corrupted trash cycle.");
 	}
@@ -284,8 +290,8 @@ odb_usrlk edba_objectlocks_get(edba_handle_t *h) {
 edb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk) {
 #ifdef EDB_FUCKUPS
 	// invals
-	if(h->opened != EDB_TOBJ || h->openflags & EDBA_FWRITE) {
-		log_critf("attempt to set locks in write-only mode");
+	if(h->opened != EDB_TOBJ || !(h->openflags & EDBA_FWRITE)) {
+		log_critf("attempt to set locks in read-only mode");
 		return EDB_EINVAL;
 	}
 #endif
@@ -366,7 +372,7 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	int trashcrit1 = EDB_TRASHCRITCALITY(objheader->trashc, h->clutchedentry->objectsperpage);
 	// add to the trash linked list
 	*(uint16_t *)(h->content) = objheader->trashstart_off;
-	objheader->trashstart_off = h->objectoff;
+	objheader->trashstart_off = h->objectrowoff;
 	objheader->trashc++;
 
 	int trashcrit2 = EDB_TRASHCRITCALITY(objheader->trashc, h->clutchedentry->objectsperpage);
@@ -452,9 +458,10 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 	// next paragraph is just removing us from the trash linked list.
 	uint16_t ll_ref_after = *(uint16_t *)(h->content);
 	uint16_t *ll_ref = &objheader->trashstart_off;
-	for(int i = 0; i < objheader->trashc; i++) {
+	int i;
+	for(i = 0; i < objheader->trashc; i++) {
 		//ll_ref_next = (uint16_t *)(objpage+ll_ref+sizeof(edb_object_flags));
-		if(*ll_ref == h->objectoff) {
+		if(*ll_ref == h->objectrowoff) {
 			// ll_ref is now pointing to the object that is before us in the linked
 			// list. So we we need to update this object's list to skip past us.
 			*ll_ref = ll_ref_after;
@@ -463,6 +470,11 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 		ll_ref = (uint16_t *)(objpage+(*ll_ref)+sizeof(odb_spec_object_flags));
 	}
 	objheader->trashc--;
+#ifdef EDB_FUCKUPS
+	if(i == objheader->trashc) {
+		log_critf("failed to find object in trash list");
+	}
+#endif
 
 	// mark as live
 	odb_spec_object_flags *objflags = h->objectflags;
