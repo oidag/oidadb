@@ -12,7 +12,7 @@
 int newdeletedpages = 0;
 
 const int cachesize = 256;
-const int records   = 200;
+const int records   = 20000;
 
 
 uint64_t totalmysqlinsert = 0;
