@@ -12,11 +12,17 @@
 int newdeletedpages = 0;
 
 const int cachesize = 256;
-const int records   = 20000;
+const int records   = 100000;
 
 
 uint64_t totalmysqlinsert = 0;
 uint64_t totalmysqlupdate = 0;
+
+
+uint64_t totaltimeinsert = 0
+		, totaltimereadupdate = 0
+, totaltimerandomdelete = 0;
+
 void mysql();
 
 void newdel(odbtelem_data d) {
@@ -52,7 +58,7 @@ int main(int argc, const char **argv) {
 
 	// open the file
 	int fd = open(test_filenmae, O_RDWR);
-	if(fd == -1) {
+	if (fd == -1) {
 		test_error("bad fd");
 		return 1;
 	}
@@ -62,31 +68,31 @@ int main(int argc, const char **argv) {
 	edbd_config config;
 	config.delpagewindowsize = 1;
 	err = edbd_open(&dfile, fd, config);
-	if(err) {
+	if (err) {
 		test_error("edbd_open failed");
 		return 1;
 	}
 
 	// edbp
 	err = edbp_cache_init(&dfile, &globalcache);
-	if(err) {
+	if (err) {
 		test_error("edbp_cache_init");
 		return 1;
 	}
 	err = edbp_cache_config(globalcache, EDBP_CONFIG_CACHESIZE, cachesize);
-	if(err) {
+	if (err) {
 		test_error("edbp_cache_config");
 		return 1;
 	}
 
 	// edba
 	edba_host_t *edbahost;
-	if((err = edba_host_init(&edbahost, globalcache, &dfile))) {
+	if ((err = edba_host_init(&edbahost, globalcache, &dfile))) {
 		test_error("host");
 		return 1;
 	}
 	edba_handle_t *edbahandle;
-	if((err = edba_handle_init(edbahost, 69, &edbahandle))) {
+	if ((err = edba_handle_init(edbahost, 69, &edbahandle))) {
 		test_error("handle");
 		return 1;
 	}
@@ -103,7 +109,7 @@ int main(int argc, const char **argv) {
 		strct.data_ptrc = 0;
 		strct.confc = 0;
 		err = edba_structopenc(edbahandle, &structid, strct);
-		if(err) {
+		if (err) {
 			test_error("struct create");
 			return 1;
 		}
@@ -134,29 +140,63 @@ int main(int argc, const char **argv) {
 		edba_entryclose(edbahandle);
 	}
 
-	uint64_t totaltimeinsert = 0, totaltimereadupdate = 0;
-
 	// insert a load of records
 	test_log("inserting %ld rows...", records);
 	edb_oid *oids = malloc(sizeof(edb_oid) * records);
-	for(int i = 0; i < records; i++) {
+	for (int i = 0; i < records; i++) {
 		timer t = timerstart();
-		oids[i] = ((edb_oid)eid) << 0x30;
-		if((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE |
-		EDBA_FCREATE))) {
+		oids[i] = ((edb_oid) eid) << 0x30;
+		if ((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE |
+		                                                  EDBA_FCREATE))) {
 			test_error("creating %d", i);
 		}
 		uint8_t *data = edba_objectfixed(edbahandle);
 
-		for(int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
-			data[j] = (uint8_t)j;
+		for (int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
+			data[j] = (uint8_t) j;
 		}
 		edba_objectclose(edbahandle);
 		totaltimeinsert += timerend(t);
 	}
 
 
-	// todo: close the database here to test persistancy.
+	// to test persistancy: we close and reopen the database.
+	{
+		edba_handle_decom(edbahandle);
+		edba_host_free(edbahost);
+		edbp_cache_free(globalcache);
+		edbd_close(&dfile);
+		close(fd);
+		// reopen.
+		fd = open(test_filenmae, O_RDWR);
+		if (fd == -1) {
+			test_error("bad fd");
+			return 1;
+		}
+		err = edbd_open(&dfile, fd, config);
+		if (err) {
+			test_error("edbd_open failed");
+			return 1;
+		}
+		err = edbp_cache_init(&dfile, &globalcache);
+		if (err) {
+			test_error("edbp_cache_init");
+			return 1;
+		}
+		err = edbp_cache_config(globalcache, EDBP_CONFIG_CACHESIZE, cachesize);
+		if (err) {
+			test_error("edbp_cache_config");
+			return 1;
+		}
+		if ((err = edba_host_init(&edbahost, globalcache, &dfile))) {
+			test_error("host");
+			return 1;
+		}
+		if ((err = edba_handle_init(edbahost, 69, &edbahandle))) {
+			test_error("handle");
+			return 1;
+		}
+	}
 
 	// read through the records and make sure their as expected.
 	test_log("reading %ld rows...", records);
@@ -197,8 +237,9 @@ int main(int argc, const char **argv) {
 	scramble(oids, oids_random, records);
 	test_log("deleting %ld rows...", records);
 	for(int i = 0; i < records; i++) {
-		test_log("deleting rowid %lx (p%d)...", oids_random[i],
-		         (oids[i]&0x0000FFFFFFFFFFFF)/81);
+		/*test_log("deleting rowid %lx (p%d)...", oids_random[i],
+		         (oids[i]&0x0000FFFFFFFFFFFF)/81);*/
+		timer t = timerstart();
 		if((err = edba_objectopen(edbahandle, oids_random[i], EDBA_FWRITE))) {
 			test_error("open-delete %d", i);
 			return 1;
@@ -212,6 +253,7 @@ int main(int argc, const char **argv) {
 			return 1;
 		}
 		edba_objectclose(edbahandle);
+		totaltimerandomdelete += timerend(t);
 	}
 
 	struct test {
@@ -237,9 +279,9 @@ int main(int argc, const char **argv) {
 					   "have been deleted");
 			return 1;
 		}
-		test_log("undeleteding rowid %lx (p%d row %d)...", oids[i],
+		/*test_log("undeleteding rowid %lx (p%d row %d)...", oids[i],
 		         (oids[i]&0x0000FFFFFFFFFFFF)/81,
-		         (oids[i]&0x0000FFFFFFFFFFFF) % 81);
+		         (oids[i]&0x0000FFFFFFFFFFFF) % 81);*/
 		if((err = edba_objectundelete(edbahandle))) {
 			test_error("undelete");
 		}
@@ -258,8 +300,10 @@ int main(int argc, const char **argv) {
 		}
 		edba_objectclose(edbahandle);
 	}
+
 	// auto-id
-	test_log("auto-id creating %ld rows...", records-records/2);
+	test_log("auto-id creating %ld rows by reusing pages...",
+			 records-records/2);
 	for(int i = records/2; i < records; i++) {
 		// We do NOT use EDBA_FCREATE here because we know for a fact we have
 		// space sense we've previously made room.
@@ -287,10 +331,12 @@ int main(int argc, const char **argv) {
 	printf("oidadb total time key-updating %d rows: %fs\n", records,
 		   timetoseconds
 			(totaltimereadupdate));
-	printf("oidadb time-per-insert: %fns\n", (double)totaltimeinsert/(double)
-	records);
-	printf("oidadb time-per-update: %fs\n", (double)totaltimereadupdate/(double)
-			records);
+	printf("oidadb time-per-insert: %fns\n"
+		   , (double)totaltimeinsert/(double)records);
+	printf("oidadb time-per-select: %fns\n"
+		   , (double)totaltimereadupdate/(double)records);
+	printf("oidadb time-per-select-random: %fns\n"
+		   , (double)totaltimerandomdelete/(double)(records));
 
 	// hmmm... lets do a mysql benchmark
 	//mysql();
@@ -308,14 +354,24 @@ void mysql() {
 	}
 
 	const char *q0 = "truncate table test";
-	mysql_query(con, q0);
+	if(mysql_query(con, q0)) {
+		test_error("mysql query");
+		return;
+	}
 
 	MYSQL_STMT *stmt = mysql_stmt_init(con);
 	MYSQL_STMT *stmt2 = mysql_stmt_init(con);
+	if(!stmt || !stmt2) {
+		test_error("mysql stmt init");
+		return;
+	}
 	const char *q = "insert into test (bin) values (?)";
 	const char *q2 = "update test set bin=? where id=?";
-	mysql_stmt_prepare(stmt, q, strlen(q));
-	mysql_stmt_prepare(stmt2, q2, strlen(q2));
+	if(mysql_stmt_prepare(stmt, q, strlen(q)) ||
+	mysql_stmt_prepare(stmt2, q2, strlen(q2))) {
+		test_error("mysql stmt prep");
+		return;
+	}
 	MYSQL_BIND bind[2];
 	bind[0].buffer_type = MYSQL_TYPE_BLOB;
 	bind[0].is_null = 0;
@@ -330,14 +386,17 @@ void mysql() {
 	bind[1].buffer = buff;
 	if(mysql_stmt_bind_param(stmt, bind)) {
 		test_error("mysql stmt bind");
+		return;
 	}
 	if(mysql_stmt_bind_param(stmt2, bind)) {
 		test_error("mysql stmt bind");
+		return;
 	}
 
 	long long *oids = malloc(sizeof(long long) * records);
 
 	// inserts
+	test_log("mysql inserts...");
 	for(int i = 0; i < records; i++) {
 		timer t = timerstart();
 		for(int j = 0; j < 100; j++) {
@@ -351,6 +410,7 @@ void mysql() {
 	}
 
 	// selects/updates
+	test_log("mysql updates...");
 	for(int i = 0; i < records; i++) {
 		timer t = timerstart();
 
