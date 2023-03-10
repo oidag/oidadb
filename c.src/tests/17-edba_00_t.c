@@ -12,7 +12,7 @@
 int newdeletedpages = 0;
 
 const int cachesize = 256;
-const int records   = 20;
+const int records   = 200;
 
 
 uint64_t totalmysqlinsert = 0;
@@ -197,7 +197,8 @@ int main(int argc, const char **argv) {
 	scramble(oids, oids_random, records);
 	test_log("deleting %ld rows...", records);
 	for(int i = 0; i < records; i++) {
-		test_log("deleting rowid %lx...", oids_random[i] - 81*3);
+		test_log("deleting rowid %lx (p%d)...", oids_random[i],
+		         (oids[i]&0x0000FFFFFFFFFFFF)/81);
 		if((err = edba_objectopen(edbahandle, oids_random[i], EDBA_FWRITE))) {
 			test_error("open-delete %d", i);
 			return 1;
@@ -236,7 +237,9 @@ int main(int argc, const char **argv) {
 					   "have been deleted");
 			return 1;
 		}
-		test_log("undeleteding rowid %lx...", oids[i] - 81*3);
+		test_log("undeleteding rowid %lx (p%d row %d)...", oids[i],
+		         (oids[i]&0x0000FFFFFFFFFFFF)/81,
+		         (oids[i]&0x0000FFFFFFFFFFFF) % 81);
 		if((err = edba_objectundelete(edbahandle))) {
 			test_error("undelete");
 		}

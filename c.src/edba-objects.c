@@ -468,7 +468,6 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 	uint16_t *ll_ref = &objheader->trashstart_off;
 	int i;
 	for(i = 0; i < objheader->trashc; i++) {
-		//ll_ref_next = (uint16_t *)(objpage+ll_ref+sizeof(edb_object_flags));
 		if(*ll_ref == h->objectrowoff) {
 			// ll_ref is now pointing to the object that is before us in the linked
 			// list. So we we need to update this object's list to skip past us.
@@ -480,12 +479,12 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 				+ (*ll_ref * h->objectc)
 				+ sizeof(odb_spec_object_flags));
 	}
-	objheader->trashc--;
 #ifdef EDB_FUCKUPS
 	if(i == objheader->trashc) {
 		log_critf("failed to find object in trash list");
 	}
 #endif
+	objheader->trashc--;
 
 	// mark as live
 	odb_spec_object_flags *objflags = h->objectflags;
