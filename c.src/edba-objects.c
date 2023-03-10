@@ -396,10 +396,35 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 
 	// atp: we know this page has hit trash criticality. Now we must find out if this
 	//      page is in the trash cycle yet. We can do this efficiently by checking the
-	//      trashcrit delta. If the delta hasn't changed, we don't need to do anything
+	//      trashcrit delta. If the delta hasn't changed, we know we don't need
+	//      to do anything.
+
 	if(trashcrit1 == trashcrit2) {
-		// we can assume it's already in the trash cycle sense the criticality hasn't
-		// changed sense the last time we called it.
+		// we can assume it's already in/not in the trash cycle sense the
+		// criticality hasn't changed sense the last time we called it.
+		return 0;
+	}
+
+	// But even though we the delta changed, there's a small chance its
+	// already where it needs to be (in terms of in/out of the trash cycle).
+	if(objheader->trashvor != 0 ||
+	   h->clutchedentry->trashlast == edbp_gpid(h->edbphandle)) {
+		// oddly enough, this page is already inside of the trash cycle.
+		// How did this page end up in the trash cycle if it just now hit
+		// trash criticality when it wasn't prior?
+
+		// It can happen when a fresh page is added to the trash cycle, and
+		// several inserts take place to fill the page so its no longer
+		// critical trash... lets say 1 past critical trash. It would still
+		// be in the cycle because its a fresh page and will still have room
+		// (in other words, it was created in the trash cycle but was never
+		// taken out).
+		// In this case, lets say instead of an insert, the next command
+		// is a delete...
+		// that would make the trash criticality have a delta value even
+		// though we're already in the trash cycle.
+		//
+		// Thus we end up here.
 		return 0;
 	}
 
@@ -409,14 +434,7 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 			.type = EDBL_LENTTRASH,
 			.eid = h->clutchedentryeid
 	});
-#ifdef EDB_FUCKUPS
-	if(objheader->trashvor != 0 ||
-	   h->clutchedentry->trashlast == edbp_gpid(h->edbphandle)) {
-		// oddly enough, this page is already inside of the trash cycle.
-		log_critf("page already in trash yet trash criticality delta said it shouldn't be");
-		return 0;
-	}
-#endif
+
 	objheader->trashvor = h->clutchedentry->trashlast;
 	h->clutchedentry->trashlast = edbp_gpid(h->edbphandle);
 	edbl_set(h->lockh, EDBL_ARELEASE, (edbl_lock){
