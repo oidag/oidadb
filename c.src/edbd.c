@@ -349,7 +349,7 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 	o_file->edb_indexc = o_file->head_page->indexpagec;
 	o_file->edb_structc = o_file->head_page->structpagec;
 	// the mmap itself.
-	ssize_t totalbytes = psize * o_file->edb_indexc * o_file->edb_structc;
+	ssize_t totalbytes = psize * (o_file->edb_indexc + o_file->edb_structc);
 	o_file->edb_indexv = mmap64(0,
 	                            totalbytes,
 								PROT_READ | PROT_WRITE,

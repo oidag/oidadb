@@ -120,7 +120,8 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 	//       implemented. See h->strct.confc
 
 	// update trash management on this page as we do in any edbp_object page.
-	o->trashstart_off = *(uint16_t *)(h->strct + sizeof(odb_spec_object_flags));
+	o->trashstart_off = *(uint16_t *)((void*)h->strct
+			+ sizeof(odb_spec_object_flags));
 
 #ifdef EDB_FUCKUPS
 	{
