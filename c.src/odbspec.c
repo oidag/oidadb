@@ -34,6 +34,12 @@ static void checkstructures() {
 		log_critf("not headsize (%d): odb_spec_deleted (%d)",
 		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_deleted));
 	}
+	if(sizeof(odb_spec_struct_full_t) !=
+	   sizeof(odb_spec_struct_struct)
+	   + sizeof(edb_dyptr)
+	   + sizeof(odb_spec_object_flags)) {
+		log_critf("full odb_struct structure not equal to its componenets");
+	}
 }
 #endif
 

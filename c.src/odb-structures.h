@@ -74,6 +74,7 @@ typedef struct odb_spec_struct_struct {
 
 	uint16_t    fixedc;    // total size (see spec)
 	uint16_t    confc;     // configuration size
+	uint16_t    rsvd;      // rsvd
 	uint8_t     flags;     // flags see spec.
 	uint8_t     data_ptrc; // data pointer count
 
@@ -85,11 +86,15 @@ typedef struct odb_spec_struct_struct {
 // odb_spec_struct_full_t is the structure that fills all edbp_struct pages.
 // It inherits its first 2 fields form it being accounted for as object pages.
 // See spec.
+//
+// We have to mark it as __packed__ because it adds 4 bytes between obj_flags
+// and dy_pointer that would not normally be there in the object pages (as
+// dy_pointers is an implicit byte-offset field)
 typedef struct{
 	odb_spec_object_flags obj_flags;
 	edb_dyptr dy_pointer;
 	odb_spec_struct_struct content;
-} odb_spec_struct_full_t;
+} __attribute__((__packed__)) odb_spec_struct_full_t;
 
 
 ////////////////////////////////////////////////////////////////////////////////

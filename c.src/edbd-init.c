@@ -32,11 +32,11 @@ void edbd_u_initstructpage(void *page, unsigned int pszie, edb_pid trashvor) {
 	header.trashvor = trashvor; // link forward
 	header.head.pleft = 0;
 
-	unsigned int objectsperpage = (pszie - ODB_SPEC_HEADSIZE)/sizeof
-			(odb_spec_struct_struct);
+	unsigned int objectsperpage = (pszie - ODB_SPEC_HEADSIZE) /
+			sizeof(odb_spec_struct_full_t);
 	edba_u_initobj_pages(page,
 						 header,
-						 sizeof(odb_spec_struct_struct),
+						 sizeof(odb_spec_struct_full_t),
 						 objectsperpage);
 	odb_spec_struct *phead = (odb_spec_struct *)page;
 	phead->head.ptype = EDB_TSTRCT;

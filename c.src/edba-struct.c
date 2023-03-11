@@ -106,7 +106,8 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 
 	// and just as easy as that, we have all the info to get the writable structure data.
 	// much more simple than dealing with normal edbp_object pages.
-	h->strctid = *o_sid = trashpage_offset * h->clutchedentry->objectsperpage
+	h->strctid = *o_sid = trashpage_offset
+			* h->clutchedentry->objectsperpage
 			+ o->trashstart_off;
 	h->strct = (odb_spec_struct_full_t *)( (void*)o
 			+ ODB_SPEC_HEADSIZE
