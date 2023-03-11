@@ -19,8 +19,8 @@ uint64_t totalmysqlinsert = 0;
 uint64_t totalmysqlupdate = 0;
 
 
-uint64_t totaltimeinsert = 0
-		, totaltimereadupdate = 0
+uint64_t time_total_insert = 0
+		, time_random_read = 0
 , totaltimerandomdelete = 0;
 
 void mysql();
@@ -156,7 +156,7 @@ int main(int argc, const char **argv) {
 			data[j] = (uint8_t) j;
 		}
 		edba_objectclose(edbahandle);
-		totaltimeinsert += timerend(t);
+		time_total_insert += timerend(t);
 	}
 
 
@@ -213,7 +213,7 @@ int main(int argc, const char **argv) {
 				return 1;
 			}
 		}
-		totaltimereadupdate += timerend(t);
+		time_random_read += timerend(t);
 		// make sure struct works.
 		const odb_spec_struct_struct *strc = edba_objectstruct(edbahandle);
 		if(strc->fixedc != 100) {
@@ -327,14 +327,14 @@ int main(int argc, const char **argv) {
 	close(fd);
 
 	printf("oidadb total time inserting %d rows: %fs\n", records, timetoseconds
-	(totaltimeinsert));
+	(time_total_insert));
 	printf("oidadb total time key-updating %d rows: %fs\n", records,
 		   timetoseconds
-			(totaltimereadupdate));
+			(time_random_read));
 	printf("oidadb time-per-insert: %fns\n"
-		   , (double)totaltimeinsert/(double)records);
+		   , (double)time_total_insert / (double)records);
 	printf("oidadb time-per-select: %fns\n"
-		   , (double)totaltimereadupdate/(double)records);
+		   , (double)time_random_read / (double)records);
 	printf("oidadb time-per-select-random: %fns\n"
 		   , (double)totaltimerandomdelete/(double)(records));
 
