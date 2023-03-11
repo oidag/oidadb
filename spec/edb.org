@@ -473,6 +473,7 @@ assumed to be the object content.
 | (Dynamic data)  | uint64_t | This is the 1 pointer to dyanmic data. Takes the place of =dy_pointers=. See [[Structures: dyanmic data]] |
 | Fixed len       | uint16_t | The fixed length of data, includes header flags, and pointers                                         |
 | Conf. Size      | uint16_t | The size of the configuration                                                                         |
+| rsvd            | uint16_t | rsvd                                                                                                  |
 | Structure flags | uint8_t  | See [[Structure Flags]]                                                                                   |
 | data pointers   | uint8_t  | The amount of pointers per record                                                                     |
 
