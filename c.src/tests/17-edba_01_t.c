@@ -150,7 +150,7 @@ void newdel(odbtelem_data d) {
 };
 edbpcache_t *globalcache;
 
-
+edbd_t globaledbd_file;
 
 int main(int argc, const char **argv) {
 	srand(47237427);
@@ -172,16 +172,15 @@ int main(int argc, const char **argv) {
 		return 1;
 	}
 	// edbd
-	edbd_t dfile;
 	edbd_config config;
 	config.delpagewindowsize = 1;
-	err = edbd_open(&dfile, fd, config);
+	err = edbd_open(&globaledbd_file, fd, config);
 	if (err) {
 		test_error("edbd_open failed");
 		return 1;
 	}
 	// edbp
-	err = edbp_cache_init(&dfile, &globalcache);
+	err = edbp_cache_init(&globaledbd_file, &globalcache);
 	if (err) {
 		test_error("edbp_cache_init");
 		return 1;
@@ -193,7 +192,7 @@ int main(int argc, const char **argv) {
 	}
 	// edba host.
 	edba_host_t *edbahost;
-	if ((err = edba_host_init(&edbahost, globalcache, &dfile))) {
+	if ((err = edba_host_init(&edbahost, globalcache, &globaledbd_file))) {
 		test_error("host");
 		return 1;
 	}
@@ -255,12 +254,12 @@ int main(int argc, const char **argv) {
 	}
 	edba_host_free(edbahost);
 	edbp_cache_free(globalcache);
-	edbd_close(&dfile);
+	edbd_close(&globaledbd_file);
 	close(fd);
 
 
 	{
-		int total_records = records * extrathreads;
+		int total_records = records * (extrathreads+1);
 				printf("oidadb total time inserting %d rows: %fs\n", total_records,
 				       timetoseconds
 						       (time_total_insert));
