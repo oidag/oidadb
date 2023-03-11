@@ -258,15 +258,20 @@ int main(int argc, const char **argv) {
 	edbd_close(&dfile);
 	close(fd);
 
-	printf("oidadb total time inserting %d rows: %fs\n", records, timetoseconds
-	(time_total_insert));
-	printf("oidadb total time key-updating %d rows: %fs\n", records,
-		   timetoseconds
-			(time_random_read));
-	printf("oidadb time-per-insert: %fns\n"
-		   , (double)time_total_insert / (double)records);
-	printf("oidadb time-per-select: %fns\n"
-		   , (double)time_random_read / (double)records);
-	printf("oidadb time-per-select-random: %fns\n"
-		   , (double)totaltimerandomdelete/(double)(records));
+
+	{
+		int total_records = records * extrathreads;
+				printf("oidadb total time inserting %d rows: %fs\n", total_records,
+				       timetoseconds
+						       (time_total_insert));
+		printf("oidadb total time key-updating %d rows: %fs\n", total_records,
+		       timetoseconds
+				       (time_random_read));
+		printf("oidadb async time-per-insert: %fns\n",
+		       (double) time_total_insert / (double) total_records);
+		printf("oidadb async time-per-random-read: %fns\n",
+		       (double) time_random_read / (double) total_records);
+		printf("oidadb time-per-select-random: %fns\n",
+		       (double) totaltimerandomdelete / (double) (total_records));
+	}
 }
