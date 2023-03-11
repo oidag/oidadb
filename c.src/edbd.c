@@ -211,8 +211,8 @@ void edbd_close(edbd_t *file) {
 	if(file->edb_indexv) {
 		int err = munmap(file->edb_indexv,
 						 edbd_size(file)
-						 * file->edb_indexc
-						 * file->edb_structc);
+						 * (file->edb_indexc
+						 + file->edb_structc));
 		if (err == -1) {
 			log_critf("mummap(2)");
 		}
