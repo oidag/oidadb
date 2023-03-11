@@ -16,11 +16,26 @@ int newdeletedpages = 0;
 // threads, the more we can decrease our totalinserttime by taking advantage
 // of exclusive-asyc-processing.
 const int cachesize = 256;
-const int extrathreads   = 1; // can be 0 for single threaded.
+const int extrathreads   = 11; // can be 0 for single threaded.
+const int page_multiplier = 2;
 
+// if 1, then each thread will perform the random look up AND write to the
+// object thus requiring a XL lock
+const int random_write = 1;
+
+// if 1, then there's a chance that a given thread will run through the
+// routine_randread with a scranbled array of another threads OID's. This
+// means 2 threads could have the chance of butting heads.
+const int colliding_oids = 0;
+
+// if 1, then all threads will have their exclusive entries and will not
+// bother eachother during routine_insert.
+const int exclusiveeids = 1;
+
+const int memorysettings    = 0x2202; // depth, ref2 strait, rsvd, ref0 strait
 
 // the below config is per-thread
-const int entries_to_create = 2;
+const int entries_to_create = 7;
 const int records           = 100000;
 
 void scramble(edb_oid *oids, edb_oid *o_random, int records) {
@@ -37,9 +52,10 @@ void scramble(edb_oid *oids, edb_oid *o_random, int records) {
 }
 
 
-uint64_t time_total_insert = 0
-		, time_random_read = 0
-		, totaltimerandomdelete = 0;
+uint64_t time_individual_insert = 0
+		, time_individual_random_read = 0
+		, time_total_insert = 0
+		, time_total_random_read = 0;
 
 struct threadpayload {
 	pthread_t pthread;
@@ -50,6 +66,9 @@ struct threadpayload {
 	int useeid;
 
 	int fixedc; // fixedc to create your entries with.
+
+
+	edb_oid *oids, *oids_scrambled;
 };
 
 void *createentry(void *pl) {
@@ -76,7 +95,7 @@ void *createentry(void *pl) {
 		edb_eid eid;
 		odb_spec_index_entry entryparams;
 		entryparams.type = EDB_TOBJ;
-		entryparams.memory = 0x2202;
+		entryparams.memory = memorysettings;
 		entryparams.structureid = structid;
 		err = edba_entryopenc(edbahandle, &eid, EDBA_FCREATE | EDBA_FWRITE);
 		if (err) {
@@ -89,23 +108,26 @@ void *createentry(void *pl) {
 			return 1;
 		}
 		edba_entryclose(edbahandle);
+		if(exclusiveeids) {
+			payload->useeid = eid;
+		}
 	}
 	return 0;
 }
 
-void *gogothread(void *pl) {
+void *routine_insert(void *pl) {
 	struct threadpayload *payload = pl;
 	edba_handle_t *edbahandle = payload->edbahandle;
 	int eid = payload->useeid;
 
 	// insert a load of records
-	edb_oid *oids = malloc(sizeof(edb_oid) * records);
-	edb_oid *oids_random = malloc(sizeof(edb_oid) * records);
+	test_log("thread %lx inserting into eid %d", &payload->pthread,
+			 payload->useeid);
 	for (int i = 0; i < records; i++) {
 		timer t = timerstart();
-		oids[i] = ((edb_oid) eid) << 0x30;
-		if ((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE |
-		                                                  EDBA_FCREATE))) {
+		payload->oids[i] = ((edb_oid) eid) << 0x30;
+		if ((err = edba_objectopenc(edbahandle, &payload->oids[i], EDBA_FWRITE |
+		                                                           EDBA_FCREATE))) {
 			test_error("creating %d", i);
 			return 1;
 		}
@@ -113,30 +135,39 @@ void *gogothread(void *pl) {
 		uint8_t *data = edba_objectfixed(edbahandle);
 
 		for (int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
-			data[j] = (uint8_t)j;
+			data[j] = (uint8_t) j;
 		}
 		edba_objectclose(edbahandle);
-		atomic_fetch_add(&time_total_insert, timerend(t));
+		atomic_fetch_add(&time_individual_insert, timerend(t));
 	}
+}
+void *routine_randread(void *pl) {
+	struct threadpayload *payload = pl;
+	edba_handle_t *edbahandle = payload->edbahandle;
+	int eid = payload->useeid;
 
 	// randomly read through the records and make sure their as expected.
-	scramble(oids, oids_random, records);
-	test_log("reading %ld rows...", records);
 	for(int i = 0; i < records; i++) {
 		timer t = timerstart();
-		if((err = edba_objectopen(edbahandle, oids_random[i], EDBA_FWRITE))) {
+		int flags = 0;
+		if(random_write) {
+			flags = EDBA_FWRITE;
+		}
+		if((err = edba_objectopen(edbahandle, payload->oids_scrambled[i], flags))) {
 			test_error("reading %d", i);
 		}
+
+		// verify data
 		int fixedc = edba_objectstruct(edbahandle)->fixedc;
 		uint8_t *data = edba_objectfixed(edbahandle);
-		for(int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
-			if(data[j] != (uint8_t)j) {
+		for (int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
+			if (data[j] != (uint8_t) j) {
 				test_error("invalid value");
 				return 1;
 			}
 		}
 		edba_objectclose(edbahandle);
-		atomic_fetch_add(&time_random_read, timerend(t));
+		atomic_fetch_add(&time_individual_random_read, timerend(t));
 	}
 	return 0;
 }
@@ -159,6 +190,7 @@ int main(int argc, const char **argv) {
 	test_mkdir();
 	test_mkfile(argv[0]);
 	odb_createparams createparams = odb_createparams_defaults;
+	createparams.page_multiplier = page_multiplier;
 	err = odb_create(test_filenmae, createparams);
 	if (err) {
 		test_error("failed to create file");
@@ -166,7 +198,7 @@ int main(int argc, const char **argv) {
 	}
 
 	// open the file
-	int fd = open(test_filenmae, O_RDWR);
+	int fd = open(test_filenmae, O_RDWR | O_DIRECT);
 	if (fd == -1) {
 		test_error("bad fd");
 		return 1;
@@ -208,8 +240,12 @@ int main(int argc, const char **argv) {
 			return 1;
 		}
 		payloads[i].totalthreads = extrathreads+1;
-		payloads[i].useeid = 4 + (rand() % (extrathreads+1));
+		if(!exclusiveeids) {
+			payloads[i].useeid = 4 + (rand() % (extrathreads + 1) / 2);
+		}
 		payloads[i].fixedc = 20 + (rand() % (100));
+		payloads[i].oids = malloc(sizeof(edb_oid) * records);
+		payloads[i].oids_scrambled = malloc(sizeof(edb_oid) * records);
 	}
 
 	test_log("creating %d entries asyc...", (extrathreads+1)*2);
@@ -230,22 +266,60 @@ int main(int argc, const char **argv) {
 		return 1;
 	}
 
+	// inserts
 	test_log("inserting a total of %ld rows asyc...", records*(extrathreads+1));
+	timer t = timerstart();
 	for(int i = 0; i < extrathreads; i++) {
-		pthread_create(&payloads[i].pthread
-				, 0
-				, gogothread
-				, &payloads[i]);
+		pthread_create(&payloads[i].pthread, 0, routine_insert, &payloads[i]);
 	}
 	// main thread
-	gogothread(&payloads[extrathreads]);
+	routine_insert(&payloads[extrathreads]);
 	// join threads
 	test_log("joining threads...");
 	for(int i = 0; i < extrathreads; i++) {
 		pthread_join(payloads[i].pthread, 0);
 	}
+	time_total_insert = timerend(t);
 	if(test_waserror) {
 		return 1;
+	}
+
+	// random reads
+	// scramble the oids
+	for(int i = 0; i < extrathreads+1; i++) {
+		if(!colliding_oids) {
+			scramble(payloads[i].oids, payloads[i].oids_scrambled, records);
+		} else {
+			if(i % 2 && (rand() % 2)) {
+				scramble(payloads[i-1].oids,
+						 payloads[i].oids_scrambled, records);
+			} else {
+				scramble(payloads[i].oids, payloads[i].oids_scrambled, records);
+			}
+		}
+	}
+	test_log("random-reading a total of %ld rows asyc...",
+			 records*(extrathreads+1));
+	t = timerstart();
+	for(int i = 0; i < extrathreads; i++) {
+		pthread_create(&payloads[i].pthread, 0, routine_randread, &payloads[i]);
+	}
+	// main thread
+	routine_randread(&payloads[extrathreads]);
+	// join threads
+	test_log("joining threads...");
+	for(int i = 0; i < extrathreads; i++) {
+		pthread_join(payloads[i].pthread, 0);
+	}
+	time_total_random_read = timerend(t);
+	if(test_waserror) {
+		return 1;
+	}
+
+	test_log("decoming threads...");
+	for(int i = 0; i < extrathreads+1; i++) {
+		free(payloads[i].oids);
+		free(payloads[i].oids_scrambled);
 	}
 
 	test_log("closing db...");
@@ -262,15 +336,24 @@ int main(int argc, const char **argv) {
 		int total_records = records * (extrathreads+1);
 				printf("oidadb total time inserting %d rows: %fs\n", total_records,
 				       timetoseconds
-						       (time_total_insert));
+						       (time_individual_insert));
 		printf("oidadb total time key-updating %d rows: %fs\n", total_records,
 		       timetoseconds
-				       (time_random_read));
-		printf("oidadb async time-per-insert: %fns\n",
+				       (time_individual_random_read));
+		printf("oidadb individual time-per-insert: %fns/record\n",
+		       (double) time_individual_insert / (double) total_records);
+		printf("oidadb individual time-per-random-read: %fns/record\n",
+		       (double) time_individual_random_read / (double) total_records);
+
+		printf("oidadb total time-per-insert: %fns/record\n",
 		       (double) time_total_insert / (double) total_records);
-		printf("oidadb async time-per-random-read: %fns\n",
-		       (double) time_random_read / (double) total_records);
-		printf("oidadb time-per-select-random: %fns\n",
-		       (double) totaltimerandomdelete / (double) (total_records));
+		printf("oidadb total time-per-random-read: %fns/record\n\n\n",
+		       (double) time_total_random_read / (double) total_records);
+
+
+		printf("inserts per second: %.2lf\n", (double)total_records /
+		                                    (double)timetoseconds(time_total_insert));
+		printf("random selects per second: %.2lf\n", (double)total_records /
+		                                         (double)timetoseconds(time_total_random_read));
 	}
 }

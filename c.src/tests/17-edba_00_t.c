@@ -12,15 +12,15 @@
 int newdeletedpages = 0;
 
 const int cachesize = 256;
-const int records   = 100000;
+const int records   = 1000000;
 
 
 uint64_t totalmysqlinsert = 0;
 uint64_t totalmysqlupdate = 0;
 
 
-uint64_t time_total_insert = 0
-		, time_random_read = 0
+uint64_t time_individual_insert = 0
+		, time_individual_random_read = 0
 , totaltimerandomdelete = 0;
 
 void mysql();
@@ -57,7 +57,7 @@ int main(int argc, const char **argv) {
 	}
 
 	// open the file
-	int fd = open(test_filenmae, O_RDWR);
+	int fd = open(test_filenmae, O_RDWR | O_DIRECT);
 	if (fd == -1) {
 		test_error("bad fd");
 		return 1;
@@ -142,9 +142,9 @@ int main(int argc, const char **argv) {
 
 	// insert a load of records
 	test_log("inserting %ld rows...", records);
+	timer t = timerstart();
 	edb_oid *oids = malloc(sizeof(edb_oid) * records);
 	for (int i = 0; i < records; i++) {
-		timer t = timerstart();
 		oids[i] = ((edb_oid) eid) << 0x30;
 		if ((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE |
 		                                                  EDBA_FCREATE))) {
@@ -156,8 +156,8 @@ int main(int argc, const char **argv) {
 			data[j] = (uint8_t) j;
 		}
 		edba_objectclose(edbahandle);
-		time_total_insert += timerend(t);
 	}
+	time_individual_insert = timerend(t);
 
 
 	// to test persistancy: we close and reopen the database.
@@ -200,9 +200,8 @@ int main(int argc, const char **argv) {
 
 	// read through the records and make sure their as expected.
 	test_log("reading %ld rows...", records);
+	t = timerstart();
 	for(int i = 0; i < records; i++) {
-
-		timer t = timerstart();
 		if((err = edba_objectopen(edbahandle, oids[i], EDBA_FWRITE))) {
 			test_error("reading %d", i);
 		}
@@ -213,7 +212,6 @@ int main(int argc, const char **argv) {
 				return 1;
 			}
 		}
-		time_random_read += timerend(t);
 		// make sure struct works.
 		const odb_spec_struct_struct *strc = edba_objectstruct(edbahandle);
 		if(strc->fixedc != 100) {
@@ -231,6 +229,7 @@ int main(int argc, const char **argv) {
 		}
 		edba_objectclose(edbahandle);
 	}
+	time_individual_random_read = timerend(t);
 
 	// delete the records in random order
 	edb_oid *oids_random = malloc(sizeof(edb_oid ) * records);
@@ -327,16 +326,21 @@ int main(int argc, const char **argv) {
 	close(fd);
 
 	printf("oidadb total time inserting %d rows: %fs\n", records, timetoseconds
-	(time_total_insert));
+	(time_individual_insert));
 	printf("oidadb total time key-updating %d rows: %fs\n", records,
 		   timetoseconds
-			(time_random_read));
+			(time_individual_random_read));
 	printf("oidadb time-per-insert: %fns\n"
-		   , (double)time_total_insert / (double)records);
+		   , (double)time_individual_insert / (double)records);
 	printf("oidadb time-per-select: %fns\n"
-		   , (double)time_random_read / (double)records);
+		   , (double)time_individual_random_read / (double)records);
 	printf("oidadb time-per-select-random: %fns\n"
 		   , (double)totaltimerandomdelete/(double)(records));
+	printf("\n\n");
+	printf("inserts per second: %.2lf\n", (double)records /
+	(double)timetoseconds(time_individual_insert));
+	printf("random reads per second: %.2lf\n", (double)records /
+	                                    (double)timetoseconds(totaltimerandomdelete));
 
 	// hmmm... lets do a mysql benchmark
 	//mysql();
