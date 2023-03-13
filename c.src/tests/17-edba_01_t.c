@@ -75,9 +75,11 @@ void *createentry(void *pl) {
 	struct threadpayload *payload = pl;
 	edba_handle_t *edbahandle = payload->edbahandle;
 	int fixedc = payload->fixedc;
+	edb_err err; // make sure we have errs in our thread's stack.
 
 	// create entry-structure pairs
-	for(int i = 0; i < entries_to_create; i++) {
+	// we do +1 here so we can create the last entry just to delete it.
+	for(int i = 0; i < entries_to_create+1; i++) {
 		edb_sid structid;
 		odb_spec_struct_struct strct;
 		strct.fixedc = fixedc;
@@ -86,7 +88,7 @@ void *createentry(void *pl) {
 		strct.confc = 0;
 		err = edba_structopenc(edbahandle, &structid, strct);
 		if (err) {
-			test_error("struct create");
+			test_error("struct create %d", err);
 			return 1;
 		}
 		edba_structclose(edbahandle);
@@ -99,19 +101,29 @@ void *createentry(void *pl) {
 		entryparams.structureid = structid;
 		err = edba_entryopenc(edbahandle, &eid, EDBA_FCREATE | EDBA_FWRITE);
 		if (err) {
-			test_error("openc");
+			test_error("openc %d", err);
 			return 1;
 		}
 		err = edba_entryset(edbahandle, entryparams);
 		if (err) {
-			test_error("entryset");
+			test_error("entryset %d", err);
 			return 1;
 		}
 		edba_entryclose(edbahandle);
-		if(exclusiveeids) {
+		if(exclusiveeids && payload->useeid == 0) {
 			payload->useeid = eid;
 		}
+		if(i + 1 == entries_to_create + 1) {
+			// this is our last entry we create just to delete
+			err = edba_entrydelete(edbahandle, eid);
+			if(err) {
+				test_error("entry delete %d", err);
+				return 1;
+			}
+		}
 	}
+
+
 	return 0;
 }
 
@@ -242,6 +254,8 @@ int main(int argc, const char **argv) {
 		payloads[i].totalthreads = extrathreads+1;
 		if(!exclusiveeids) {
 			payloads[i].useeid = 4 + (rand() % (extrathreads + 1) / 2);
+		} else {
+			payloads[i].useeid = 0; // set in createentries
 		}
 		payloads[i].fixedc = 20 + (rand() % (100));
 		payloads[i].oids = malloc(sizeof(edb_oid) * records);
