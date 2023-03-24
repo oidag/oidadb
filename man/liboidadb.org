@@ -1,44 +1,82 @@
-#+SETUPFILE: ~/.emacs.d/themes/stylish_white.theme
-#+TITLE: OidaDB Programmer's Manual
-#+AUTHOR: Kevin Marschke
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: Introduction to liboidadb
 
-* Preface
-** About this Book
-This book, manual, documentaiton, what ever you want to call it is for
-OidaDB. OidaDB is what is known as a proactive database. This database
-has many moving parts, and many ways to be configured: some may say
-"enough rope to hang yourself".
+* Introduction
 
-This manual will provide you everything you could possibly know about
-how to use OidaDB. It will also discuss pitfalls and way to take
-advantages of it.
-** Version
-Unfinished.
-** Audience
-** A note about writting skills
-*** Spelling
-So I'm going to be honest here. I'm bad at english spelling. Like
-/really/ bad. I'm nearly certain I have Dysgraphia outside of an
-official diagnosis, although funny enough when I was in Austria my
-german spelling skills were normal.
+OidaDB is software designed to make accessible a massive amount of
+structured data across multiple computers on a network. The magnituded
+of such data can grow to be millions of terabytes, with every byte
+accessible within nanoseconds.
 
-Regardless, I am going to be typing 90% of this manual in an editor
-with no spell-checking. I'll only go through and have someone else
-edit it when it's done.
+This software is provided to you by means of a software library. The
+library will handle the storage, retrieval, caching, multithreading,
+hosting, connecting, networking, load balancing, indexing,
+communication, memory use, cpu use, disk (SSD/tape/whatever) use, and
+error handling. /Your/ software will use this library and gain the
+aformentioned accessability without the worry of those things.
 
-I'm not saying this as an excuse for someone to have bad spelling. I'm
-saying this so I can avoid getting hundreds of emails of people
-pointing out my misspellings. I know. If you read it, and you
-understood it: then my job is done. You can be a picky imperical
-englishman to the person who will eventually edit this.
-*** 2nd-Person
-I like to make all my technical writtings Feynman-style (an idol of
-mine). As you've already seen, I will write this as if /I'm/ talking
-to /you/, as if its a discussion between /us/, as if /we/ are working
-side by side.
+If you have previous experiances with other database such as OidaDB's
+so called /competition/ such as MySQL, MariaDB, Oracle, SAP, RocksDB,
+MongoDB, ect., just go ahead and forget everything you know about
+those products. OidaDB is very different from anything else you may
+have used. Though your technical knowledge of the underlining system
+(linux & general computer technology) will benifit your OidaDB
+experiance greatly.
 
-Its worth noting that Feynman didn't make physics. But I did make
-OidaDB. So a lot of information is perscribed by my perspective.
+* Installation
+The library file, =liboidadb.so= (sometimes with version number before
+the =.so=), should be placed in your systems shared library
+directory. See your linker's documentation for this. You can mostly
+disregard this step because the package management system would have
+taken care of this.
+
+ - Debian Systems - /TODO: deb package stuff/
+ - Redhat Systems - /TODO: yum package stuff/
+ - Non-packaged/other systems - /TODO: tarball package/
+
+If everything is installed properly, the following code can be compiled
+
+#+BEGIN_SRC c
+// main.c
+int main()
+{
+    printf("%s\n", odb_version());
+}
+#+END_SRC
+
+With =gcc main.c -loidadb && a.out=. If you see OidaDB's version,
+you're ready to begin.
+
+
+* Index
+ 1. [[./preface.org][Preface]]
+ 2. Errors - 50% of your job is handling errors; the other 50% is
+    making them.
+    1. =odb_errstr=
+ 3. Telemetry - Telemetry options for monitoring internal workings of
+    OidaDB.
+    1. =odbtelem=
+	2. =odbtelem_poll=
+ 4. Database Creation/Deletion - All the info about creating and
+    deleting database files. Then the subsequent opening and closing.
+	1. =odb_create=
+	2. =odb_createparams_t=
+ 5. Database Hosts/Handles
+    1. =odb_handle=
+	2. =odb_host=
+	3. =odb_hostpoll=
+	4. =odb_hostconfig_t=
+ 6. OidaDB Elements
+ 7. [[./odbh.org][The OidaDB Handle]]
+    1. [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]]
+    1. [[./odbh_job.org][=odbh_job=]]
+	2. [[./odbh_poll.org][=odbh_poll=]]
+
+* Appendix
+ - Glossery
+   - Enums
+ - See Also
+
 * Programming Overview
 ** Interface Model
 talk about how errors are returned, typcial call patterns
@@ -206,7 +244,10 @@ todo
 
 * The OidaDB File
 ** Specification
-Give a brief summary of its layout
+Every single byte that goes from and to OidaDB database will always be
+associated to a file. This file, for intents and purposes, /is/ the
+database. If you wish to make backups of your database, you'd only
+need to copy this database file to a safe destination.
 ** Lenting
 * Configuration
 Also note here that configuration is the core database. For network
@@ -229,11 +270,44 @@ just using a single machine.
 ** Hosting
 ** Connecting
 * Event Stream
+The event stream is one of the distinct features of OidaDB. Everytime
+something in the database changes, this change is logged in what is
+known as the *Event Buffer*. Handles can then optionally listen to the
+Event Buffer and poll for the flow of events. This allows Hanldes to
+remain updated on what is happening to records they care about.
+
+Speaking in analogies, everytime there's a ~INSERT~ or ~UPDATE~
+statement executed, an event is dispatched to everything that is
+currently listening to the database so long that they subscribe to
+it.
+
 ** Application
-talk about how the event stream is unique compared to the normal
-relation/non relation database.
+The purpose of the Event Stream is for real-time obsessed
+applications... which, admittedly is a very general term. And
+unforuntely I cannot give you examples of rather you need real-time
+data or not, it is a design desicion that you are able to have with
+OidaDB.
+
+I put it in there so I can applications with live-feed CRUD forms. For
+instance, if I'm looking at a user's information on my computer, and
+across the world that user decides to update their name on their
+phone, I'll see them update their own name right there on my screen.
+
 ** Subscriptions
 ** Event Miss
+An important concept you must understand about the Event Stream is its
+volitility: the stream will flow, with or without you. The Event
+Stream does not wait if all of its subscribers have caught up to
+it. If it did wait then it would take but 1 bad handle to grind the
+entire database to a hault.
+
+So I submit to you the invention of an "Event Miss": it happens when a
+Handle fails to poll from the Event Stream fast enough and thus fails
+to observe past events that have sense been overridden from the
+buffer. The only way to prevent this from happening is to have faster
+handles, with larger buffer pools and faster ways to which they can
+filter out events they don't need.
+
 * Errors
 ** Error Conventions
 Talk about error levels.

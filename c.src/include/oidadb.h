@@ -493,11 +493,14 @@ edb_err odb_createt(const char *path, odb_createparams params); // truncate exis
  *                 see errorno)
  *  - EDB_ENOHOST - file is not being hosted
  *  - EDB_ENOTDB - file/host is not oidadb format/protocol
+ *  - EDB_ENOMEM - not enough memory
+ *  - \ref EDB_ECRIT
  *
  * \subsection THREADING
  * All \ref odbh functions called between odb_handle and odb_handleclose are
  * not considered thread safe. A given thread must posses their own handle if
- * they are to use any \ref odbh functions.
+ * they are to use any \ref odbh functions. Failure to do this will result in
+ * a deadlock.
  *
  * The thread that called odb_handle must be the same thread that calls
  * odb_handleclose.
@@ -846,6 +849,99 @@ typedef enum odb_cmd {
 	EDB_CUSRLKW  = 0x0600,
 } odb_cmd;
 
+// edb_jobclass must take only the first 4 bits. (to be xor'd with
+// edb_cmd).
+typedef enum edb_jobclass {
+
+	// means that whatever job was there is now complete and ready
+	// for a handle to come in and install another job.
+	EDB_JNONE = 0x0000,
+
+	// structure ops
+	//
+	//   (EDB_CWRITE: not supported)
+	//   EDB_CCREATE:
+	//     <- edb_struct_t (no implicit fields)
+	//     -> edb_err (parsing error)
+	//     <- arbitrary configuration
+	//     -> uint16_t new structid
+	//   EDB_CDEL:
+	//     <- uint16_t structureid
+	//     -> edb_err
+	EDB_STRUCT = 0x0001,
+
+	// dynamic data ops
+	// valuint64 - the objectid (0 for new)
+	// valuint   - the length of that data that is to be written.
+	// valbuff   - the name of the shared memory open via shm_open(3). this
+	//             will be open as read only and will contain the content
+	//             of the object. Can be null for deletion.
+	EDB_DYN = 0x0002,
+
+	// Perform CRUD operations with a single object.
+	// see edb_obj() for description
+	//
+	// all cases:
+	//     <- edb_oid (see also: EDB_OID_... constants)
+	//     (additional params, if applicable)
+	//     -> edb_err [1]
+	//  EDB_CCOPY:
+	//     (all cases)
+	//     -> void *rowdata
+	//     ==
+	//  EDB_CWRITE:
+	//     (all cases)
+	//     <- void *rowdata
+	//     ==
+	//  EDB_CCREATE:
+	//     (all cases)
+	//     // todo: what if they think the structure is X bytes long and sense has been updated and thus now is X+/-100 bytes long?
+	//     <- void *rowdata (note to self: keep this here, might as well sense we already did the lookup)
+	//     -> created ID
+	//     ==
+	//  EDB_CDEL
+	//     (all cases)
+	//     ==
+	//  EDB_CUSRLK(R/W): (R)ead or (W)rite the persistant locks on rows.
+	//     (all cases)
+	//     (R) -> edb_usrlk
+	//     (W) <- edb_usrlk
+	//     ==
+	//
+	// [1] This error will describe the efforts of locating the oid
+	//     which will include:
+	//       - EDB_EHANDLE - handle closed stream/stream is invalid
+	//       - EDB_EINVAL - entry in oid was below 4.
+	//       - EDB_EINVAL - jobdesc was invalid
+	//       - EDB_EINVAL - (EDB_CWRITE) start wasn't less than end.
+	//       - EDB_ENOENT - (EDB_CWRITE, EDB_CCOPY) oid is deleted
+	//       - EDB_EOUTBOUNDS - (EDB_CWRITE): start was higher than fixedlen.
+	//       - EDB_EULOCK - failed due to user lock (see EDB_FUSR... constants)
+	//       - EDB_EEXIST - (EDB_CCREATE): Object already exists
+	//       - EDB_ECRIT - unknown error
+	//       - EDB_ENOSPACE - (EDB_CCREATE, using AUTOID): disk/file full.
+	//       - EDB_EEOF - the oid's entry or row was larger than the most possible value
+	//
+	EDB_OBJ = 0x0004,
+
+	// Modify the entries, updating the index itself.
+	//
+	// EDB_ENT | EDB_CCREATE
+	//   <- edb_entry_t entry. Only the "parameters" group of the structure is used.
+	//      This determains the type and other parameters.
+	//   -> edb_err error
+	//   -> (if no error) uint16_t entryid of created ID
+	//
+	// EDB_ENT | EDB_CDEL
+	//   <- uint16_t entryid of ID that is to be deleted
+	//   -> edb_err error
+	//
+	EDB_ENT = 0x0008,
+
+} edb_jobclass;
+
+
+// OR'd together values from odb_jobclass and odb_cmd
 typedef unsigned int odb_jobdesc;
 
 
@@ -920,8 +1016,10 @@ argument (`handle`) is the handle, second argument (`jobclass`) is the
 
 ## ERRORS
 
-- EDB_EINVAL - handle is null or uninitialized
-- EDB_EINVAL - cmd is not recognized/listed
+ - EDB_EINVAL - handle is null or uninitialized
+ - EDB_EJOBDESC - odb_jobdesc is not valid
+ - EDB_ECLOSED - Host is closed or is in the process of closing.
+ - \ref EDB_ECRIT
 
 ## VOLATILITY
 Fuck.
@@ -930,7 +1028,62 @@ Fuck.
 
 \see odbh_structs
  */
-edb_err edbh_job(odbh *handle, odb_jobdesc jobclass, ... /* args */);
+
+// - write-only?
+// - wait-to-commit (wait until odbh_jobpoll is called to execute all jobs
+//                   atomically)
+// -
+typedef enum odb_jobhint_t {
+
+	// all jobs installed in odbh_job will be written too and will have no
+	// response when jobread is called.
+
+	what about streaming one job to another?
+
+	ODB_JNOREAD,
+
+	// force the jobs to execute sequencially as they were installed
+	ODB_JSEQ,
+
+	// does nothing right now. In the future this will make all jobs
+	// installed in odbh_job not to start execution until jobreturn is called.
+	ODB_JATOMIC,
+} odb_jobhint_t;
+edb_err odbh_jobmode(odbh *handle, odb_jobhint_t hint);
+
+// an error that can happen with edbh_job is that the caller has too many
+// jobs open: "too many" means they have more jobs open concurrently then
+// there are threads. If we allow more jobs to remain open than threads, this
+// will cause a deadlock sense all threads (ie: 2) will be doing something,
+// if we have a 3rd job also open and streaming into, that third jobs buffer
+// will fill up and then block. The original 2 jobs will then never have
+// their buffers cleared. Dead locks can also happen due to a full edbp cache.
+//
+// This only applies to "open buffer" jobs though. If the job has been fully
+// installed then no deadlock can happen.
+//
+// Further more, we can have multiple handles (ie: 4) all have an open buffer
+// job installed and this will not cause a deadlock hmmm
+//
+// If we have 2 workers, 3 handles h1, h2, h3 . Each handle installs 1 open
+// buffer job j1, j2, j3... no dead lock.
+//
+// But what if 1 handle installed 2 jobs j4 thus:
+//
+// h1 -> j1*
+// h2 -> j2
+// h3 -> j3, j4*
+//
+// * = worker adopted job.
+//
+// No... no deadlock. Sense each handle is on its own thread, they will all
+// clear buffers so the worker will always be able to move on.
+//
+// Make sure handles are installed on different threads!
+
+edb_err odbh_job(odbh *handle, odb_jobdesc jobdesc, odbj **o_jhandle);
+edb_err odbh_jobwrite(odbj *handle, const void *buf, int bufc);
+edb_err odbh_jobread(odbj *handle, void *o_buf, int bufc);
 
 
 /**
@@ -980,15 +1133,15 @@ params.
 This function blocks the calling thread and will return once a new
 change is detected.
 
-Limit 1 call to odb_select to each handle. If you attempt to call
-odb_select asyncrounously with the same handle, this will cause an
+Limit 1 call to odbh_select to each handle. If you attempt to call
+odbh_select asyncrounously with the same handle, this will cause an
 error.
 
 If this function is called too infrequently then there's a
 possibility that the caller will miss certain events. But this is a
 very particular edge case that is described elsewhere probably.
  */
-edb_err odb_select(odbh *handle, edb_select_t *params);
+edb_err odbh_select(odbh *handle, edb_select_t *params);
 
 /** \} */ // odbh
 
