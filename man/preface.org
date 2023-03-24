@@ -1,0 +1,80 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: Preface
+
+* About this Book
+This book, manual, documentaiton, what ever you want to call it is for
+OidaDB. OidaDB is what is known as a proactive database. This database
+has many moving parts, and many ways to be configured: some may say
+"enough rope to hang yourself".
+
+This manual will provide you everything you could possibly know about
+how to use OidaDB. It will also discuss pitfalls and way to take
+advantages of it.
+
+This manual is not inclusive of exercises: it will stricktly be
+technical documentation. Thus, there will not be anything like a
+"quick start guide", as that would be classified as an excersise.
+* Manual Version
+Unfinished.
+* Audience
+This manual is mainly written for those with
+
+ - at least 3 years of experience of software programming in general.
+ - at least a year of C experience, equivilent length of experience in
+   GoLang, Rust, C++, or other non-virtual/memory-aware languages
+   will also suffice.
+ - at least a year of experience of using linux systems.
+* A note about writting skills
+** Spelling
+So I'm going to be honest here. I'm bad at english spelling. Like
+/really/ bad. I'm nearly certain I have Dysgraphia outside of an
+official diagnosis, although funny enough when I was in Austria my
+german spelling skills were normal.
+
+Regardless, I am going to be typing 90% of this manual in an editor
+with no spell-checking. I'll only go through and have someone else
+edit it when it's done.
+
+I'm not saying this as an excuse for someone to have bad spelling. I'm
+saying this so I can avoid getting hundreds of emails of people
+pointing out my misspellings. I know. If you read it, and you
+understood it: then my job is done. You can be a picky imperical
+englishman to the person who will eventually edit this.
+** 2nd-Person
+I like to make all my technical writtings Feynman-style (an idol of
+mine). As you've already seen, I will write this as if /I'm/ talking
+to /you/, as if its a discussion between /us/, as if /we/ are working
+side by side.
+
+Its worth noting that Feynman didn't make physics. But I did make
+OidaDB. So a lot of information is perscribed by my perspective.
+* Appendix
+** Glossary
+(todo: alphabetically sort when done)
+
+ - Pages: [[Pages]]
+ - Table: [[Tables]]
+ - Objects: [[Objects]]
+ - Rows: [[Rows]]
+
+** See Also
+Here's some continued reading that influanced OidaDB in one way or
+another:
+
+ - https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout
+ - https://www.percona.com/blog/2019/11/12/watch-out-for-disk-i-o-performance-issues-when-running-ext4/
+ - https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html
+ - http://www.dba-oracle.com/t_row_locks_vs_table_locks.htm
+ - https://blog.jcole.us/2013/01/03/the-basics-of-innodb-space-file-layout/
+ - https://blog.jcole.us/2013/01/07/the-physical-structure-of-innodb-index-pages/
+ - https://blog.jcole.us/2013/01/04/page-management-in-innodb-space-files/
+ - https://blog.jcole.us/2013/01/10/btree-index-structures-in-innodb/
+ - https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-row-format.html
+ - https://www.youtube.com/watch?v=0Dj96yFl1SE
+ - https://www.cs.cmu.edu/~christos/courses/721-resources/p297-o_neil.pdf
+ - https://mariadb.com/resources/blog/does-innodb-page-size-matter/
+ - https://dev.mysql.com/doc/refman/5.7/en/sorted-index-builds.html
+ - https://en.wikipedia.org/wiki/R-tree
+ - https://www.postgresql.org/files/documentation/pdf/15/postgresql-15-A4.pdf
+   - (Part VII)
+   - Shoutout to Postgres team
