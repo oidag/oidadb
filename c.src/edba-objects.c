@@ -48,7 +48,7 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 		log_critf("cannot open object, something already opened");
 		return EDB_ECRIT;
 	}
-	h->opened = EDB_TOBJ;
+	h->opened = ODB_ELMOBJ;
 	h->openflags = flags;
 
 	// cluth lock the entry
@@ -99,7 +99,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 		log_critf("cannot open object, something already opened");
 		return EDB_ECRIT;
 	}
-	h->opened = EDB_TOBJ;
+	h->opened = ODB_ELMOBJ;
 	h->openflags = flags;
 
 	// cluth lock the entry
@@ -264,7 +264,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 void    edba_objectclose(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
-	if(h->opened!= EDB_TOBJ) {
+	if(h->opened != ODB_ELMOBJ) {
 		log_debugf("trying to close object when non opened.");
 	}
 #endif
@@ -291,7 +291,7 @@ odb_usrlk edba_objectlocks_get(edba_handle_t *h) {
 edb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk) {
 #ifdef EDB_FUCKUPS
 	// invals
-	if(h->opened != EDB_TOBJ || !(h->openflags & EDBA_FWRITE)) {
+	if(h->opened != ODB_ELMOBJ || !(h->openflags & EDBA_FWRITE)) {
 		log_critf("attempt to set locks in read-only mode");
 		return EDB_EINVAL;
 	}
@@ -316,8 +316,8 @@ edb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk) {
 // delete group
 unsigned int edba_objectdeleted(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
-	if(h->opened != EDB_TOBJ) {
-		log_critf("opened parameter was not EDB_TOBJ");
+	if(h->opened != ODB_ELMOBJ) {
+		log_critf("opened parameter was not ODB_ELMOBJ");
 		return 0;
 	}
 #endif
@@ -337,8 +337,8 @@ static inline int EDB_TRASHCRITCALITY(uint16_t trashcount, uint16_t total) {
 
 edb_err edba_objectdelete(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
-	if(h->opened != EDB_TOBJ || !(h->openflags & EDBA_FWRITE)) {
-		log_critf("opened parameter was not EDB_TOBJ or without write permissions");
+	if(h->opened != ODB_ELMOBJ || !(h->openflags & EDBA_FWRITE)) {
+		log_critf("opened parameter was not ODB_ELMOBJ or without write permissions");
 		return EDB_EINVAL;
 	}
 #endif
@@ -446,8 +446,8 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 
 edb_err edba_objectundelete(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
-	if(h->opened != EDB_TOBJ || !(h->openflags & EDBA_FWRITE)) {
-		log_critf("opened parameter was not EDB_TOBJ or without write permissions");
+	if(h->opened != ODB_ELMOBJ || !(h->openflags & EDBA_FWRITE)) {
+		log_critf("opened parameter was not ODB_ELMOBJ or without write permissions");
 		return EDB_EINVAL;
 	}
 #endif
@@ -503,7 +503,7 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 	}
 #endif
 	objheader->trashc--;
-
+	
 	// mark as live
 	odb_spec_object_flags *objflags = h->objectflags;
 	*objflags = *objflags & ~EDB_FDELETED;

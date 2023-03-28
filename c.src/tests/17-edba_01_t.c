@@ -96,7 +96,7 @@ void *createentry(void *pl) {
 		// entry
 		edb_eid eid;
 		odb_spec_index_entry entryparams;
-		entryparams.type = EDB_TOBJ;
+		entryparams.type = ODB_ELMOBJ;
 		entryparams.memory = memorysettings;
 		entryparams.structureid = structid;
 		err = edba_entryopenc(edbahandle, &eid, EDBA_FCREATE | EDBA_FWRITE);

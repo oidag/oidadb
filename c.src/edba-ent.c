@@ -20,7 +20,7 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 		log_critf("cannot open entry, something already opened");
 		return EDB_ECRIT;
 	}
-	h->opened = EDB_TENTS;
+	h->opened = ODB_ELMENTS;
 	h->openflags = flags;
 
 	// easy pointers
@@ -36,10 +36,10 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 
 	// note the absence of edba_u_clutchentry. We manually clutch it here because
 	// we need to surf through the index.
-	// find the first EDB_TINIT
+	// find the first ODB_ELMINIT
 	for (h->clutchedentryeid = EDBD_EIDSTART; !err; h->clutchedentryeid++) {
 		err = edbd_index(descriptor, h->clutchedentryeid, &h->clutchedentry);
-		if(h->clutchedentry->type == EDB_TINIT) {
+		if(h->clutchedentry->type == ODB_ELMINIT) {
 			break;
 		}
 	}
@@ -58,13 +58,13 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	*o_eid = h->clutchedentryeid;
 
 	// at this point we know that h->clutchedentry and o_eid is pointing to valid
-	// EDB_TINIT and we are inside the creation mutex.
+	// ODB_ELMINIT and we are inside the creation mutex.
 	// As per spec, now we get an XL mutex.
 	edbl_set(h->lockh, EDBL_AXL, (edbl_lock){
 		.type = EDBL_LENTRY,
 		.eid = h->clutchedentryeid,
 	});
-	h->clutchedentry->type = EDB_TPEND;
+	h->clutchedentry->type = ODB_ELMPEND;
 	// as per spec, release the creaiton mutex
 	edbl_set(lockh, EDBL_ARELEASE, (edbl_lock){
 			.type = EDBL_LENTCREAT,
@@ -77,8 +77,8 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 
 edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 #ifdef EDB_FUCKUPS
-	if(!(h->openflags & EDBA_FWRITE) || h->opened != EDB_TENTS) {
-		log_critf("edba_entryset: no FWRITE on EDB_TENTS");
+	if(!(h->openflags & EDBA_FWRITE) || h->opened != ODB_ELMENTS) {
+		log_critf("edba_entryset: no FWRITE on ODB_ELMENTS");
 		return EDB_ECRIT;
 	}
 #endif
@@ -98,7 +98,7 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	// validation
 	if(h->openflags & EDBA_FCREATE) {
 		switch (e.type) {
-			case EDB_TOBJ:
+			case ODB_ELMOBJ:
 				break;
 			default: return EDB_EINVAL;
 		}
@@ -121,7 +121,7 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 
 	// atp: the structure is valid and they're trying to create a new entry
 	// with valid parameters. We know that entry is initialized with 0's save
-	// for the type which still be EDB_TPEND.
+	// for the type which still be ODB_ELMPEND.
 	// but we can copy over the memory and structure settings
 
 	// to make corruption easy to detect: we set *entry = e; at the very last.
@@ -211,7 +211,7 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	// remaining red-tape
 	// 0 out the reserved block just for future refeance.
 	e.rsvd = 0;
-	//e.type = EDB_TOBJ; (just to make corruptiong VERY obvious, we'll save this after)
+	//e.type = ODB_ELMOBJ; (just to make corruptiong VERY obvious, we'll save this after)
 	e.lookupsperpage = (edbd_size(h->parent->descriptor) - ODB_SPEC_HEADSIZE) / sizeof(odb_spec_lookup_lref);
 	e.objectsperpage = (edbd_size(h->parent->descriptor) - ODB_SPEC_HEADSIZE) /
 			strck->fixedc;
@@ -219,7 +219,7 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 
 	// we're all done, save to persistant memory.
 	*entry = e;
-	entry->type = EDB_TOBJ; // the final "we're done" marker.
+	entry->type = ODB_ELMOBJ; // the final "we're done" marker.
 	return 0;
 }
 
@@ -229,7 +229,7 @@ const odb_spec_index_entry *edba_entrydatr(edba_handle_t *h) {
 
 void    edba_entryclose(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
-	if(h->opened!= EDB_TENTS) {
+	if(h->opened != ODB_ELMENTS) {
 		log_debugf("trying to close entry when non opened.");
 	}
 #endif
@@ -244,7 +244,7 @@ edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
 		log_critf("cannot open entry, something already opened");
 		return EDB_ECRIT;
 	}
-	h->opened = EDB_TENTS;
+	h->opened = ODB_ELMENTS;
 
 	// easy pointers
 	edbd_t *descriptor = h->parent->descriptor;
@@ -254,9 +254,9 @@ edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
 	edba_u_clutchentry(h, eid, 1);
 	//**defer: edba_u_clutchentry_release
 
-	// set it to EDB_TPEND so we can more easily sniff out corrupted
+	// set it to ODB_ELMPEND so we can more easily sniff out corrupted
 	// operations if we crash mid-delete.
-	h->clutchedentry->type = EDB_TPEND;
+	h->clutchedentry->type = ODB_ELMPEND;
 
 	// todo: delete everythign
 	implementme();
@@ -264,7 +264,7 @@ edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
 	edbl_set(lockh, EDBL_AXL, (edbl_lock){
 		.type = EDBL_LENTCREAT,
 	});
-	h->clutchedentry->type  = EDB_TINIT;
+	h->clutchedentry->type  = ODB_ELMINIT;
 	edba_u_clutchentry_release(h);
 	edbl_set(lockh, EDBL_ARELEASE, (edbl_lock){
 			.type = EDBL_LENTCREAT,

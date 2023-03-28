@@ -185,9 +185,9 @@ a deadlock:
 * Entry
 ** Entry-Creating
   1. Aquire [[LENTCREAT]]
-  2. Surf the index for an EDB_TINIT entry.
+  2. Surf the index for an ODB_ELMINIT entry.
   3. Aquire an [[LENTRY]](xl) for that entry.
-  4. Set the type to EDB_TPEND to deter other creation attemps.
+  4. Set the type to ODB_ELMPEND to deter other creation attemps.
   5. Release [[LENTCREAT]].
   6. Make whatever edits are needed to the entry and chapter.
   7. Set the type to whatever it needs to be. This is the final
@@ -195,11 +195,11 @@ a deadlock:
   8. Release LENTRY.
 ** Entry-Deleting
   1. Aquire [[LENTRY]](xl) on the entry you wish to delete.
-  2. Set the chapter type to EDB_TPEND just incase of crash we can
+  2. Set the chapter type to ODB_ELMPEND just incase of crash we can
      sniff out corruptions.
   3. Make whatever edits are needed to the entry and chapter.
   4. Aquire [[LENTCREAT]].
-  5. Set the type to EDB_TINIT
+  5. Set the type to ODB_ELMINIT
   7. Release [[LENTRY]]
   8. Release [[LENTCREAT]]
 ** Entry-Updating

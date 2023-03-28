@@ -868,7 +868,7 @@ typedef enum edb_jobclass {
 	//   EDB_CDEL:
 	//     <- uint16_t structureid
 	//     -> edb_err
-	EDB_STRUCT = 0x0001,
+	EDB_STRUCT = ODB_ELMSTRCT,
 
 	// dynamic data ops
 	// valuint64 - the objectid (0 for new)
@@ -876,7 +876,7 @@ typedef enum edb_jobclass {
 	// valbuff   - the name of the shared memory open via shm_open(3). this
 	//             will be open as read only and will contain the content
 	//             of the object. Can be null for deletion.
-	EDB_DYN = 0x0002,
+	EDB_DYN = ODB_ELMDYN,
 
 	// Perform CRUD operations with a single object.
 	// see edb_obj() for description
@@ -922,7 +922,7 @@ typedef enum edb_jobclass {
 	//       - EDB_ENOSPACE - (EDB_CCREATE, using AUTOID): disk/file full.
 	//       - EDB_EEOF - the oid's entry or row was larger than the most possible value
 	//
-	EDB_OBJ = 0x0004,
+	EDB_OBJ = ODB_ELMOBJ,
 
 	// Modify the entries, updating the index itself.
 	//
@@ -936,7 +936,7 @@ typedef enum edb_jobclass {
 	//   <- uint16_t entryid of ID that is to be deleted
 	//   -> edb_err error
 	//
-	EDB_ENT = 0x0008,
+	EDB_ENT = ODB_ELMENTS,
 
 } edb_jobclass;
 
@@ -992,15 +992,15 @@ argument (`handle`) is the handle, second argument (`jobclass`) is the
 
 `jobclass` is an XOR'd together integer with the following combinations:
 
-## `EDB_TOBJ | EDB_CCOPY` (odb_oid id, voido_bufv, int bufc, int offset)
+## `ODB_ELMOBJ | EDB_CREAD` (odb_oid id, voido_bufv, int bufc, int offset)
     Read the contents of the object with `id` into `o_bufv` up to `bufc`
     bytes.
     todo: see above comment
 
-## `EDB_TOBJ | EDB_CWRITE` (odb_oid id, voidbufv, int bufc, int offset)
+## `ODB_ELMOBJ | EDB_CWRITE` (odb_oid id, voidbufv, int bufc, int offset)
     Write bytes stored at `bufv` up to `bufc` into the object with `id`.
 
-## `EDB_TOBJ | EDB_CCREATE` (odb_oid *o_id, void *bufv, int bufc, int offset)
+## `ODB_ELMOBJ | EDB_CCREATE` (odb_oid *o_id, void *bufv, int bufc, int offset)
    Create a new object
 
    During creation, the new object is written starting at `offset` and
