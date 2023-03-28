@@ -59,7 +59,7 @@ static void deloadlookup(edba_handle_t *handle,
 //  2. write the page
 //  3. set the page's type to what it must be
 //  4. update the entry with the page's id.
-// This will also be easy to pick out corrupted pages because their type will be EDB_TINIT.
+// This will also be easy to pick out corrupted pages because their type will be ODB_ELMINIT.
 
 edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 #ifdef EDB_FUCKUPS
@@ -460,7 +460,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	}
 	pageheader->parentlookup = header.parentlookup;
 	pageheader->depth = header.depth;
-	pageheader->head.ptype = EDB_TLOOKUP;
+	pageheader->head.ptype = ODB_ELMLOOKUP;
 	pageheader->head.pleft = header.head.pleft;
 	pageheader->head.pright = header.head.pright;
 

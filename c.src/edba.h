@@ -46,7 +46,7 @@ typedef struct edba_handle_st {
 	unsigned int      contentc;
 	void             *content; // pointer starts at object objectflags
 
-	// Variables when opened == EDB_TSTRCT
+	// Variables when opened == ODB_ELMSTRCT
 	//
 	// strct - points to persistent mem.
 	odb_spec_struct_full_t *strct;
@@ -218,7 +218,7 @@ const odb_spec_index_entry *edba_entrydatr(edba_handle_t *h);
 //
 // ERRORS:
 //   - EDB_ECRIT - programmer failed to read documentation / other error
-//   - EDB_EINVAL - (FUCKUPS) e.type was not EDB_TOBJ or handle doesn't have
+//   - EDB_EINVAL - (FUCKUPS) e.type was not ODB_ELMOBJ or handle doesn't have
 //                  the entry open in write mode
 //   - EDB_EEOF - e.structureid was too high / does not exist
 //   - EDB_ENOSPACE - no more space left in file for blank pages.

@@ -172,7 +172,7 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	// As noted just a second ago, the pages we have created are nothing
 	// but 0s. And by design, this means that the heads of these pages
 	// are actually defined as per specification. Sense the _edbd_stdhead.ptype
-	// will be 0, that means it takes the definiton of EDB_TINIT.
+	// will be 0, that means it takes the definiton of ODB_ELMINIT.
 
 	// later: however, I need to think about what happens if the thing
 	//        crashes mid-creating. I need to roll back all these page
@@ -402,7 +402,7 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 			head->head.pleft = ent->ref1;
 
 			//head->head.pright = 0; its 0 already sense intiialized to 0
-			head->head.ptype = EDB_TDEL;
+			head->head.ptype = ODB_ELMDEL;
 
 			// if this is the first page of the chapter then we must mark it
 			// in ref0.

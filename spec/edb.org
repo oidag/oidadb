@@ -334,7 +334,7 @@ which all pages in that collection are.
 | rsvd            | uint8_t  | rsvd (used for edbn?)                                                                        |
 | memset          | uint16_t | [[Memory Settings]]                                                                              |
 | struct_id       | uint16_t | if edbp_object: the structure ID                                                             |
-| objectsperpage  | uint16_t | cached amount of objects per page. Or enteries if type is EDB_TENTS                          |
+| objectsperpage  | uint16_t | cached amount of objects per page. Or enteries if type is ODB_ELMENTS                          |
 | lookupsperpage  | uint16_t | cached amount of lookups per page                                                            |
 | ref0            | [[Page ID]]  | The starting page of the chapter (0 if none)                                                 |
 | ref1            | [[Page ID]]  | If edbp_object: the edbp_lookup (will never be 0). edb_delete: the last page in chapter      |
@@ -347,16 +347,16 @@ which all pages in that collection are.
 
 TODO: Need to consolidate the idea that all entries are object pages :)
 ** Entry Type
- - =EDB_TINIT 0= - initialized pages (all 0s) as well as initialized
+ - =ODB_ELMINIT 0= - initialized pages (all 0s) as well as initialized
    (but unused) entries.
- - =EDB_TDEL   1= - =edbp_deleted=
- - =EDB_TSTRCT 2= - =edbp_struct=
- - =EDB_TOBJ   3= - =edbp_object=
- - =EDB_TENTS  4= - The index itself
- - =EDB_TPEND 5= - Temporary status between EDB_TINIT and whatever it
+ - =ODB_ELMDEL   1= - =edbp_deleted=
+ - =ODB_ELMSTRCT 2= - =edbp_struct=
+ - =ODB_ELMOBJ   3= - =edbp_object=
+ - =ODB_ELMENTS  4= - The index itself
+ - =ODB_ELMPEND 5= - Temporary status between ODB_ELMINIT and whatever it
    is trying to become. Used only for traffic control. Pages of this
    type should only exist temporarly.  If you happen to start hosting
-   and you see EDB_TPEND pages/entries, you can assume they are
+   and you see ODB_ELMPEND pages/entries, you can assume they are
    corrupted.
 ** Entry ID
 All Entrieshave an Entry ID, the Entry ID is a uint16, meaning that an
@@ -447,7 +447,7 @@ access. Both of bits of information are stored in the structure.
 ** The =edbp_struct= is an =edbp_object= functioning chapter
 The =edbp_struct= chapter is just another =edbp_object= chapter except:
 
- - =type= is always EDB_TSTRCT
+ - =type= is always ODB_ELMSTRCT
  - The Software will operate the whole chapter as persistant pages.
  - does not have a lookup (=ref1= is null)
  - has a static amount of pages (=ref0c= and =ref2c= will never change

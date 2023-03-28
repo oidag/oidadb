@@ -123,7 +123,7 @@ int main(int argc, const char **argv) {
 		odb_spec_index_entry entryparams;
 
 
-		entryparams.type = EDB_TOBJ;
+		entryparams.type = ODB_ELMOBJ;
 		entryparams.memory = 0x2202;
 		entryparams.structureid = structid;
 

@@ -148,7 +148,7 @@ typedef enum {
 //
 // Only 1 handle can have a single page opened at one time. These functions are
 // methods of starting and finishing operations on the pages, these functions
-// ARE NOT used for just normal locking mechanisms, only to ensure operations
+// ARE NOT used for locking mechanisms, only to ensure operations
 // are performed to their completeness without having the page kicked out of
 // cache.
 //

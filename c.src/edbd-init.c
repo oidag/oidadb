@@ -10,7 +10,7 @@ void edbd_u_initindexpage(void *page, unsigned int psize)  {
 	// header
 	odb_spec_index *p = page;
 	bzero(p, sizeof(odb_spec_index));
-	p->head.ptype = EDB_TENTS;
+	p->head.ptype = ODB_ELMENTS;
 	// body
 	unsigned int entsperbody = (psize - ODB_SPEC_HEADSIZE)/sizeof
 			(odb_spec_index_entry);
@@ -18,7 +18,7 @@ void edbd_u_initindexpage(void *page, unsigned int psize)  {
 	for(int i = 0; i < entsperbody; i++) {
 		// initialize blank entry
 		odb_spec_index_entry *e = &body[i];
-		e->type = EDB_TINIT;
+		e->type = ODB_ELMINIT;
 	}
 }
 
@@ -39,7 +39,7 @@ void edbd_u_initstructpage(void *page, unsigned int pszie, edb_pid trashvor) {
 						 sizeof(odb_spec_struct_full_t),
 						 objectsperpage);
 	odb_spec_struct *phead = (odb_spec_struct *)page;
-	phead->head.ptype = EDB_TSTRCT;
+	phead->head.ptype = ODB_ELMSTRCT;
 }
 
 
@@ -63,14 +63,14 @@ void edbd_u_initindex_rsvdentries(void *page,
 	rsvd_3 = &entries[EDBD_EIDRSVD3];
 
 	// the index
-	rsvd_index->type = EDB_TENTS;
+	rsvd_index->type = ODB_ELMENTS;
 	rsvd_index->objectsperpage = (psize-ODB_SPEC_HEADSIZE) / sizeof
 			(odb_spec_index_entry);
 	rsvd_index->ref0 = indexstart;
 	rsvd_index->ref0c = indexpagec;
 
 	// structure chapter
-	rsvd_struct->type = EDB_TSTRCT;
+	rsvd_struct->type = ODB_ELMSTRCT;
 	rsvd_struct->objectsperpage = (psize-ODB_SPEC_HEADSIZE) / sizeof
 			(odb_spec_struct_struct);
 	rsvd_struct->ref0c = structurepagec;
@@ -79,7 +79,7 @@ void edbd_u_initindex_rsvdentries(void *page,
 	// todo: dynamic pages: structures need dynamic info
 
 	// deleted
-	rsvd_deleted->type = EDB_TDEL;
+	rsvd_deleted->type = ODB_ELMDEL;
 
 
 
