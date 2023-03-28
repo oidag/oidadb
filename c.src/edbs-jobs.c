@@ -426,9 +426,14 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	return 0;
 }
 
+// returns EDB_EJOBDESC if the jobclass is invalid
+static edb_err checkvalid(odb_jobdesc jobclass) {
+	// todo
+	return EDB_EJOBDESC;
+}
+
 edb_err edbs_jobinstall(const edbs_handle_t *h,
-                        unsigned int jobclass,
-                        unsigned int name,
+                        odb_jobdesc jobclass,
                         edbs_job_t *o_job) {
 	// easy ptrs
 	edb_err err;
@@ -437,6 +442,9 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	const uint64_t jobc = head->jobc;
 	o_job->shm = h;
 	o_job->descriptortype = 0;
+	if((err = checkvalid(jobclass))) {
+		return err;
+	}
 
 	rehold:
 	// if there's no open spots in the job buffer we wait. Yes, we are
@@ -538,7 +546,7 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	// write anyways
 	job->futex_executorreadhold = 1;
 	job->futex_executorwritehold = 0;
-	job->name = name;
+	job->name = h->name;
 
 
 	// sense we set the jobclass, we can unlock. We now have installed our job.

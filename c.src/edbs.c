@@ -13,13 +13,6 @@
 #include <linux/futex.h>
 #include <sys/syscall.h>
 
-
-// generates the file name for the shared memory
-// buff should be at least 32bytes.
-void static inline shmname(pid_t pid, char *buff) {
-	sprintf(buff, "/odb_host-%d", pid);
-}
-
 // helper function to hostclose, createshm, edb_host_shmunlink, edb_host_shmlink
 //
 //
@@ -73,7 +66,7 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 
 	edb_err eerr;
 
-	// initialize a head on the stack to be later copied into the shared memeory
+	// initialize a head on the stack to be copied into the shared memeory
 	edbs_shmhead_t stackhead = {0};
 	stackhead.magnum = EDB_SHM_MAGIC_NUM;
 
