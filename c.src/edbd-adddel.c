@@ -14,11 +14,11 @@
 
 // same as edbd_add but no mutex/locking controls. Seperated because of its use in
 // both edbd_add and edbd_del
-static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
+static odb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	// easy vars
 	int fd = file->descriptor;
 	edb_pid setid;
-	edb_err err = 0;
+	odb_err err = 0;
 	odb_spec_deleted_ref *ref;
 	const unsigned int refsperpage = (edbd_size(file) - ODB_SPEC_HEADSIZE) / 
 			sizeof(odb_spec_deleted_ref);
@@ -139,7 +139,7 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	// entire database lol.
 	if(setid == 0 || fsize == -1) {
 		log_critf("failed to seek to end of file");
-		err = EDB_ECRIT;
+		err = ODB_ECRIT;
 		goto return_unlock;
 	}
 
@@ -149,7 +149,7 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	if(fsize % edbd_size(file) != 0) {
 		log_critf("for an unkown reason, the file isn't page aligned "
 		          "(modded over %ld bytes). Crash mid-write?", fsize % edbd_size(file));
-		err = EDB_ECRIT;
+		err = ODB_ECRIT;
 		goto return_unlock;
 	}
 #endif
@@ -162,9 +162,9 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 		int errnom = errno;
 		log_critf("failed to truncate-extend for new pages");
 		if(errnom == EINVAL) {
-			err = EDB_ENOSPACE;
+			err = ODB_ENOSPACE;
 		} else {
-			err = EDB_ECRIT;
+			err = ODB_ECRIT;
 		}
 		goto return_unlock;
 	}
@@ -184,20 +184,20 @@ static edb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	return err;
 }
 
-edb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
+odb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 #ifdef EDB_FUCKUPS
 	// invals
 	if(o_id == 0) {
 		log_critf("invalid ops for edbp_startc");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	if(straitc == 0) {
 		log_critf("call to edbd_add with straitc of 0.");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 #endif
 
-	edb_err err;
+	odb_err err;
 
 	// lock the eof mutex.
 	pthread_mutex_lock(&file->adddelmutex);
@@ -209,18 +209,18 @@ edb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	return err;
 }
 
-edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
+odb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 #ifdef EDB_FUCKUPS
 	if(straitc == 0 || id == 0) {
 		log_critf("invalid arguments");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	// see the "goto retry_newpage"
 	int recusiveoopsisescheck = 0;
 #endif
 
 	// some working vars.
-	edb_err err = 0;
+	odb_err err = 0;
 	odb_spec_deleted_ref *ref;
 	odb_spec_deleted *head;
 	const unsigned int refsperpage = (edbd_size(file) - ODB_SPEC_HEADSIZE) / sizeof(odb_spec_deleted_ref);
@@ -283,7 +283,7 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 #ifdef EDB_FUCKUPS
 	if(recusiveoopsisescheck) {
 		log_critf("just executed delete-find logic twice. Something went wrong with the page create.");
-		err = EDB_ECRIT;
+		err = ODB_ECRIT;
 		goto return_unlock;
 	}
 	recusiveoopsisescheck++;
@@ -388,7 +388,7 @@ edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 		                            edbd_pid2off(file, newdeletedpage));
 		if (file->delpagesv[0] == (void *) -1) {
 			log_critf("failed to allocate memory for new deleted memory index");
-			err = EDB_ECRIT;
+			err = ODB_ECRIT;
 			goto return_unlock;
 		}
 

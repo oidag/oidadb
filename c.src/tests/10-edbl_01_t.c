@@ -63,7 +63,7 @@ int main(int argc, const char **argv) {
 		test_error("edbl_set");
 		return 1;
 	}
-	if(edbl_test(h2, EDBL_AXL, lock) != EDB_EAGAIN) {
+	if(edbl_test(h2, EDBL_AXL, lock) != ODB_EAGAIN) {
 		test_error("EDBL_LREF0C did not conflict with existing.");
 		return 1;
 	}
@@ -86,7 +86,7 @@ int main(int argc, const char **argv) {
 		test_error("edbl_set 2 ");
 		return 1;
 	}
-	if(edbl_test(h2, EDBL_AXL, lock) != EDB_EAGAIN) {
+	if(edbl_test(h2, EDBL_AXL, lock) != ODB_EAGAIN) {
 		test_error("EDBL_LROW did not conflict with existing 2");
 		return 1;
 	}

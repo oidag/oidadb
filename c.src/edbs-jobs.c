@@ -26,17 +26,17 @@
 //
 //   However, simultainous calls to the same function on the same job is okay (multiple threads calling
 //   edb_jobclose is ok, multiple threads calling edb_jobreset is okay.)
-edb_err edbs_jobterm(edbs_job_t jh) {
+odb_err edbs_jobterm(edbs_job_t jh) {
 
 	// easy ptrs
 	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
 
-	// check for EDB_EINVAL
+	// check for ODB_EINVAL
 	if(!jh.descriptortype) {
 		// installer has called
 		if(job->transferbuff_FLAGS & EDBS_JFINSTALLWRITE) {
 			log_critf("installer called edbs_jobterm after it wrote to the buffer");
-			return EDB_EOPEN;
+			return ODB_EOPEN;
 		} else {
 			job->transferbuff_FLAGS |= EDBS_JINSTALLERTERM;
 			return 0;
@@ -64,11 +64,11 @@ edb_err edbs_jobterm(edbs_job_t jh) {
 		return 0;
 	}
 }
-edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
+odb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 #ifdef EDB_FUCKUPS
 	if(!buff && count) {
 		log_critf("buff is 0 & count is not 0");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 #endif
 	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
@@ -83,10 +83,10 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 
 		// caller is executor
 
-		// check for EDB_EBADE
+		// check for ODB_EBADE
 		if(!(job->transferbuff_FLAGS & EDBS_JFINSTALLWRITE)) {
 			log_critf("job executor's first directive was write, not read");
-			return EDB_EBADE;
+			return ODB_EBADE;
 		}
 
 		// has the executor specified this as 1-way?
@@ -132,17 +132,17 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 	// same time.
 	pthread_mutex_lock(&job->pipemutex);
 
-	// check for EDB_EPIPE
+	// check for ODB_EPIPE
 	if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
 		pthread_mutex_unlock(&job->pipemutex);
-		return EDB_EPIPE;
+		return ODB_EPIPE;
 	}
 
 	// if the opposing side has bytes written in front of our head, then
-	// thats an EDB_EPROTO error.
+	// thats an ODB_EPROTO error.
 	if(*obytes) {
 		pthread_mutex_unlock(&job->pipemutex);
-		return EDB_EPROTO;
+		return ODB_EPROTO;
 	}
 
 #ifdef EDB_FUCKUPS
@@ -208,11 +208,11 @@ edb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 	return 0;
 
 }
-edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
+odb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 #ifdef EDB_FUCKUPS
 	if(!buff && count) {
 		log_critf("buff is 0 & count is not 0");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 #endif
 	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
@@ -238,14 +238,14 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 
 		// caller is installer
 
-		// check for EDB_EBADE
+		// check for ODB_EBADE
 		if(!(job->transferbuff_FLAGS & EDBS_JFINSTALLWRITE)) {
-			return EDB_EBADE;
+			return ODB_EBADE;
 		}
 
-		// check for EDB_ECLOSED
+		// check for ODB_ECLOSED
 		if(job->transferbuff_FLAGS & EDBS_JINSTALLERTERM) {
-			return EDB_ECLOSED;
+			return ODB_ECLOSED;
 		}
 
 		// working vars
@@ -266,10 +266,10 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 	// same time.
 	pthread_mutex_lock(&job->pipemutex);
 
-	// check for EDB_EPIPE
+	// check for ODB_EPIPE
 	if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
 		pthread_mutex_unlock(&job->pipemutex);
-		return EDB_EPIPE;
+		return ODB_EPIPE;
 	}
 
 #ifdef EDB_FUCKUPS
@@ -328,11 +328,11 @@ edb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 
 }
 
-edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
+odb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
                        unsigned int ownerid) {
 	if(ownerid == 0) {
 		log_critf("jobselect has 0 ownerid");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 	// save some pointers to the stack for easier access.
@@ -361,10 +361,10 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	// avoid the possibility that 2 workers accidentally take the same job.
 	pthread_mutex_lock(&head->jobmutex);
 
-	// check for EDB_ECLOSED.
+	// check for ODB_ECLOSED.
 	if(!head->newjobs && head->futex_status != EDBS_SRUNNING) {
 		pthread_mutex_unlock(&head->jobmutex);
-		return EDB_ECLOSED;
+		return ODB_ECLOSED;
 	}
 
 	// see above atp.
@@ -404,7 +404,7 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 			// threads will discover the same thing.
 			pthread_mutex_unlock(&head->jobmutex);
 			log_critf("although newjobs was at least 1, an open job was not found in the stack.");
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 		}
 	}
 
@@ -426,17 +426,17 @@ edb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	return 0;
 }
 
-// returns EDB_EJOBDESC if the jobclass is invalid
-static edb_err checkvalid(odb_jobdesc jobclass) {
+// returns ODB_EJOBDESC if the jobclass is invalid
+static odb_err checkvalid(odb_jobdesc jobclass) {
 	// todo
-	return EDB_EJOBDESC;
+	return ODB_EJOBDESC;
 }
 
-edb_err edbs_jobinstall(const edbs_handle_t *h,
+odb_err edbs_jobinstall(const edbs_handle_t *h,
                         odb_jobdesc jobclass,
                         edbs_job_t *o_job) {
 	// easy ptrs
-	edb_err err;
+	odb_err err;
 	edbs_shmjob_t *jobv = h->jobv;
 	edbs_shmhead_t *const head = h->head;
 	const uint64_t jobc = head->jobc;
@@ -458,10 +458,10 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 	pthread_mutex_lock(&head->jobmutex);
 	//**defer: pthread_mutex_unlock(&head->jobmutex);
 
-	// check for EDB_ECLOSED
+	// check for ODB_ECLOSED
 	if(head->futex_status != EDBS_SRUNNING) {
 		pthread_mutex_unlock(&head->jobmutex);
-		return EDB_ECLOSED;
+		return ODB_ECLOSED;
 	}
 
 	// see above atp
@@ -492,7 +492,7 @@ edb_err edbs_jobinstall(const edbs_handle_t *h,
 		pthread_mutex_unlock(&head->jobmutex);
 		log_critf("although empty was at least 1, an open job was not "
 		          "found in the stack.");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 #endif
 

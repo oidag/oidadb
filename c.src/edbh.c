@@ -15,11 +15,11 @@
 // see https://gcc.gnu.org/onlinedocs/gcc/Thread-Local.html
 static __thread int safety_threadwarn = 0;
 
-edb_err odb_handle(const char *path, odbh **o_handle) {
+odb_err odb_handle(const char *path, odbh **o_handle) {
 
 	// invals
 	if(!path || !o_handle) {
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 	// provide a warning if they're creating multiple handles on the same
@@ -31,13 +31,13 @@ edb_err odb_handle(const char *path, odbh **o_handle) {
 	}
 
 	// easy vars
-	edb_err err;
+	odb_err err;
 	odbh *ret = malloc(sizeof(odbh));
 	if(!ret) {
 		if(errno == ENOMEM) {
-			return EDB_ENOMEM;
+			return ODB_ENOMEM;
 		}
-		return EDB_EERRNO;
+		return ODB_EERRNO;
 	}
 	bzero(ret, sizeof(odbh));
 
@@ -68,15 +68,15 @@ void odb_handleclose(odbh *handle) {
 	atomic_fetch_sub(&safety_threadwarn, 1);
 }
 
-edb_err odbh_job(odbh *handle, odb_jobdesc jobclass, ... /* args */) {
+odb_err odbh_job(odbh *handle, odb_jobdesc jobclass, ... /* args */) {
 
 	// invals
 	if(!handle) {
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 	// install the job
-	edb_err err;
+	odb_err err;
 	edbs_job_t job;
 	if((err = edbs_jobinstall(handle->shm
 					, jobclass
@@ -94,22 +94,22 @@ edb_err odbh_job(odbh *handle, odb_jobdesc jobclass, ... /* args */) {
 	hmmm... need to be able to install multiple jobs...
 }
 
-edb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
+odb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
 
-edb_err odbh_select(odbh *handle, edb_select_t *params);
+odb_err odbh_select(odbh *handle, edb_select_t *params);
 
-edb_err odbh_index(odbh *handle, edb_eid eid, void *o_entry);
+odb_err odbh_index(odbh *handle, edb_eid eid, void *o_entry);
 
 /*
 
-edb_err edb_open(edbh *handle, edb_open_t params) {
+odb_err edb_open(edbh *handle, edb_open_t params) {
 
-	// check for easy EDB_EINVAL
+	// check for easy ODB_EINVAL
 	if(handle == 0 || params.path == 0)
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 
 	// get the hostpid.
-	edb_err hosterr = edb_host_getpid(params.path, &(handle->hostpid));
+	odb_err hosterr = edb_host_getpid(params.path, &(handle->hostpid));
 	if(hosterr) {
 		return hosterr;
 	}
@@ -122,4 +122,4 @@ edb_err edb_open(edbh *handle, edb_open_t params) {
 }
 
 
-edb_err edb_close(edbh *handle);*/
+odb_err edb_close(edbh *handle);*/

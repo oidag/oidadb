@@ -38,15 +38,15 @@ static void inline assignobject(edba_handle_t *h,
 	                + (sizeof(edb_dyptr) * h->dy_pointersc);
 }
 
-edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
+odb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	edb_eid eid;
 	edb_rid rid;
-	edb_err err;
+	odb_err err;
 
 	// handle-status poltiics.
 	if(h->opened != 0) {
 		log_critf("cannot open object, something already opened");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	h->opened = ODB_ELMOBJ;
 	h->openflags = flags;
@@ -88,16 +88,16 @@ edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	return 0;
 }
 
-edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
+odb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	edb_eid eid;
 	edb_rid rid;
-	edb_err err;
+	odb_err err;
 	edb_pid trashlast;
 
 	// politics
 	if(h->opened != 0) {
 		log_critf("cannot open object, something already opened");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	h->opened = ODB_ELMOBJ;
 	h->openflags = flags;
@@ -105,7 +105,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 	// cluth lock the entry
 	edba_u_oidextract(*o_oid, &eid, &rid);
 	if(eid < EDBD_EIDSTART) {
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	err = edba_u_clutchentry(h, eid, 0);
 	if(err) {
@@ -136,7 +136,7 @@ edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 					.eid = h->clutchedentryeid,
 			});
 			edba_u_clutchentry_release(h);
-			return EDB_ENOSPACE;
+			return ODB_ENOSPACE;
 		}
 #ifdef EDB_FUCKUPS
 		if(create_trashlast_check) {
@@ -288,18 +288,18 @@ odb_usrlk edba_objectlocks_get(edba_handle_t *h) {
 	return (*(odb_usrlk *)h->objectflags) & _EDB_FUSRLALL;
 }
 
-edb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk) {
+odb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk) {
 #ifdef EDB_FUCKUPS
 	// invals
 	if(h->opened != ODB_ELMOBJ || !(h->openflags & EDBA_FWRITE)) {
 		log_critf("attempt to set locks in read-only mode");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 #endif
 	// prevent unormalized values
 	if((lk & _EDB_FUSRLALL) != lk) {
 		log_errorf("invalid user lock according to normalization mask");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	odb_spec_object_flags *objflags = h->objectflags;
 
@@ -335,11 +335,11 @@ static inline int EDB_TRASHCRITCALITY(uint16_t trashcount, uint16_t total) {
 	return trashcount > (total / 2);
 }
 
-edb_err edba_objectdelete(edba_handle_t *h) {
+odb_err edba_objectdelete(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
 	if(h->opened != ODB_ELMOBJ || !(h->openflags & EDBA_FWRITE)) {
 		log_critf("opened parameter was not ODB_ELMOBJ or without write permissions");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 #endif
 
@@ -444,11 +444,11 @@ edb_err edba_objectdelete(edba_handle_t *h) {
 	return 0;
 }
 
-edb_err edba_objectundelete(edba_handle_t *h) {
+odb_err edba_objectundelete(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
 	if(h->opened != ODB_ELMOBJ || !(h->openflags & EDBA_FWRITE)) {
 		log_critf("opened parameter was not ODB_ELMOBJ or without write permissions");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 #endif
 
@@ -466,7 +466,7 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 #ifdef EDB_FUCKUPS
 	if(objheader->trashc == 0 || objheader->trashstart_off == (uint16_t)-1) {
 		log_critf("for some reason this page's header doesnt reflect the assumption of deletion");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 #endif
 
@@ -515,9 +515,9 @@ edb_err edba_objectundelete(edba_handle_t *h) {
 	return 0;
 }
 
-edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
-                         uint16_t page_byteoff, const odb_spec_struct_struct *structdat,
-                         edbf_flags flags) {
+odb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
+                            uint16_t page_byteoff, const odb_spec_struct_struct *structdat,
+                            edbf_flags flags) {
 	// as per locking spec, need to place the lock on the data before we load the page.
 	// install the SH lock as per Object-Reading
 	// or install an XL lock as per Object-Writing
@@ -533,7 +533,7 @@ edb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
 	edbl_set(h->lockh, lockaction, h->lock);
 
 	// lock the page in cache
-	edb_err err = edbp_start(h->edbphandle, pid);
+	odb_err err = edbp_start(h->edbphandle, pid);
 	if(err) {
 		edbl_set(h->lockh, EDBL_ARELEASE, h->lock);
 		return err;

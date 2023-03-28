@@ -219,10 +219,10 @@ void edba_u_initobj_pages(void *page, odb_spec_object header,  uint16_t fixedc,
 // does not validate the file itself.
 //
 // Errors:
-//  - EDB_ENOTDB  - opened `path` but found not to be a oidadb file.
-//  - EDB_ENOHOST - no host for file
-//  - EDB_EERRNO  - error with open(2).
-//  - EDB_ECRIT
-edb_err edb_host_getpid(const char *path, pid_t *outpid);
+//  - ODB_ENOTDB  - opened `path` but found not to be a oidadb file.
+//  - ODB_ENOHOST - no host for file
+//  - ODB_EERRNO  - error with open(2).
+//  - ODB_ECRIT
+odb_err edb_host_getpid(const char *path, pid_t *outpid);
 
 #endif

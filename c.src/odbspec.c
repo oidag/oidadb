@@ -81,7 +81,7 @@ void edba_u_initobj_pages(void *page, odb_spec_object header,
 	}
 }
 
-edb_err edb_host_getpid(const char *path, pid_t *outpid) {
+odb_err edb_host_getpid(const char *path, pid_t *outpid) {
 
 	int err = 0;
 	int fd = 0;
@@ -91,7 +91,7 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid) {
 	fd = open(path,O_RDONLY);
 	if (fd == -1) {
 		log_errorf("failed to open pid-check descriptor");
-		return EDB_EERRNO;
+		return ODB_EERRNO;
 	}
 	// read any fcntl locks
 	dblock = (struct flock){
@@ -108,7 +108,7 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid) {
 		close(fd);
 		log_critf("fcntl(2) returned unexpected errno: %d", errnotmp);
 		errno = errnotmp;
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 	// read the head to make sure its an odb file
@@ -119,7 +119,7 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid) {
 		close(fd);
 		log_critf("failed to read file header");
 		errno = errnotmp;
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	// we can close the file now sense we got all the info we needed.
 	close(fd);
@@ -128,12 +128,12 @@ edb_err edb_host_getpid(const char *path, pid_t *outpid) {
 	if(n != sizeof(odb_spec_head)
 	   || head.intro.magic[0] != ODB_SPEC_HEADER_MAGIC[0]
 	   || head.intro.magic[1] != ODB_SPEC_HEADER_MAGIC[1]) {
-		return EDB_ENOTDB;
+		return ODB_ENOTDB;
 	}
 	// analyze the results of the lock.
 	if(dblock.l_type == F_UNLCK) {
 		// no host connected to this file.
-		return EDB_ENOHOST;
+		return ODB_ENOHOST;
 	}
 	// host successfully found.
 	*outpid = dblock.l_pid;

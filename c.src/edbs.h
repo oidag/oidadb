@@ -18,7 +18,7 @@ typedef struct edbs_handle_t edbs_handle_t;
 // only config.job* and config.event* vars are used.
 //
 // Immediately after calling edbs_host_close, all attempts to communicate with
-// the host from the handle will return EDB_ECLOSED save for open job buffers.
+// the host from the handle will return ODB_ECLOSED save for open job buffers.
 //
 // If any job transfer buffers are in use, edbs_host_close will block until
 // they are closed naturally (see edbs_jobterm via executor).
@@ -30,16 +30,16 @@ typedef struct edbs_handle_t edbs_handle_t;
 //        be closed.
 //
 // ERRORS:
-//  - EDB_ENOMEM - not enough memory
-//  - EDB_EEXIST - host shm file already exists (logged). This may be because
+//  - ODB_ENOMEM - not enough memory
+//  - ODB_EEXIST - host shm file already exists (logged). This may be because
 //                 of a un-graceful shutdown or calling edbs_host_init twice
 //                 in the same process without freeing the first.
-//  - EDB_ECRIT
+//  - ODB_ECRIT
 //
 // THREADING:
 // None of these functions are MT safe for a given shm. Call only in explicit
 // order.
-edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config);
+odb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config);
 void    edbs_host_close(edbs_handle_t *shm);
 void    edbs_host_free(edbs_handle_t *shm);
 
@@ -48,12 +48,12 @@ void    edbs_host_free(edbs_handle_t *shm);
 // use edb_host_getpid.
 //
 // Errors:
-//  - EDB_ENOHOST - shared memeory object cannot be loaded
+//  - ODB_ENOHOST - shared memeory object cannot be loaded
 //                  due to its absence
-//  - EDB_EERRNO - error returned shm_open(3)
-//  - EDB_ENOTDB - shared memeory not properly formated/corrupted
-//  - EDB_ECRIT
-edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid);
+//  - ODB_EERRNO - error returned shm_open(3)
+//  - ODB_ENOTDB - shared memeory not properly formated/corrupted
+//  - ODB_ECRIT
+odb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid);
 void    edbs_handle_free(edbs_handle_t *shm);
 
 #endif

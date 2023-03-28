@@ -2,23 +2,23 @@
 #include "edba.h"
 #include "edba_u.h"
 
-edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
+odb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 
 #ifdef EDB_FUCKUPS
 	if(h->clutchedentry) {
 		log_critf("call to edba_entryopenc when an entry already clutched!");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	if(!(flags & EDBA_FCREATE)) {
 		log_critf("flags must include FCREATE for edba_entryopenc");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 #endif
 
 	// handle-status politics
 	if(h->opened != 0) {
 		log_critf("cannot open entry, something already opened");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	h->opened = ODB_ELMENTS;
 	h->openflags = flags;
@@ -26,7 +26,7 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	// easy pointers
 	edbd_t *descriptor = h->parent->descriptor;
 	edbl_handle_t *lockh = h->lockh;
-	edb_err err = 0;
+	odb_err err = 0;
 
 	// as per spec, lock the mutex and obtain a XL clutch lock
 	// **defer: edbl_entrycreaiton_release
@@ -47,13 +47,13 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 		edbl_set(lockh, EDBL_ARELEASE, (edbl_lock){
 				.type = EDBL_LENTCREAT,
 		});
-		if(err == EDB_EEOF) {
+		if(err == ODB_EEOF) {
 			// well this sucks. No more entries availabe in our database. that sucks
 			log_warnf("index is maxed out");
-			return EDB_ENOSPACE;
+			return ODB_ENOSPACE;
 		}
 		log_critf("unknown warning when surfing index: %d", err);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	*o_eid = h->clutchedentryeid;
 
@@ -75,11 +75,11 @@ edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
 	return 0;
 }
 
-edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
+odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 #ifdef EDB_FUCKUPS
 	if(!(h->openflags & EDBA_FWRITE) || h->opened != ODB_ELMENTS) {
 		log_critf("edba_entryset: no FWRITE on ODB_ELMENTS");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 #endif
 
@@ -88,7 +88,7 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	edbd_t *descriptor = h->parent->descriptor;
 	edbphandle_t *edbphandle = h->edbphandle;
 	const odb_spec_struct_struct *strck;
-	edb_err err;
+	odb_err err;
 
 	// value assumptions
 	// clear out all bits that are not used
@@ -100,12 +100,12 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 		switch (e.type) {
 			case ODB_ELMOBJ:
 				break;
-			default: return EDB_EINVAL;
+			default: return ODB_EINVAL;
 		}
 	}
 	err = edbd_struct(descriptor, e.structureid, &strck);
 	if(err) {
-		// EDB_EEOF
+		// ODB_EEOF
 		return err;
 	}
 
@@ -116,7 +116,7 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 		// they're updating, lets put a implement here.
 		// todo: implement structure updating
 		implementme();
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 	// atp: the structure is valid and they're trying to create a new entry
@@ -237,19 +237,19 @@ void    edba_entryclose(edba_handle_t *h) {
 	h->opened = 0;
 }
 
-edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
+odb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
 
 	// handle-status politics
 	if(h->opened != 0) {
 		log_critf("cannot open entry, something already opened");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	h->opened = ODB_ELMENTS;
 
 	// easy pointers
 	edbd_t *descriptor = h->parent->descriptor;
 	edbl_handle_t *lockh = h->lockh;
-	edb_err err;
+	odb_err err;
 
 	edba_u_clutchentry(h, eid, 1);
 	//**defer: edba_u_clutchentry_release
@@ -272,7 +272,7 @@ edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
 	return 0;
 }
 
-edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl) {
+odb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl) {
 #ifdef EDB_FUCKUPS
 	if(handle->clutchedentry) {
 		log_critf("attempting to clutch an entry with handle already clutching something. Or perhaps unitialized handle");
@@ -287,7 +287,7 @@ edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl) {
 		.type = EDBL_LENTRY,
 		.eid = eid,
 	});
-	edb_err err = edbd_index(handle->parent->descriptor, eid, &handle->clutchedentry);
+	odb_err err = edbd_index(handle->parent->descriptor, eid, &handle->clutchedentry);
 	if(err) {
 		edbl_set(handle->lockh, EDBL_ARELEASE, (edbl_lock){
 				.type = EDBL_LENTRY,

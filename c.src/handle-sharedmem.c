@@ -11,7 +11,7 @@
 
 // todo: the args need to be class, command, and edb_obj
 /*
-static edb_err installjob(edb_job_t job) {
+static odb_err installjob(edb_job_t job) {
 	edb_shm_t *shm = 0; // todo: get shared memeory
 	edb_shmhead_t *head = shm->head;
 	int err;
@@ -26,7 +26,7 @@ static edb_err installjob(edb_job_t job) {
 	if(err == -1 && errno != EAGAIN) {
 		pthread_mutex_unlock(&head->jobinstall);
 		log_critf("critical error while waiting on new jobs: %d", errno);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 	head->nextjobid++;

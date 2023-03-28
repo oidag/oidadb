@@ -92,11 +92,11 @@ typedef struct odbh odbh;
  * \defgroup errors Errors
  * \brief 50% of your job is handling errors; the other 50% is making them.
  *
- * Nearly all functions in OidaDB will return an edb_err. If this is not 0
+ * Nearly all functions in OidaDB will return an odb_err. If this is not 0
  * then this indicates an error has ocoured. The exact nature of the value
  * depends on the function.
  *
- * edb_err itself represents an enum of very general errors. Again, their
+ * odb_err itself represents an enum of very general errors. Again, their
  * exact practical purpose depends on which function returned them.
  *
  * With the exception of \ref EDB_CRITICAL. This will mean the same thing
@@ -109,7 +109,7 @@ typedef struct odbh odbh;
  */
 typedef enum edb_err {
 
-	/// no error - explicitly 0 - as all functions returning edb_err is
+	/// no error - explicitly 0 - as all functions returning odb_err is
 	/// expected to be layed out as follows for error handling:
 	///
 	///```
@@ -121,7 +121,7 @@ typedef enum edb_err {
 	///   }
 	///   // regardless of error
 	///```
-	EDB_ENONE = 0,
+	ODB_ENONE = 0,
 
 	/// critical error: not the callers fault.
 	/// You should never get this.
@@ -130,92 +130,92 @@ typedef enum edb_err {
 	/// Everytime this is returned, a \ref EDB_LCRIT message would have been
 	/// generated. You should probably send this message to the maintainers
 	/// and steps to reproduce it.
-	EDB_ECRIT = 1,
+	ODB_ECRIT = 1,
 
 	/// invalid input. You didn't read the documentation. (This error is your
 	/// fault)
-	EDB_EINVAL,
+	ODB_EINVAL,
 
 	/// Handle is closed, was never opened, or just null when it
 	/// shoudn't have been.
-	EDB_ENOHANDLE,
+	ODB_ENOHANDLE,
 
 	/// Something went wrong with the handle.
-	EDB_EHANDLE,
+	ODB_EHANDLE,
 	
 	/// Something does not exist.
-	EDB_ENOENT,
+	ODB_ENOENT,
 
 	/// Something already exists.
-	EDB_EEXIST,
+	ODB_EEXIST,
 
 	/// End of file/stream.
-	EDB_EEOF,
+	ODB_EEOF,
 
 	/// Something wrong with a file.
-	EDB_EFILE,
+	ODB_EFILE,
 
 	/// Not a oidadb file.
-	EDB_ENOTDB,
+	ODB_ENOTDB,
 
 	/// Something is already open.
-	EDB_EOPEN,
+	ODB_EOPEN,
 
 	/// Something is closed.
-	EDB_ECLOSED,
+	ODB_ECLOSED,
 
 	/// No host present.
-	EDB_ENOHOST,
+	ODB_ENOHOST,
 
 	/// Out of bounds.
-	EDB_EOUTBOUNDS,
+	ODB_EOUTBOUNDS,
 
 	/// System error, errno(3) will be set.
-	EDB_EERRNO,
+	ODB_EERRNO,
 
 	/// Something regarding hardware has gone wrong.
-	EDB_EHW,
+	ODB_EHW,
 
 	/// Problem with (or lack of) memory.
-	EDB_ENOMEM,
+	ODB_ENOMEM,
 
 	/// Problem with (lack of) space/disk space
-	EDB_ENOSPACE,
+	ODB_ENOSPACE,
 
 	/// Something is stopping.
-	EDB_ESTOPPING,
+	ODB_ESTOPPING,
 
 	/// Try again, something else is blocking
-	EDB_EAGAIN,
+	ODB_EAGAIN,
 
 	/// Operation failed due to user-specified lock
-	EDB_EULOCK,
+	ODB_EULOCK,
 
 	/// Something was wrong with the job description
-	EDB_EJOBDESC,
+	ODB_EJOBDESC,
 
 	/// Invalid verison
-	EDB_EVERSION,
+	ODB_EVERSION,
 
 	/// Something has not obeyed protocol
-	EDB_EPROTO,
+	ODB_EPROTO,
 
 	/// Bad exchange
-	EDB_EBADE,
+	ODB_EBADE,
 
 	/// Something happened to the active stream/pipe
-	EDB_EPIPE,
+	ODB_EPIPE,
 
 	/// Something was missed
-	EDB_EMISSED,
+	ODB_EMISSED,
 
 	ODB_EDELETED
-} edb_err;
+} odb_err;
 
 /**
  * \brief Returns the string representation of the error. Good for logging.
  */
-const char *edb_errstr(edb_err error);
+const char *edb_errstr(odb_err error);
 /**\}*/
 
 
@@ -308,7 +308,7 @@ typedef struct odb_log_t {
 	edb_log_channel channel;
 	const char *log;
 } odb_log_t;
-edb_err odb_log_poll(odbh *handle, odb_log_t *o_log);
+odb_err odb_log_poll(odbh *handle, odb_log_t *o_log);
 
 /// \}
 
@@ -353,11 +353,11 @@ edb_err odb_log_poll(odbh *handle, odb_log_t *o_log);
  * a ton of hassle.
  *
  * ## ERRORS
- *   - EDB_EINVAL - params is invalid (see \ref odb_createparams_t)
- *   - EDB_EERRNO - errno set, by either open(2) or stat(2).
- *   - EDB_EEXIST (odb_create) - file already exists
- *   - EDB_ENOENT (odb_createt) - file does not exist
- *   - \ref EDB_ECRIT
+ *   - ODB_EINVAL - params is invalid (see \ref odb_createparams_t)
+ *   - ODB_EERRNO - errno set, by either open(2) or stat(2).
+ *   - ODB_EEXIST (odb_create) - file already exists
+ *   - ODB_ENOENT (odb_createt) - file does not exist
+ *   - \ref ODB_ECRIT
  *
  * \{
  */
@@ -442,8 +442,8 @@ static const odb_createparams odb_createparams_defaults = (odb_createparams){
 		.indexpages = 32,
 		.structurepages = 32,
 };
-edb_err odb_create(const char *path, odb_createparams params);
-edb_err odb_createt(const char *path, odb_createparams params); // truncate existing
+odb_err odb_create(const char *path, odb_createparams params);
+odb_err odb_createt(const char *path, odb_createparams params); // truncate existing
 
 /**\}*/
 /**\}*/
@@ -489,14 +489,14 @@ edb_err odb_createt(const char *path, odb_createparams params); // truncate exis
  * odb_handle (allocations) and odb_handleclose (frees).
  *
  * ## ERRORS
- *  - EDB_EINVAL - o_handle is null/path is null.
- *  - EDB_EINVAL - params.path is null
- *  - EDB_EERRNO - error with open(2), (ie, file does not exist, permssions,
+ *  - ODB_EINVAL - o_handle is null/path is null.
+ *  - ODB_EINVAL - params.path is null
+ *  - ODB_EERRNO - error with open(2), (ie, file does not exist, permssions,
  *                 see errorno)
- *  - EDB_ENOHOST - file is not being hosted
- *  - EDB_ENOTDB - file/host is not oidadb format/protocol
- *  - EDB_ENOMEM - not enough memory
- *  - \ref EDB_ECRIT
+ *  - ODB_ENOHOST - file is not being hosted
+ *  - ODB_ENOTDB - file/host is not oidadb format/protocol
+ *  - ODB_ENOMEM - not enough memory
+ *  - \ref ODB_ECRIT
  *
  * \subsection THREADING
  * All \ref odbh functions called between odb_handle and odb_handleclose are
@@ -512,7 +512,7 @@ edb_err odb_createt(const char *path, odb_createparams params); // truncate exis
  *
  * \{
  */
-edb_err odb_handle(const char *path, odbh **o_handle);
+odb_err odb_handle(const char *path, odbh **o_handle);
 void    odb_handleclose(odbh *handle);
 /// \}
 
@@ -549,21 +549,21 @@ void    odb_handleclose(odbh *handle);
  *
  * ## ERRORS
  * odb_host can return:
- *   - EDB_EINVAL - hostops is invalid and/or path is null
- *   - EDB_EERRNO - Unexpected error from stat(2) or open(2), see errno.
- *   - EDB_EOPEN  - Another process is already hosting this file.
- *   - EDB_EAGAIN - odb_host is already active.
- *   - EDB_EFILE  - Path is not a regular file.
- *   - EDB_EHW    - this file was created on a different (non compatible)
+ *   - ODB_EINVAL - hostops is invalid and/or path is null
+ *   - ODB_EERRNO - Unexpected error from stat(2) or open(2), see errno.
+ *   - ODB_EOPEN  - Another process is already hosting this file.
+ *   - ODB_EAGAIN - odb_host is already active.
+ *   - ODB_EFILE  - Path is not a regular file.
+ *   - ODB_EHW    - this file was created on a different (non compatible)
  *   architecture and cannot be hosted on this machine.
- *   - EDB_ENOTDB - File is invalid format, possibly not a database.
- *   - EDB_ENOMEM - Not enough memory to reliably host database.
- *   - \ref EDB_ECRIT
+ *   - ODB_ENOTDB - File is invalid format, possibly not a database.
+ *   - ODB_ENOMEM - Not enough memory to reliably host database.
+ *   - \ref ODB_ECRIT
  *
  * odb_hoststop can return
- *  - EDB_EAGAIN - odb_host is in the process of booting up. try again in a
+ *  - ODB_EAGAIN - odb_host is in the process of booting up. try again in a
  *                 little bit.
- *  - EDB_ENOHOST - odb_host not active at all.
+ *  - ODB_ENOHOST - odb_host not active at all.
  *
  *
  * \see odb_create
@@ -691,8 +691,8 @@ static const odb_hostconfig_t odb_hostconfig_default = {
 		.flags = 0,
 };
 
-edb_err odb_host(const char *path, odb_hostconfig_t hostops);
-edb_err odb_hoststop();
+odb_err odb_host(const char *path, odb_hostconfig_t hostops);
+odb_err odb_hoststop();
 
 // odb_host
 /// \}
@@ -727,10 +727,10 @@ edb_err odb_hoststop();
  * odb_hostselect is thread safe.
  *
  * ## ERRORS
- *   - EDB_EINVAL `event` was not an allowed value
- *   - EDB_EINVAL `path` was null
- *   - EDB_ENOENT file does not exist.
- *   - \ref EDB_ECRIT
+ *   - ODB_EINVAL `event` was not an allowed value
+ *   - ODB_EINVAL `path` was null
+ *   - ODB_ENOENT file does not exist.
+ *   - \ref ODB_ECRIT
  *
  *
  * \{
@@ -739,7 +739,7 @@ typedef unsigned int odb_event;
 #define ODB_EVENT_HOSTED 1
 #define ODB_EVENT_CLOSED 2
 #define ODB_EVENT_ANY (odb_event)(-1)
-edb_err odb_hostpoll(const char *path, odb_event event, odb_event *o_env);
+odb_err odb_hostpoll(const char *path, odb_event event, odb_event *o_env);
 // odb_hostpoll
 /// \}
 
@@ -808,11 +808,11 @@ typedef uint8_t odb_type;
  *
  * ## ERRORS
  *
- *   EDB_EEOF - eid was too high (out of bounds)
+ *   ODB_EEOF - eid was too high (out of bounds)
  *
  * \see elements for information on what an entry is.
  */
-edb_err odbh_index(odbh *handle, edb_eid eid, void *o_entry); //todo: what is
+odb_err odbh_index(odbh *handle, edb_eid eid, void *o_entry); //todo: what is
 // o_entry?
 
 /** \brief Get structure data
@@ -829,11 +829,11 @@ edb_err odbh_index(odbh *handle, edb_eid eid, void *o_entry); //todo: what is
  *
  * ## ERRORS
  *
- *   EDB_EEOF - sid was too high (out of bounds)
+ *   ODB_EEOF - sid was too high (out of bounds)
  *
  * \see elements to for information as to what a structure is.
  */
-edb_err odbh_structs(odbh *handle, edb_sid structureid, void *o_struct); //
+odb_err odbh_structs(odbh *handle, edb_sid structureid, void *o_struct); //
 // todo: what is o_struct?
 
 /**
@@ -865,12 +865,12 @@ typedef enum edb_jobclass {
 	//   (ODB_CWRITE: not supported)
 	//   ODB_CCREATE:
 	//     <- edb_struct_t (no implicit fields)
-	//     -> edb_err (parsing error)
+	//     -> odb_err (parsing error)
 	//     <- arbitrary configuration
 	//     -> uint16_t new structid
 	//   ODB_CDEL:
 	//     <- uint16_t structureid
-	//     -> edb_err
+	//     -> odb_err
 	EDB_STRUCT = ODB_ELMSTRCT,
 
 	// dynamic data ops
@@ -887,7 +887,7 @@ typedef enum edb_jobclass {
 	// all cases:
 	//     <- edb_oid (see also: EDB_OID_... constants)
 	//     (additional params, if applicable)
-	//     -> edb_err [1]
+	//     -> odb_err [1]
 	//  ODB_CREAD:
 	//     (all cases)
 	//     -> void *rowdata
@@ -913,18 +913,18 @@ typedef enum edb_jobclass {
 	//
 	// [1] This error will describe the efforts of locating the oid
 	//     which will include:
-	//       - EDB_EHANDLE - handle closed stream/stream is invalid
-	//       - EDB_EINVAL - entry in oid was below 4.
-	//       - EDB_EINVAL - jobdesc was invalid
-	//       - EDB_EINVAL - (ODB_CWRITE) start wasn't less than end.
-	//       - EDB_ENOENT - (ODB_CWRITE, ODB_CREAD) oid is deleted todo:
+	//       - ODB_EHANDLE - handle closed stream/stream is invalid
+	//       - ODB_EINVAL - entry in oid was below 4.
+	//       - ODB_EINVAL - jobdesc was invalid
+	//       - ODB_EINVAL - (ODB_CWRITE) start wasn't less than end.
+	//       - ODB_ENOENT - (ODB_CWRITE, ODB_CREAD) oid is deleted todo:
 	//        todo: change this to entity not valid
-	//       - EDB_EOUTBOUNDS - (ODB_CWRITE): start was higher than fixedlen.
-	//       - EDB_EULOCK - failed due to user lock (see EDB_FUSR... constants)
-	//       - EDB_EEXIST - (ODB_CCREATE): Object already exists
-	//       - EDB_ECRIT - unknown error
-	//       - EDB_ENOSPACE - (ODB_CCREATE, using AUTOID): disk/file full.
-	//       - EDB_EEOF - the oid's entry or row was larger than the most possible value
+	//       - ODB_EOUTBOUNDS - (ODB_CWRITE): start was higher than fixedlen.
+	//       - ODB_EULOCK - failed due to user lock (see EDB_FUSR... constants)
+	//       - ODB_EEXIST - (ODB_CCREATE): Object already exists
+	//       - ODB_ECRIT - unknown error
+	//       - ODB_ENOSPACE - (ODB_CCREATE, using AUTOID): disk/file full.
+	//       - ODB_EEOF - the oid's entry or row was larger than the most possible value
 	//
 	EDB_OBJ = ODB_ELMOBJ,
 
@@ -933,12 +933,12 @@ typedef enum edb_jobclass {
 	// EDB_ENT | ODB_CCREATE
 	//   <- edb_entry_t entry. Only the "parameters" group of the structure is used.
 	//      This determains the type and other parameters.
-	//   -> edb_err error
+	//   -> odb_err error
 	//   -> (if no error) uint16_t entryid of created ID
 	//
 	// EDB_ENT | ODB_CDEL
 	//   <- uint16_t entryid of ID that is to be deleted
-	//   -> edb_err error
+	//   -> odb_err error
 	//
 	EDB_ENT = ODB_ELMENTS,
 
@@ -1020,10 +1020,10 @@ argument (`handle`) is the handle, second argument (`jobclass`) is the
 
 ## ERRORS
 
- - EDB_EINVAL - handle is null or uninitialized
- - EDB_EJOBDESC - odb_jobdesc is not valid
- - EDB_ECLOSED - Host is closed or is in the process of closing.
- - \ref EDB_ECRIT
+ - ODB_EINVAL - handle is null or uninitialized
+ - ODB_EJOBDESC - odb_jobdesc is not valid
+ - ODB_ECLOSED - Host is closed or is in the process of closing.
+ - \ref ODB_ECRIT
 
 ## VOLATILITY
 Fuck.
@@ -1053,7 +1053,7 @@ typedef enum odb_jobhint_t {
 	// installed in odbh_job not to start execution until jobreturn is called.
 	ODB_JATOMIC,
 } odb_jobhint_t;
-edb_err odbh_jobmode(odbh *handle, odb_jobhint_t hint);
+odb_err odbh_jobmode(odbh *handle, odb_jobhint_t hint);
 
 // an error that can happen with edbh_job is that the caller has too many
 // jobs open: "too many" means they have more jobs open concurrently then
@@ -1085,9 +1085,9 @@ edb_err odbh_jobmode(odbh *handle, odb_jobhint_t hint);
 //
 // Make sure handles are installed on different threads!
 
-edb_err odbh_job(odbh *handle, odb_jobdesc jobdesc, odbj **o_jhandle);
-edb_err odbh_jobwrite(odbj *handle, const void *buf, int bufc);
-edb_err odbh_jobread(odbj *handle, void *o_buf, int bufc);
+odb_err odbh_job(odbh *handle, odb_jobdesc jobdesc, odbj **o_jhandle);
+odb_err odbh_jobwrite(odbj *handle, const void *buf, int bufc);
+odb_err odbh_jobread(odbj *handle, void *o_buf, int bufc);
 
 
 /**
@@ -1119,13 +1119,13 @@ ODB_CWRITE (edb_struct_t *)
  \see odbh_structs For reading structures
  \see elements to find out what an "structure" is.
 */
-edb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
+odb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
 
 
 //
 // Thread safe.
 //
-/*edb_err edb_query(odbh *handle, edb_query_t *query);*/
+/*odb_err edb_query(odbh *handle, edb_query_t *query);*/
 
 typedef struct edb_select_st {
 } edb_select_t;
@@ -1145,7 +1145,7 @@ If this function is called too infrequently then there's a
 possibility that the caller will miss certain events. But this is a
 very particular edge case that is described elsewhere probably.
  */
-edb_err odbh_select(odbh *handle, edb_select_t *params);
+odb_err odbh_select(odbh *handle, edb_select_t *params);
 
 /** \} */ // odbh
 
@@ -1195,8 +1195,8 @@ typedef struct _edb_data {
 //
 // Reads and writes data to the database.
 //
-/*edb_err edb_datcopy (odbh *handle, edb_data_t *data);
-edb_err edb_datwrite(odbh *handle, edb_data_t data);*/
+/*odb_err edb_datcopy (odbh *handle, edb_data_t *data);
+odb_err edb_datwrite(odbh *handle, edb_data_t data);*/
 
 
 
@@ -1248,8 +1248,8 @@ typedef struct edb_infodatabase_st {
 
 // all these info- functions just return their relevant structure's
 // data that can be used for debugging reasons.
-edb_err edb_infohandle(odbh *handle, edb_infohandle_t *info);
-edb_err edb_infodatabase(odbh *handle, edb_infodatabase_t *info);
+odb_err edb_infohandle(odbh *handle, edb_infohandle_t *info);
+odb_err edb_infodatabase(odbh *handle, edb_infodatabase_t *info);
 
 // dump- functions just format the stucture and pipe it into fd.
 // these functions provide no more information than the equvilient

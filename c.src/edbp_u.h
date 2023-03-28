@@ -47,7 +47,7 @@ typedef struct edbpcache_t {
 	edbp_slot     *slots;
 	edbp_slotid    slot_count; // the total amount of slots regardless of width
 
-	// used explicitly for returning EDB_EINVAL in edbp_newhandle when this
+	// used explicitly for returning ODB_EINVAL in edbp_newhandle when this
 	// exceeds slot_count.
 	unsigned int handles;
 

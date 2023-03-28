@@ -15,7 +15,7 @@
 #include <libgen.h>
 #include <sys/time.h>
 
-edb_err err;
+odb_err err;
 static int test_waserror = 0;
 #define stdlogthing(stream,prefix) { \
 	int terr = errno; \
@@ -25,7 +25,7 @@ fprintf(stream, prefix ": ");\
 vfprintf(stream, fmt, args); \
 fprintf(stream, "\n");               \
 if(err) {                            \
-fprintf(stream, "had edb_err: %d\n", err);\
+fprintf(stream, "had odb_err: %d\n", err);\
 }\
 if(terr) { \
 errno = terr; \

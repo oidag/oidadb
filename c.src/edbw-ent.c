@@ -1,12 +1,12 @@
 #include "edbw.h"
 #include "edbw_u.h"
 
-edb_err edbw_u_entjob(edb_worker_t *self) {
+odb_err edbw_u_entjob(edb_worker_t *self) {
 
 	// easy pointers
 	edbs_job_t job = self->curjob;
 	int jobdesc = edbs_jobdesc(job);
-	edb_err err = 0;
+	odb_err err = 0;
 	edba_handle_t *handle = &self->edbahandle;
 
 	// get params
@@ -36,7 +36,7 @@ edb_err edbw_u_entjob(edb_worker_t *self) {
 			edbs_jobwrite(job, &err, sizeof(err));
 			return err;
 		default:
-			return EDB_EJOBDESC;
+			return ODB_EJOBDESC;
 	}
 	return err;
 }

@@ -8,18 +8,18 @@
 // returns a pointer to the persistent memory of the structure pages.
 void *edba_structurespages(const edbd_t *);
 
-edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
+odb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 
 	// easy ptrs
 	edbl_handle_t *lockh = h->lockh;
 	const edb_eid eid = EDBD_EIDSTRUCT;
 	edbd_t *file = h->parent->descriptor;
-	edb_err err;
+	odb_err err;
 
 	// politics
 	if(h->opened != 0) {
 		log_critf("cannot open structure, something already opened");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	h->opened = ODB_ELMSTRCT;
 	h->openflags = EDBA_FWRITE;
@@ -31,7 +31,7 @@ edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 	unsigned int pageoffset = sid / h->clutchedentry->objectsperpage;
 	if(pageoffset >= h->clutchedentry->ref0c) {
 		edba_u_clutchentry_release(h);
-		return EDB_ENOENT;
+		return ODB_ENOENT;
 	}
 	void *structpages; // todo: where are we storing the structurepages?
 	// as per spec we can parse this page as a edbp_object.
@@ -44,25 +44,25 @@ edb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
 	// make sure the structure isn't deleted.
 	if(h->strct->obj_flags & EDB_FDELETED) {
 		edba_u_clutchentry_release(h);
-		return EDB_ENOENT;
+		return ODB_ENOENT;
 	}
 
 	return 0;
 }
 
 // todo: make sure to initialize structure pages using edba_u_pagecreate_objects
-edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_struct strct) {
+odb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_struct strct) {
 
 	// easy ptrs
 	edbl_handle_t *lockh = h->lockh;
 	const edb_eid eid = EDBD_EIDSTRUCT;
 	edbd_t *file = h->parent->descriptor;
-	edb_err err;
+	odb_err err;
 
 	// politics
 	if(h->opened != 0) {
 		log_critf("cannot create-open structure, something already opened");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	h->opened = ODB_ELMSTRCT;
 	h->openflags = EDBA_FCREATE | EDBA_FWRITE;
@@ -72,7 +72,7 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 
 	// validation
 	if(strct.fixedc < 4) {
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 	// as per spec we lock the creation structure index.
@@ -84,7 +84,7 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 	if(!h->clutchedentry->trashlast) {
 		log_warnf("out of room in structure pages");
 		edba_u_clutchentry_release(h);
-		return EDB_ENOSPACE;
+		return ODB_ENOSPACE;
 	}
 
 	// sense we know structure pages are all loaded and are all in a striat,
@@ -134,14 +134,14 @@ edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 		if(test != addr) {
 			log_critf("edbd_struct and structure search logic misaligned.");
 			edba_u_clutchentry_release(h);
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 		}
 
 		// make sure this structure data isn't deleted
 		if(!(h->strct->obj_flags & EDB_FDELETED)) {
 			log_critf("deleted structure logic returned a non-deleted structure");
 			edba_u_clutchentry_release(h);
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 		}
 	}
 #endif
@@ -167,16 +167,16 @@ const void *edba_structconf(edba_handle_t *h) {
 
 	//h->strct->dy_pointer...
 }
-edb_err edba_structdelete(edba_handle_t *h) {
+odb_err edba_structdelete(edba_handle_t *h) {
 	// easy ptrs
 	edbl_handle_t *lockh = h->lockh;
 	edbd_t *file = h->parent->descriptor;
-	edb_err err;
+	odb_err err;
 
 	// politics
 	if(h->opened != ODB_ELMSTRCT || !(h->openflags & EDBA_FWRITE)) {
 		log_critf("cannot delete structure, structure not opened for writing");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 	// atp: we have the structure-creation mutex locked
@@ -200,7 +200,7 @@ edb_err edba_structdelete(edba_handle_t *h) {
 			break;
 		}
 		if(entry->structureid == h->strctid) {
-			err = EDB_EEXIST;
+			err = ODB_EEXIST;
 			break;
 		}
 	}

@@ -18,13 +18,13 @@ log_debugf("worker#%d executing job#%ld: " fmt, workerp->workerid, workerp->curj
 // This function's only purpose is to route the information into the relevant execjob_...
 // function.
 //
-// Will only return EDB_ECRIT, can be ignored and continued.
-static edb_err execjob(edb_worker_t *self) {
+// Will only return ODB_ECRIT, can be ignored and continued.
+static odb_err execjob(edb_worker_t *self) {
 
 	// easy pointers
 	edbs_job_t *job = &self->curjob;
 	int jobdesc = edbs_jobdesc(*job);
-	edb_err err = 0;
+	odb_err err = 0;
 	edba_handle_t *handle = &self->edbahandle;
 
 	// note to self: inside this function we have our own thread to ourselves.
@@ -44,7 +44,7 @@ static edb_err execjob(edb_worker_t *self) {
 	// FRH
 	// Cannot take jobs with a closed buffer
 	if(edbs_jobisclosed(*job)) {
-		err = EDB_ECRIT;
+		err = ODB_ECRIT;
 		log_critf("job accepted by worker but the handle did not open job buffer");
 		goto closejob;
 	}
@@ -61,10 +61,10 @@ static edb_err execjob(edb_worker_t *self) {
 			err = edbw_u_structjob(self);
 			break;
 		default:
-			err = EDB_EJOBDESC;
+			err = ODB_EJOBDESC;
 			break;
 	}
-	if(err == EDB_EJOBDESC) {
+	if(err == ODB_EJOBDESC) {
 		log_errorf("invalid job description hash: %04x", jobdesc);
 	}
 
@@ -75,7 +75,7 @@ static edb_err execjob(edb_worker_t *self) {
 
 void static *workermain(void *_selfv) {
 	edb_worker_t *self = _selfv;
-	edb_err err;
+	odb_err err;
 	log_infof("worker %lx starting...", self->pthread);
 	while(self->state == EDB_WWORKASYNC) {
 		err = edbs_jobselect(self->shm, &self->curjob, self->workerid);
@@ -90,8 +90,8 @@ void static *workermain(void *_selfv) {
 }
 
 unsigned int nextworkerid = 1;
-edb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edbs_handle_t *shm) {
-	edb_err eerr;
+odb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edbs_handle_t *shm) {
+	odb_err eerr;
 	//initialize
 	bzero(o_worker, sizeof (edb_worker_t));
 	o_worker->workerid = nextworkerid++;
@@ -110,15 +110,15 @@ void edbw_decom(edb_worker_t *worker) {
 }
 
 
-edb_err edbw_async(edb_worker_t *worker) {
+odb_err edbw_async(edb_worker_t *worker) {
 	if(worker->state != EDB_WWORKNONE) {
 		log_critf("attempting to start already-running worker");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	int err = pthread_create(&(worker->pthread), 0, workermain, worker);
 	if(err) {
 		log_critf("failed to create thread pthread_create(3) returned: %d", err);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	worker->state = EDB_WWORKASYNC;
 	return 0;
@@ -134,13 +134,13 @@ void edbw_stop(edb_worker_t *worker) {
 	worker->state = EDB_WWORKSTOP;
 }
 
-edb_err edbw_join(edb_worker_t *worker) {
+odb_err edbw_join(edb_worker_t *worker) {
 	if (worker->state == EDB_WWORKNONE) {
 		return 0; // already stopped and joined.
 	}
 	if(worker->state != EDB_WWORKSTOP) {
 		log_critf("attempted to join on a worker without stopping it first");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	int err = pthread_join(worker->pthread, 0);
 	if(err) {
