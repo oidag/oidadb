@@ -15,7 +15,7 @@ edb_err edbw_u_structjob(edb_worker_t *self) {
 
 	// per-description
 	switch(jobdesc & 0xFF00) {
-		case EDB_CCREATE:
+		case ODB_CCREATE:
 			edbs_jobread(job, &s, sizeof(s));
 			err = edba_structopenc(handle, &structid, s);
 			if(err) {
@@ -27,7 +27,7 @@ edb_err edbw_u_structjob(edb_worker_t *self) {
 			edba_structclose(handle);
 			edbs_jobwrite(job, &structid, sizeof(structid));
 			return 0;
-		case EDB_CDEL:
+		case ODB_CDEL:
 			edbs_jobread(job, &structid, sizeof(structid));
 			err = edba_structopen(handle, structid);
 			if(err) {

@@ -7,7 +7,7 @@
 #define EDB_OID_OP1 0x0000ffffffffffff
 #define EDB_OID_OP2 0x0000fffffffffffe
 
-// For EDB_CCREATE
+// For ODB_CCREATE
 // EDB_OID_AUTOID - find the best deleted OID that can still be used.
 #define EDB_OID_AUTOID EDB_OID_OP1
 
