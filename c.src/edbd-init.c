@@ -23,7 +23,7 @@ void edbd_u_initindexpage(void *page, unsigned int psize)  {
 }
 
 // requires pageid
-void edbd_u_initstructpage(void *page, unsigned int pszie, edb_pid trashvor) {
+void edbd_u_initstructpage(void *page, unsigned int pszie, odb_pid trashvor) {
 	// 0 the whole page
 	bzero(page, pszie);
 	odb_spec_object header;
@@ -46,9 +46,9 @@ void edbd_u_initstructpage(void *page, unsigned int pszie, edb_pid trashvor) {
 // same as edbd_u_initindexpage but also puts in the reserved enteries
 void edbd_u_initindex_rsvdentries(void *page,
                                   unsigned int psize,
-                                  edb_pid indexstart,
-								  edb_pid structstart,
-								  unsigned int indexpagec,
+                                  odb_pid indexstart,
+                                  odb_pid structstart,
+                                  unsigned int indexpagec,
                                   unsigned int structurepagec) {
 	// run edbd_u_initindexpage to get the blank slate.
 	edbd_u_initindexpage(page, psize);

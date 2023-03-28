@@ -14,10 +14,10 @@
 
 // same as edbd_add but no mutex/locking controls. Seperated because of its use in
 // both edbd_add and edbd_del
-static odb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
+static odb_err _edbd_add(edbd_t *file, uint8_t straitc, odb_pid *o_id) {
 	// easy vars
 	int fd = file->descriptor;
-	edb_pid setid;
+	odb_pid setid;
 	odb_err err = 0;
 	odb_spec_deleted_ref *ref;
 	const unsigned int refsperpage = (edbd_size(file) - ODB_SPEC_HEADSIZE) / 
@@ -184,7 +184,7 @@ static odb_err _edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	return err;
 }
 
-odb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
+odb_err edbd_add(edbd_t *file, uint8_t straitc, odb_pid *o_id) {
 #ifdef EDB_FUCKUPS
 	// invals
 	if(o_id == 0) {
@@ -209,7 +209,7 @@ odb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id) {
 	return err;
 }
 
-odb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
+odb_err edbd_del(edbd_t *file, uint8_t straitc, odb_pid id) {
 #ifdef EDB_FUCKUPS
 	if(straitc == 0 || id == 0) {
 		log_critf("invalid arguments");
@@ -301,7 +301,7 @@ odb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id) {
 		// So just create a new page.
 		odb_spec_index_entry *ent;
 		edbd_index(file, EDBD_EIDDELTED, &ent);
-		edb_pid newdeletedpage;
+		odb_pid newdeletedpage;
 
 		// initialize will dictate if we need to initialize the odb_deleted when
 		// we load it. It will also mean we must update our entry.

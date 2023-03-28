@@ -36,7 +36,7 @@ static void checkstructures() {
 	}
 	if(sizeof(odb_spec_struct_full_t) !=
 	   sizeof(odb_spec_struct_struct)
-	   + sizeof(edb_dyptr)
+	   + sizeof(odb_dyptr)
 	   + sizeof(odb_spec_object_flags)) {
 		log_critf("full odb_struct structure not equal to its componenets");
 	}

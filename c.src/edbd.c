@@ -84,14 +84,14 @@ static odb_err createfile(int fd, odb_createparams params) {
 
 	// now the reserved indexes.
 	unsigned int finalpsize = sysconf(_SC_PAGE_SIZE) * newhead.intro.pagemul;
-	edb_pid indexstartp = 1;
+	odb_pid indexstartp = 1;
 	off64_t indexstart = finalpsize * indexstartp;
-	edb_pid structstartp = (1+params.indexpages);
+	odb_pid structstartp = (1 + params.indexpages);
 	off64_t structstart = finalpsize * structstartp;
 
 
 	// initialize the index pages
-	edb_pid thispid = 1;
+	odb_pid thispid = 1;
 	for(int i = 0; i < params.indexpages; i++) {
 		void *page = mmap64(0,
 		                    finalpsize,
@@ -382,7 +382,7 @@ odb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 	o_file->delpagesv = malloc(o_file->delpagesq * sizeof(void *));
 	odb_spec_index_entry *ent;
 	edbd_index(o_file, EDBD_EIDDELTED, &ent);
-	edb_pid pid = ent->ref1; // see spec
+	odb_pid pid = ent->ref1; // see spec
 	for(; o_file->delpagesc < o_file->delpagesq; o_file->delpagesc++) {
 		if(!pid) {
 			// all pages loaded
@@ -424,7 +424,7 @@ odb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 	return 0;
 }
 
-odb_err edbd_index(const edbd_t *file, edb_eid eid
+odb_err edbd_index(const edbd_t *file, odb_eid eid
 				   , odb_spec_index_entry **o_entry) {
 
 	int pageoff = eid / file->enteriesperpage;

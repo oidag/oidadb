@@ -26,7 +26,7 @@ typedef uint32_t odb_spec_object_flags;
 // later: this is an edb structure. not sure if it should be here.
 //        but its never in the sight of the handle. hmm.
 typedef struct {
-	edb_pid ref;
+	odb_pid ref;
 	uint64_t startoff_strait;
 } odb_spec_lookup_lref;
 
@@ -38,7 +38,7 @@ typedef struct odb_dsm_t {
 	uint16_t rsvd;
 } odb_spec_dynamic_dsm;
 typedef struct edb_deletedref_st {
-	edb_pid ref;
+	odb_pid ref;
 	uint16_t straitc;
 	uint16_t _rsvd2;
 } odb_spec_deleted_ref;
@@ -59,13 +59,13 @@ typedef struct odb_spec_index_entry {
 	uint16_t lookupsperpage;
 
 	// references
-	edb_pid ref0; // starting chapter start
-	edb_pid ref1; // lookup chapter start
-	edb_pid ref2; // dynamic chapter start
-	edb_pid ref0c;
-	edb_pid lastlookup;
-	edb_pid ref2c;
-	edb_pid trashlast;
+	odb_pid ref0; // starting chapter start
+	odb_pid ref1; // lookup chapter start
+	odb_pid ref2; // dynamic chapter start
+	odb_pid ref0c;
+	odb_pid lastlookup;
+	odb_pid ref2c;
+	odb_pid trashlast;
 
 } odb_spec_index_entry;
 
@@ -92,7 +92,7 @@ typedef struct odb_spec_struct_struct {
 // dy_pointers is an implicit byte-offset field)
 typedef struct{
 	odb_spec_object_flags obj_flags;
-	edb_dyptr dy_pointer;
+	odb_dyptr dy_pointer;
 	odb_spec_struct_struct content;
 } __attribute__((__packed__)) odb_spec_struct_full_t;
 

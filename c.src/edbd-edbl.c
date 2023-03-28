@@ -11,7 +11,7 @@ int edbl_reopen(const edbd_t *file, int flags, mode_t mode) {
 	sprintf(buff, "/proc/%d/fd/%d", getpid(), file->descriptor);
 	return open(buff, flags, mode);
 }
-unsigned int edbl_pageoffset(const edbd_t *file, edb_eid eid) {
+unsigned int edbl_pageoffset(const edbd_t *file, odb_eid eid) {
 	int pageoff = eid / file->enteriesperpage;
 	return edbd_size(file) // skip intro page
 	       + edbd_size(file) * pageoff // skip any pages containing previous eids

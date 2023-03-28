@@ -24,7 +24,7 @@
 //
 // todo: update documentation to reflect signature
 static odb_err lockpages(edbpcache_t *cache,
-                         edb_pid starting,
+                         odb_pid starting,
                          edbphandle_t *h) {
 	// quick vars
 	edbp_slotid *o_pageslots = &h->lockedslotv;
@@ -373,7 +373,7 @@ void    edbp_handle_free(edbphandle_t *handle) {
 	free(handle);
 }
 
-odb_err edbp_start (edbphandle_t *handle, edb_pid id) {
+odb_err edbp_start (edbphandle_t *handle, odb_pid id) {
 
 	// invals
 	if(id == 0) {
@@ -419,7 +419,7 @@ void    edbp_finish(edbphandle_t *handle) {
 	handle->lockedslotv = -1;
 }
 
-edb_pid edbp_gpid(const edbphandle_t *handle) {
+odb_pid edbp_gpid(const edbphandle_t *handle) {
 	return handle->parent->slots[handle->lockedslotv].id;
 }
 

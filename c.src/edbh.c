@@ -98,7 +98,7 @@ odb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
 
 odb_err odbh_select(odbh *handle, edb_select_t *params);
 
-odb_err odbh_index(odbh *handle, edb_eid eid, void *o_entry);
+odb_err odbh_index(odbh *handle, odb_eid eid, void *o_entry);
 
 /*
 

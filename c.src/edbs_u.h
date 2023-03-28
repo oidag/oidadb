@@ -160,7 +160,7 @@ typedef struct edbs_shmjob_t {
 	////////////////////////////////////////////////////////////////////////////
 
 	// threading: requires jobmutex
-	// Job desc is a xor'd value between 1 edb_jobclass, 1 edb_cmd.
+	// Job desc is a xor'd value between 1 odb_jobclass, 1 edb_cmd.
 	// if 0 then empty job.
 	unsigned int jobdesc;
 

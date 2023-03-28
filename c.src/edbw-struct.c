@@ -11,7 +11,7 @@ odb_err edbw_u_structjob(edb_worker_t *self) {
 
 	// working variables
 	odb_spec_struct_struct s;
-	edb_sid  structid;
+	odb_sid  structid;
 
 	// per-description
 	switch(jobdesc & 0xFF00) {

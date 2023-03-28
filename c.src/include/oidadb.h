@@ -20,17 +20,17 @@
  * \{
  */
 /// dynamic data pointer
-typedef uint64_t edb_dyptr;
+typedef uint64_t odb_dyptr;
 /// (o)bject (id)
-typedef uint64_t edb_oid;
+typedef uint64_t odb_oid;
 /// (s)tructure (id)
-typedef uint16_t edb_sid;
-/// (e)ntry (id)
-typedef uint16_t edb_eid;
+typedef uint16_t odb_sid;
+/// (e)ntity (id)
+typedef uint16_t odb_eid;
 /// (r)ow (id)
-typedef uint64_t edb_rid;
-/// (p)ow (id)
-typedef uint64_t edb_pid;
+typedef uint64_t odb_rid;
+/// (p)age (id)
+typedef uint64_t odb_pid;
 ///\}
 
 typedef struct odbh odbh;
@@ -107,7 +107,7 @@ typedef struct odbh odbh;
  * \{
  *
  */
-typedef enum edb_err {
+typedef enum odb_err {
 
 	/// no error - explicitly 0 - as all functions returning odb_err is
 	/// expected to be layed out as follows for error handling:
@@ -215,7 +215,7 @@ typedef enum edb_err {
 /**
  * \brief Returns the string representation of the error. Good for logging.
  */
-const char *edb_errstr(odb_err error);
+const char *odb_errstr(odb_err error);
 /**\}*/
 
 
@@ -812,7 +812,7 @@ typedef uint8_t odb_type;
  *
  * \see elements for information on what an entry is.
  */
-odb_err odbh_index(odbh *handle, edb_eid eid, void *o_entry); //todo: what is
+odb_err odbh_index(odbh *handle, odb_eid eid, void *o_entry); //todo: what is
 // o_entry?
 
 /** \brief Get structure data
@@ -833,7 +833,7 @@ odb_err odbh_index(odbh *handle, edb_eid eid, void *o_entry); //todo: what is
  *
  * \see elements to for information as to what a structure is.
  */
-odb_err odbh_structs(odbh *handle, edb_sid structureid, void *o_struct); //
+odb_err odbh_structs(odbh *handle, odb_sid structureid, void *o_struct); //
 // todo: what is o_struct?
 
 /**
@@ -852,9 +852,9 @@ typedef enum odb_cmd {
 	ODB_CUSRLKW  = 0x0600,
 } odb_cmd;
 
-// edb_jobclass must take only the first 4 bits. (to be xor'd with
+// odb_jobclass must take only the first 4 bits. (to be xor'd with
 // edb_cmd).
-typedef enum edb_jobclass {
+typedef enum odb_jobclass {
 
 	// means that whatever job was there is now complete and ready
 	// for a handle to come in and install another job.
@@ -885,7 +885,7 @@ typedef enum edb_jobclass {
 	// see edb_obj() for description
 	//
 	// all cases:
-	//     <- edb_oid (see also: EDB_OID_... constants)
+	//     <- odb_oid (see also: EDB_OID_... constants)
 	//     (additional params, if applicable)
 	//     -> odb_err [1]
 	//  ODB_CREAD:
@@ -942,7 +942,7 @@ typedef enum edb_jobclass {
 	//
 	EDB_ENT = ODB_ELMENTS,
 
-} edb_jobclass;
+} odb_jobclass;
 
 
 // OR'd together values from odb_jobclass and odb_cmd

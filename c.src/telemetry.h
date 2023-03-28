@@ -13,13 +13,13 @@
 #ifdef EDBTELEM
 
 // See include/telementry.h / "odbtelem_class"
-void telemetry_pages_newobj(unsigned int entryid, edb_pid startpid,unsigned int straitc);
-void telemetry_pages_newdel(edb_pid startpid);
-void telemetry_pages_cached(edb_pid pid);
-void telemetry_pages_decached(edb_pid pid);
+void telemetry_pages_newobj(unsigned int entryid, odb_pid startpid, unsigned int straitc);
+void telemetry_pages_newdel(odb_pid startpid);
+void telemetry_pages_cached(odb_pid pid);
+void telemetry_pages_decached(odb_pid pid);
 void telemetry_workr_accepted(unsigned int workerid, unsigned int jobslot);
-void telemetry_workr_pload(unsigned int workerid, edb_pid pageid);
-void telemetry_workr_punload(unsigned int workerid, edb_pid pageid);
+void telemetry_workr_pload(unsigned int workerid, odb_pid pageid);
+void telemetry_workr_punload(unsigned int workerid, odb_pid pageid);
 
 //todo:
 //void telemetry_jobs_added(unsigned int jobslot);

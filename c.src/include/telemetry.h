@@ -193,12 +193,12 @@ typedef struct odbtelem_data {
 
 	union {
 		uint64_t arg0;
-		edb_pid pageid;
+		odb_pid pageid;
 	};
 
 	union {
 		unsigned int arg1;
-		edb_eid entryid;
+		odb_eid entryid;
 		unsigned int workerid;
 	};
 
@@ -241,7 +241,7 @@ typedef struct odbtelem_image_t {
 	/// id's that are in cache. If a page id is 0, that means that slot has
 	/// no page loaded.
 	unsigned int pagecacheq;
-	edb_pid     *pagecachev;
+	odb_pid     *pagecachev;
 
 	// todo: locks?
 

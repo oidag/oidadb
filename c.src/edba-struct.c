@@ -8,11 +8,11 @@
 // returns a pointer to the persistent memory of the structure pages.
 void *edba_structurespages(const edbd_t *);
 
-odb_err edba_structopen(edba_handle_t *h, edb_sid sid) {
+odb_err edba_structopen(edba_handle_t *h, odb_sid sid) {
 
 	// easy ptrs
 	edbl_handle_t *lockh = h->lockh;
-	const edb_eid eid = EDBD_EIDSTRUCT;
+	const odb_eid eid = EDBD_EIDSTRUCT;
 	edbd_t *file = h->parent->descriptor;
 	odb_err err;
 
@@ -55,7 +55,7 @@ odb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 
 	// easy ptrs
 	edbl_handle_t *lockh = h->lockh;
-	const edb_eid eid = EDBD_EIDSTRUCT;
+	const odb_eid eid = EDBD_EIDSTRUCT;
 	edbd_t *file = h->parent->descriptor;
 	odb_err err;
 
@@ -188,7 +188,7 @@ odb_err edba_structdelete(edba_handle_t *h) {
 	// **defer edbl_entrycreation_release
 
 	// search the entire index and make sure nothing has our structure.
-	edb_eid searcheid = EDBD_EIDSTART;
+	odb_eid searcheid = EDBD_EIDSTART;
 	for(; ; searcheid++) {
 		odb_spec_index_entry *entry;
 		// roll-on locks

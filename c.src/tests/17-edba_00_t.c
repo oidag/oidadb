@@ -30,14 +30,14 @@ void newdel(odbtelem_data d) {
 };
 edbpcache_t *globalcache;
 
-void scramble(edb_oid *oids, edb_oid *o_random, int records) {
+void scramble(odb_oid *oids, odb_oid *o_random, int records) {
 
-	memcpy(o_random, oids, records * sizeof(edb_oid ));
+	memcpy(o_random, oids, records * sizeof(odb_oid ));
 	size_t i;
 	for (i = 0; i < records - 1; i++)
 	{
 		size_t j = i + rand() / (RAND_MAX / (records - i) + 1);
-		edb_oid t = o_random[j];
+		odb_oid t = o_random[j];
 		o_random[j] = o_random[i];
 		o_random[i] = t;
 	}
@@ -101,7 +101,7 @@ int main(int argc, const char **argv) {
 	const int fixedc = 100;
 
 	// structure create
-	edb_sid structid;
+	odb_sid structid;
 	{
 		odb_spec_struct_struct strct;
 		strct.fixedc = fixedc;
@@ -118,7 +118,7 @@ int main(int argc, const char **argv) {
 
 
 	// entry create
-	edb_eid eid;
+	odb_eid eid;
 	{
 		odb_spec_index_entry entryparams;
 
@@ -143,9 +143,9 @@ int main(int argc, const char **argv) {
 	// insert a load of records
 	test_log("inserting %ld rows...", records);
 	timer t = timerstart();
-	edb_oid *oids = malloc(sizeof(edb_oid) * records);
+	odb_oid *oids = malloc(sizeof(odb_oid) * records);
 	for (int i = 0; i < records; i++) {
-		oids[i] = ((edb_oid) eid) << 0x30;
+		oids[i] = ((odb_oid) eid) << 0x30;
 		if ((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE |
 		                                                  EDBA_FCREATE))) {
 			test_error("creating %d", i);
@@ -232,7 +232,7 @@ int main(int argc, const char **argv) {
 	time_individual_random_read = timerend(t);
 
 	// delete the records in random order
-	edb_oid *oids_random = malloc(sizeof(edb_oid ) * records);
+	odb_oid *oids_random = malloc(sizeof(odb_oid ) * records);
 	scramble(oids, oids_random, records);
 	test_log("deleting %ld rows...", records);
 	for(int i = 0; i < records; i++) {

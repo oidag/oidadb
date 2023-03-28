@@ -2,7 +2,7 @@
 #include "edba.h"
 #include "edba_u.h"
 
-odb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags) {
+odb_err edba_entryopenc(edba_handle_t *h, odb_eid *o_eid, edbf_flags flags) {
 
 #ifdef EDB_FUCKUPS
 	if(h->clutchedentry) {
@@ -138,8 +138,8 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	// ref1: lookup-oid page root
 	// We must create a full stack of OID lookup pages so we can
 	// fill out lastlookup, last lookup must point to a page of max depth.
-	edb_pid parentid = 0;
-	edb_pid lookuppages[depth+1];
+	odb_pid parentid = 0;
+	odb_pid lookuppages[depth + 1];
 	// our for-loop, we go backwards, creating the depthest page first so
 	// that we can reference that child page to its parent in the subsequent
 	// itoration.
@@ -237,7 +237,7 @@ void    edba_entryclose(edba_handle_t *h) {
 	h->opened = 0;
 }
 
-odb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
+odb_err edba_entrydelete(edba_handle_t *h, odb_eid eid) {
 
 	// handle-status politics
 	if(h->opened != 0) {
@@ -272,7 +272,7 @@ odb_err edba_entrydelete(edba_handle_t *h, edb_eid eid) {
 	return 0;
 }
 
-odb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl) {
+odb_err edba_u_clutchentry(edba_handle_t *handle, odb_eid eid, int xl) {
 #ifdef EDB_FUCKUPS
 	if(handle->clutchedentry) {
 		log_critf("attempting to clutch an entry with handle already clutching something. Or perhaps unitialized handle");
