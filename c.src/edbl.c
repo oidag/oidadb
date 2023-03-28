@@ -20,7 +20,7 @@
 extern int edbl_reopen(const edbd_t *file, int flags, mode_t mode);
 
 // returns the byte-offset to the given eid in the file.
-unsigned int edbl_pageoffset(const edbd_t *file, edb_eid eid);
+unsigned int edbl_pageoffset(const edbd_t *file, odb_eid eid);
 
 typedef struct edbl_host_t {
 	const edbd_t *fd;

@@ -7,10 +7,10 @@
 // assumptions:
 //     pidoffset_search is less than the total amount of pages in the edbp_object chapter
 odb_err static edba_u_lookup_rec(edba_handle_t *handle,
-                                 edb_pid lookuproot,
-                                 edb_pid selfpagestartoffset,
-                                 edb_pid chapter_pageoff,
-                                 edb_pid *o_pid,
+                                 odb_pid lookuproot,
+                                 odb_pid selfpagestartoffset,
+                                 odb_pid chapter_pageoff,
+                                 odb_pid *o_pid,
                                  int depth) {
 	// install sh lock on first byte of page per Object-Reading spec
 	edbl_lock lock = {
@@ -130,7 +130,7 @@ odb_err static edba_u_lookup_rec(edba_handle_t *handle,
 }
 
 odb_err edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
-                         edb_pid chapter_pageoff, edb_pid *o_pid) {
+                         odb_pid chapter_pageoff, odb_pid *o_pid) {
 	if(chapter_pageoff >= entry->ref0c) {
 		return ODB_EEOF;
 	}

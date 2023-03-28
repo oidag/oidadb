@@ -38,14 +38,14 @@ const int memorysettings    = 0x2202; // depth, ref2 strait, rsvd, ref0 strait
 const int entries_to_create = 7;
 const int records           = 100000;
 
-void scramble(edb_oid *oids, edb_oid *o_random, int records) {
+void scramble(odb_oid *oids, odb_oid *o_random, int records) {
 
-	memcpy(o_random, oids, records * sizeof(edb_oid ));
+	memcpy(o_random, oids, records * sizeof(odb_oid ));
 	size_t i;
 	for (i = 0; i < records - 1; i++)
 	{
 		size_t j = i + rand() / (RAND_MAX / (records - i) + 1);
-		edb_oid t = o_random[j];
+		odb_oid t = o_random[j];
 		o_random[j] = o_random[i];
 		o_random[i] = t;
 	}
@@ -68,7 +68,7 @@ struct threadpayload {
 	int fixedc; // fixedc to create your entries with.
 
 
-	edb_oid *oids, *oids_scrambled;
+	odb_oid *oids, *oids_scrambled;
 };
 
 void *createentry(void *pl) {
@@ -80,7 +80,7 @@ void *createentry(void *pl) {
 	// create entry-structure pairs
 	// we do +1 here so we can create the last entry just to delete it.
 	for(int i = 0; i < entries_to_create+1; i++) {
-		edb_sid structid;
+		odb_sid structid;
 		odb_spec_struct_struct strct;
 		strct.fixedc = fixedc;
 		strct.flags = 0;
@@ -94,7 +94,7 @@ void *createentry(void *pl) {
 		edba_structclose(edbahandle);
 
 		// entry
-		edb_eid eid;
+		odb_eid eid;
 		odb_spec_index_entry entryparams;
 		entryparams.type = ODB_ELMOBJ;
 		entryparams.memory = memorysettings;
@@ -137,7 +137,7 @@ void *routine_insert(void *pl) {
 			 payload->useeid);
 	for (int i = 0; i < records; i++) {
 		timer t = timerstart();
-		payload->oids[i] = ((edb_oid) eid) << 0x30;
+		payload->oids[i] = ((odb_oid) eid) << 0x30;
 		if ((err = edba_objectopenc(edbahandle, &payload->oids[i], EDBA_FWRITE |
 		                                                           EDBA_FCREATE))) {
 			test_error("creating %d", i);
@@ -258,8 +258,8 @@ int main(int argc, const char **argv) {
 			payloads[i].useeid = 0; // set in createentries
 		}
 		payloads[i].fixedc = 20 + (rand() % (100));
-		payloads[i].oids = malloc(sizeof(edb_oid) * records);
-		payloads[i].oids_scrambled = malloc(sizeof(edb_oid) * records);
+		payloads[i].oids = malloc(sizeof(odb_oid) * records);
+		payloads[i].oids_scrambled = malloc(sizeof(odb_oid) * records);
 	}
 
 	test_log("creating %d entries asyc...", (extrathreads+1)*2);

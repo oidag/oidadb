@@ -109,7 +109,7 @@ void    edbd_close(edbd_t *file);
 //     Note that if you submit an id that hasn't have itself initialized,
 //     then it will return errorless and the out pointer
 //     will point to an unititalized entry.
-odb_err edbd_index(const edbd_t *file, edb_eid eid,
+odb_err edbd_index(const edbd_t *file, odb_eid eid,
                    odb_spec_index_entry **o_entry);
 odb_err edbd_struct(const edbd_t *file, uint16_t structureid,
                     const odb_spec_struct_struct **o_struct);
@@ -131,16 +131,16 @@ odb_err edbd_struct(const edbd_t *file, uint16_t structureid,
 //
 // THREADING:
 //   Thread safe per file.
-odb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id);
-odb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id);
+odb_err edbd_add(edbd_t *file, uint8_t straitc, odb_pid *o_id);
+odb_err edbd_del(edbd_t *file, uint8_t straitc, odb_pid id);
 
 // helper functions
 
 // changes the pid into a file offset.
-static inline off64_t edbd_pid2off(const edbd_t *c, edb_pid id) {
+static inline off64_t edbd_pid2off(const edbd_t *c, odb_pid id) {
 	return (off64_t)id * edbd_size(c);
 }
-static edb_pid edbd_off2pid(const edbd_t *c, off64_t off) {
+static odb_pid edbd_off2pid(const edbd_t *c, off64_t off) {
 	return off / edbd_size(c);
 }
 

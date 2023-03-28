@@ -36,13 +36,13 @@ typedef struct edba_handle_st {
 	// Will be the entry that has a clutch locked established.
 	// (note to self: points to persistant mem)
 	odb_spec_index_entry *clutchedentry;
-	edb_eid clutchedentryeid;
+	odb_eid clutchedentryeid;
 
 	uint16_t          objectrowoff; // intra-page row offset.
 	unsigned int      objectc; // same as the object's struct->fixedc
 	odb_spec_object_flags *objectflags; // pointer to the very start of the object
 	unsigned int      dy_pointersc;
-	edb_dyptr        *dy_pointers; // dynamic pointers
+	odb_dyptr        *dy_pointers; // dynamic pointers
 	unsigned int      contentc;
 	void             *content; // pointer starts at object objectflags
 
@@ -50,7 +50,7 @@ typedef struct edba_handle_st {
 	//
 	// strct - points to persistent mem.
 	odb_spec_struct_full_t *strct;
-	edb_sid            strctid;
+	odb_sid            strctid;
 
 	edbl_lock lock;
 	odb_type opened; // what type of operation was opened
@@ -110,8 +110,8 @@ void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 //  - ODB_EEOF - oid's entryid was too high (did you set oid's entryid?)
 //  - ODB_ENOSPACE - (edba_objectopenc w/ EDBA_FCREATE) failed to allocate more space, disk/file ful)
 //  - ODB_ENOSPACE - (edba_objectopenc w/o EDBA_FCREATE) no free space without needing creation
-odb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags);
-odb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags);
+odb_err edba_objectopen(edba_handle_t *h, odb_oid oid, edbf_flags flags);
+odb_err edba_objectopenc(edba_handle_t *h, odb_oid *o_oid, edbf_flags flags);
 void    edba_objectclose(edba_handle_t *h);
 
 // edba_objectfixed
@@ -197,9 +197,9 @@ const odb_spec_index_entry  *edba_objectentry(edba_handle_t *h);
 //
 //   - ODB_ECRIT: programmer error (can be ignored) (will be logged)
 //   - ODB_ENOSPACE: (edba_entryopenc) no more entry slots availabe
-odb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags);
+odb_err edba_entryopenc(edba_handle_t *h, odb_eid *o_eid, edbf_flags flags);
 void    edba_entryclose(edba_handle_t *h);
-odb_err edba_entrydelete(edba_handle_t *h, edb_eid eid);
+odb_err edba_entrydelete(edba_handle_t *h, odb_eid eid);
 
 // Get a pointer to the entry for read-only purposes.
 const odb_spec_index_entry *edba_entrydatr(edba_handle_t *h);
@@ -254,7 +254,7 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e);
 //   - ODB_EEXIST - (edba_structdelete) cannot delete because an entry is using
 //     this structure.
 //   - ODB_ENOENT - (edba_structopen) structure at sid is not initialized/invalid
-odb_err edba_structopen(edba_handle_t *h, edb_sid sid);
+odb_err edba_structopen(edba_handle_t *h, odb_sid sid);
 odb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_struct strct);
 void    edba_structclose(edba_handle_t *h);
 odb_err edba_structdelete(edba_handle_t *h);

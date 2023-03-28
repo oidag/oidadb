@@ -174,7 +174,7 @@ typedef enum {
 //
 // UNDEFINED:
 //   - using an unitialized handle / uninitialized cache
-odb_err edbp_start (edbphandle_t *handle, edb_pid id);
+odb_err edbp_start (edbphandle_t *handle, odb_pid id);
 void    edbp_finish(edbphandle_t *handle);
 
 // called between edbp_start and edbp_finish. Simply returns the
@@ -185,7 +185,7 @@ void    edbp_finish(edbphandle_t *handle);
 void *edbp_graw(const edbphandle_t *handle);
 
 // get the pid of the currently loaded page.
-edb_pid edbp_gpid(const edbphandle_t *handle);
+odb_pid edbp_gpid(const edbphandle_t *handle);
 
 // edbp_mod applies special modifiecations to the page. This function will effect the page
 // that was referenced in the most recent edbp_start and must be called before the

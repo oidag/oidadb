@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-static void edbw_logverbose(edb_worker_t *self, const char *fmt, edb_oid oid) {
+static void edbw_logverbose(edb_worker_t *self, const char *fmt, odb_oid oid) {
 	log_debugf(fmt, oid);
 }
 
@@ -28,8 +28,8 @@ odb_err edbw_u_objjob(edb_worker_t *self) {
 	odb_err err = 0;
 	edba_handle_t *handle = &self->edbahandle;
 
-	// check for some common errors regarding the edb_jobclass
-	edb_oid oid;
+	// check for some common errors regarding the odb_jobclass
+	odb_oid oid;
 	int ret;
 	// all of these job classes need an id parameter
 	ret = edbs_jobread(job, &oid, sizeof(oid));

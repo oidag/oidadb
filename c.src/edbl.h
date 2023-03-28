@@ -82,9 +82,9 @@ typedef enum edbl_type {
 typedef struct edbl_lock {
 	edbl_type type;
 	union {
-		edb_eid eid;
-		edb_pid lookup_pid;
-		edb_pid object_pid;
+		odb_eid eid;
+		odb_pid lookup_pid;
+		odb_pid object_pid;
 		off64_t l_start;
 	};
 	union {

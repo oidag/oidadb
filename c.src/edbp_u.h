@@ -10,7 +10,7 @@
 typedef unsigned int edbp_slotid;
 typedef struct {
 	void *page;
-	edb_pid id; // cache's mutexpagelock must be locked to access
+	odb_pid id; // cache's mutexpagelock must be locked to access
 
 	// the amount of workers that have this page locked. 0 for none.
 	// you must use a futex call to wait until the swap is complete.

@@ -50,8 +50,8 @@ int main(int argc, const char **argv) {
 	const int page2_strait = 4;
 
 	// working vars.
-	edb_pid pages[pagec];
-	edb_pid large_strait_pages[page2c];
+	odb_pid pages[pagec];
+	odb_pid large_strait_pages[page2c];
 
 	// create pages
 	for(int i = 0; i < pagec; i++) {

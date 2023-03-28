@@ -411,7 +411,7 @@ odb_err odbtelem(int enabled, odbtelem_params_t params) {
 }
 
 void telemetry_pages_newobj(unsigned int entryid,
-                            edb_pid startpid, unsigned int straitc) {
+                            odb_pid startpid, unsigned int straitc) {
 	if(!telemenabled) return;
 	odbtelem_data d = {
 			.class = ODBTELEM_PAGES_NEWOBJ,
@@ -421,7 +421,7 @@ void telemetry_pages_newobj(unsigned int entryid,
 	};
 	odb_data_process(d);
 }
-void telemetry_pages_newdel(edb_pid startpid) {
+void telemetry_pages_newdel(odb_pid startpid) {
 	if(!telemenabled) return;
 	odbtelem_data d = {
 			.class = ODBTELEM_PAGES_NEWDEL,
@@ -429,7 +429,7 @@ void telemetry_pages_newdel(edb_pid startpid) {
 	};
 	odb_data_process(d);
 }
-void telemetry_pages_cached(edb_pid pid) {
+void telemetry_pages_cached(odb_pid pid) {
 	if(!telemenabled) return;
 	odbtelem_data d = {
 			.class = ODBTELEM_PAGES_CACHED,
@@ -437,7 +437,7 @@ void telemetry_pages_cached(edb_pid pid) {
 	};
 	odb_data_process(d);
 }
-void telemetry_pages_decached(edb_pid pid) {
+void telemetry_pages_decached(odb_pid pid) {
 	if(!telemenabled) return;
 	odbtelem_data d = {
 			.class = ODBTELEM_PAGES_DECACHED,
@@ -454,7 +454,7 @@ void telemetry_workr_accepted(unsigned int workerid, unsigned int jobslot) {
 	};
 	odb_data_process(d);
 }
-void telemetry_workr_pload(unsigned int workerid, edb_pid pageid) {
+void telemetry_workr_pload(unsigned int workerid, odb_pid pageid) {
 	if(!telemenabled) return;
 	odbtelem_data d = {
 			.class = ODBTELEM_WORKR_PLOAD,
@@ -463,7 +463,7 @@ void telemetry_workr_pload(unsigned int workerid, edb_pid pageid) {
 	};
 	odb_data_process(d);
 }
-void telemetry_workr_punload(unsigned int workerid, edb_pid pageid) {
+void telemetry_workr_punload(unsigned int workerid, odb_pid pageid) {
 	if(!telemenabled) return;
 	odbtelem_data d = {
 			.class = ODBTELEM_WORKR_PUNLOAD,

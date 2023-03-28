@@ -24,7 +24,7 @@ pthread_mutex_t what;
 typedef struct {
 	edbphandle_t *h;
 	int pagec;
-	edb_pid *pagev;
+	odb_pid *pagev;
 	int tests;
 }threadstruct;
 
@@ -47,7 +47,7 @@ void *gothread(void *args) {
 	for(int i = 0; i < t->pagec; i++) {
 		gettimeofday(&start, 0);
 		err = edbp_start(h, t->pagev[i]);
-		edb_pid pageid = t->pagev[i];
+		odb_pid pageid = t->pagev[i];
 		gettimeofday(&end, 0);
 		if (err) {
 			test_error("edbp_start");
@@ -124,11 +124,11 @@ int main(int argc, const char **argv) {
 	int rand_seed = (unsigned) time(&tv) + getpid();*/
 
 	// working vars.
-	edb_pid pages[pagec];
+	odb_pid pages[pagec];
 	pthread_t threadv[threads];
 	edbphandle_t *handle[threads];
 	threadstruct t[threads];
-	edb_pid pageidorder[threads_tests * threads];
+	odb_pid pageidorder[threads_tests * threads];
 	page_loaded_amount = malloc(sizeof(atomic_int) * pagec);
 	page_cached_amount = malloc(sizeof(atomic_int) * pagec);
 	bzero(page_loaded_amount, sizeof(atomic_int) * pagec);

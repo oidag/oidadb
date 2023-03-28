@@ -11,7 +11,7 @@ odb_err edbw_u_entjob(edb_worker_t *self) {
 
 	// get params
 	odb_spec_index_entry entryparams;
-	edb_eid eid;
+	odb_eid eid;
 	switch (jobdesc & 0xFF00) {
 		case ODB_CCREATE:
 			edbs_jobread(job, &entryparams, sizeof(entryparams));

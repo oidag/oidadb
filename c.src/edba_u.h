@@ -13,7 +13,7 @@
 // updates: handle->clutchentry
 //          handle->clutchentryeid
 //
-odb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl);
+odb_err edba_u_clutchentry(edba_handle_t *handle, odb_eid eid, int xl);
 void edba_u_clutchentry_release(edba_handle_t *host);
 
 // must be called AFTER edba_u_clutchentry
@@ -49,7 +49,7 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle);
 //
 // flags only check for EDBA_FWRITE, if true than makes the
 // row lock exclusvive
-odb_err edba_u_pageload_row(edba_handle_t *handle, edb_pid pid,
+odb_err edba_u_pageload_row(edba_handle_t *handle, odb_pid pid,
                             uint16_t page_byteoff, const odb_spec_struct_struct *structdat,
                             edbf_flags flags);
 void edba_u_pagedeload(edba_handle_t *handle);
@@ -86,18 +86,18 @@ void edba_u_pagedeload(edba_handle_t *handle);
 //   - ODB_ENOMEM - no memeory left
 odb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
                                  odb_spec_lookup header,
-                                 edb_pid *o_pid,
+                                 odb_pid *o_pid,
                                  odb_spec_lookup_lref ref);
 odb_err edba_u_pagecreate_objects(edba_handle_t *handle,
                                   odb_spec_object header,
                                   const odb_spec_struct_struct *strct,
-                                  uint8_t straitc, edb_pid *o_pid);
+                                  uint8_t straitc, odb_pid *o_pid);
 
 
 // converts a intra-chapter row offset to a intra-chapter page offset
 // as well as its intra-page byte offset.
-void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entry, edb_rid rid,
-                             edb_pid *o_chapter_pageoff, uint16_t *o_page_byteoff);
+void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entry, odb_rid rid,
+                             odb_pid *o_chapter_pageoff, uint16_t *o_page_byteoff);
 
 // executes a b-tree lookup and converts the intra-chapter page
 // ofsset to a pid.
@@ -105,9 +105,9 @@ void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entry,
 // ERRORS:
 //   ODB_EEOF - chapter_pageoff was out of bounds.
 odb_err  edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
-                          edb_pid chapter_pageoff, edb_pid *o_pid);
+                          odb_pid chapter_pageoff, odb_pid *o_pid);
 
-static void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid
+static void inline edba_u_oidextract(odb_oid oid, odb_eid *o_eid, odb_rid
 *o_rid) {
 	*o_eid = oid >> 0x30;
 	*o_rid = oid & 0x0000FFFFFFFFFFFF;

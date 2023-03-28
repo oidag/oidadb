@@ -7,7 +7,7 @@
 
 // helper function
 static odb_err xlloadlookup(edba_handle_t *handle,
-                            edb_pid lookuppid,
+                            odb_pid lookuppid,
                             edbl_lock *lock,
                             odb_spec_lookup **lookuphead,
                             odb_spec_lookup_lref **lookuprefs) {
@@ -116,7 +116,7 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 			.eid = entryid,
 	});
 	// newobjectpage_offsetid - the (proposed) page offset of the first page of the strait.
-	edb_pid newobjectpage_offsetid = entry->ref0c;
+	odb_pid newobjectpage_offsetid = entry->ref0c;
 	// **defer: edbl_entryref0c(&handle->lockh, entryid, EDBL_UNLOCK;
 
 	// create the new object pages
@@ -130,7 +130,7 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	header.trashvor = 0;
 	header.head.pleft = newobjectpage_offsetid;
 	unsigned int straitc = 1 << (entry->memory & 0x000F);
-	edb_pid newobjectpid;
+	odb_pid newobjectpid;
 	err = edba_u_pagecreate_objects(handle, header, structdat, straitc, &newobjectpid);
 	if(err) {
 		// This is an early error in here. We don't have to do too much...
@@ -170,10 +170,10 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	//    was just created. Rather that be a leaf or lookup depends on its use.
 	//
 	// See also: rollbackcreatedpages, rollbackcreateandreference.
-	edb_pid        lookuppid = entry->lastlookup;
+	odb_pid        lookuppid = entry->lastlookup;
 	odb_spec_lookup_lref    *lookuprefs;
 	odb_spec_lookup *lookuphead; // will be null when unloaded.
-	edb_pid        createdlookups[depth];
+	odb_pid        createdlookups[depth];
 	int            createdlookupsc = 0;
 	edbl_lock  lookuppagelock;
 	odb_spec_lookup_lref     newreference;
@@ -195,7 +195,7 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	// will point to the page where the new "column" has just been newly
 	// referenced. And crit_rollback_refnum will be the reference id in
 	// that page.
-	edb_pid crit_rollback_pid;
+	odb_pid crit_rollback_pid;
 	int crit_rollback_refnum;
 
 	// initialize newreference with our object pages sense we have our
@@ -231,7 +231,7 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 			// So lets go up to the parent.
 			// We'll also keep track of this page's last refernece so we can set the
 			// pleft of the sibling page.
-			edb_pid pleft = lookuppid;
+			odb_pid pleft = lookuppid;
 			lookuppid = lookuphead->parentlookup;
 			// as per spec we deload and unlock this page.
 			deloadlookup(handle, &lookuppagelock);
@@ -418,7 +418,7 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 
 odb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
                                  odb_spec_lookup header,
-                                 edb_pid *o_pid,
+                                 odb_pid *o_pid,
                                  odb_spec_lookup_lref ref) {
 
 	// easy ptrs
@@ -482,7 +482,7 @@ odb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 odb_err edba_u_pagecreate_objects(edba_handle_t *handle,
                                   odb_spec_object header,
                                   const odb_spec_struct_struct *strct,
-                                  uint8_t straitc, edb_pid *o_pid) {
+                                  uint8_t straitc, odb_pid *o_pid) {
 	// easy ptrs
 	edbphandle_t *edbp = handle->edbphandle;
 	odb_err err;

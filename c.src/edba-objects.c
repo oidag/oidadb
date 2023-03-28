@@ -32,15 +32,15 @@ static void inline assignobject(edba_handle_t *h,
 	h->dy_pointers  = (void *)h->objectflags + sizeof(odb_spec_object_flags);
 	h->contentc   = structdat->fixedc
 	                - sizeof(odb_spec_object_flags)
-	                - (sizeof(edb_dyptr) * h->dy_pointersc);
+	                - (sizeof(odb_dyptr) * h->dy_pointersc);
 	h->content    = (void *)h->objectflags
 	                + sizeof(odb_spec_object_flags)
-	                + (sizeof(edb_dyptr) * h->dy_pointersc);
+	                + (sizeof(odb_dyptr) * h->dy_pointersc);
 }
 
-odb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
-	edb_eid eid;
-	edb_rid rid;
+odb_err edba_objectopen(edba_handle_t *h, odb_oid oid, edbf_flags flags) {
+	odb_eid eid;
+	odb_rid rid;
 	odb_err err;
 
 	// handle-status poltiics.
@@ -63,12 +63,12 @@ odb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &structdat);
 
 	// get the chapter offset
-	edb_pid chapter_pageoff;
+	odb_pid chapter_pageoff;
 	uint16_t page_byteoff;
 	edba_u_rid2chptrpageoff(h, h->clutchedentry, rid, &chapter_pageoff, &page_byteoff);
 
 	// do the oid lookup
-	edb_pid foundpid;
+	odb_pid foundpid;
 	err = edba_u_lookupoid(h, h->clutchedentry, chapter_pageoff, &foundpid);
 	if(err) {
 		edba_u_clutchentry_release(h);
@@ -88,11 +88,11 @@ odb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags) {
 	return 0;
 }
 
-odb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
-	edb_eid eid;
-	edb_rid rid;
+odb_err edba_objectopenc(edba_handle_t *h, odb_oid *o_oid, edbf_flags flags) {
+	odb_eid eid;
+	odb_rid rid;
 	odb_err err;
-	edb_pid trashlast;
+	odb_pid trashlast;
 
 	// politics
 	if(h->opened != 0) {
@@ -152,7 +152,7 @@ odb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// at this point, we know trashlast is pointing to a leaf page.
 	// So lock the trashoffset on that page so we can load it.
-	edb_pid pageid = h->clutchedentry->trashlast;
+	odb_pid pageid = h->clutchedentry->trashlast;
 	edbl_set(h->lockh, EDBL_AXL, (edbl_lock){
 			.type = EDBL_LTRASHOFF,
 			.object_pid = pageid,
@@ -238,7 +238,7 @@ odb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags) {
 
 	// calculate the id
 	*o_oid = ((odb_spec_object *)page)->head.pleft * (uint64_t)h->clutchedentry->objectsperpage + intrapagerowoff;
-	*o_oid = *o_oid | ((edb_oid)eid << 0x30);
+	*o_oid = *o_oid | ((odb_oid)eid << 0x30);
 
 	// as per this function's description, and the fact we just removed it
 	// from the trash management, we will make sure its not marked as deleted.
@@ -515,7 +515,7 @@ odb_err edba_objectundelete(edba_handle_t *h) {
 	return 0;
 }
 
-odb_err edba_u_pageload_row(edba_handle_t *h, edb_pid pid,
+odb_err edba_u_pageload_row(edba_handle_t *h, odb_pid pid,
                             uint16_t page_byteoff, const odb_spec_struct_struct *structdat,
                             edbf_flags flags) {
 	// as per locking spec, need to place the lock on the data before we load the page.
@@ -577,8 +577,8 @@ objectsperpage, uint16_t fixedlen)
 
 }
 
-void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entrydat, edb_rid rowid,
-                             edb_pid *o_chapter_pageoff,
+void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entrydat, odb_rid rowid,
+                             odb_pid *o_chapter_pageoff,
                              uint16_t *o_page_byteoff) {
 	const odb_spec_struct_struct *structdata;
 	edbd_struct(handle->parent->descriptor, entrydat->structureid, &structdata);
