@@ -66,11 +66,12 @@ you're ready to begin.
 	2. =odb_host=
 	3. =odb_hostpoll=
 	4. =odb_hostconfig_t=
- 6. OidaDB Elements
+ 6. [[./elements.org][OidaDB Elements]] - The fundemental building blocks of every database
  7. [[./odbh.org][The OidaDB Handle]]
     1. [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]]
     1. [[./odbh_job.org][=odbh_job=]]
 	2. [[./odbh_poll.org][=odbh_poll=]]
+ 8. [[./routines.org][Routines]] - Arbitrary programming for OidaDB
 
 * Appendix
  - Glossery
@@ -358,6 +359,12 @@ Talk about how you can't delete structures, only recreate
 * Automatted Maintance
 ** Defragging
 ** Excretion
+* Notes
+
+ - OidaDB (natively) does NOT contain any permission other the ones
+   inheritted from the file. The concept of restricting users to
+   certain records is not built in. This is up to you to implement.
+
 * Appendix
 ** Glossary
 (todo: alphabetically sort when done)

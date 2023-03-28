@@ -6,10 +6,11 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-edb_err odbh_jobmode (odbh *handle, odb_jobhint_t hint);
+edb_err odbh_jobmode (odbh *handle, odb_jobmode_t mode);
 edb_err odbh_job     (odbh *handle, odb_jobdesc jobdesc, odbj **o_jhandle);
-edb_err odbh_jobwrite(odbj *jhandle, const void *buf, int bufc);
-edb_err odbh_jobread (odbj *jhandle, void *o_buf, int bufc);
+edb_err odbj_write(odbj *jhandle, const void *buf, int bufc);
+edb_err odbj_read (odbj *jhandle, void *o_buf, int bufc);
+edb_err odbj_close(odbj *jhandle);
 #+END_SRC
 
 
@@ -24,18 +25,86 @@ Though the exact behaviour of each function will vary depending on the
 job mode (set by *=odbh_jobmode=*, which we'll discuss later), though
 the fundemetnal purpose of each function stays the same:
 
+ - *=odbh_jobmode=* - Set the job mode of =handle=, replacing the mode
+   that was previously set.
  - *=odbh_job=* - Install a job described by [[./odbh_jobdesc_t.org][=jobdesc=]] into the host
    to which =handle= has connected too. Then return a handle for that
    job into the output pointer of =o_jhandle=.
- - *=odbh_jobwrite=* - Set the job (refered to by =jhandle=) to write
+ - *=odbj_write=* - Set the job (refered to by =jhandle=) to write
    =bufc= bytes of =buf= into the transfer buffer.
- - *=odbh_jobread=* - Set the job (refered to by =jhandle=) to read
+ - *=odbj_read=* - Set the job (refered to by =jhandle=) to read
    =bufc= bytes of the transfer buffer into =o_buf=.
+ - *=odbj_close=* - Close the job (refered to by =jhandle=).
 
-** Job Modes
+To provide any further useful information we must dive into job
+modes. When calling =odbh_jobmode=, =mode= will be one of the
+following with the provided effects:
+
+** =ODB_JSEQ= (default)
+
+Whilest in the mode of =ODB_JSEQ=, jobs are expected to be installed
+sequencially and managed /sequentially/. This is the most intuitive
+mode, because this implies the handle will install and manage one job
+at a time, and waiting for that job to complete before installing
+another one.
+
+This would mean you'd have to install the job, and then use
+=odbj_write= and =odbj_read= in accordance to the protocol
+specified by the job's =jobdesc=. And depending based on that
+protocol's defintion of finished, only then can you call =odbh_job=
+once more for the next job.
+
+Attempting to install subsequent jobs before the completion of the
+first one will result in =odbh_job= to return =EDB_EOPEN=.
+
+=ODB_JSEQ= is set by default. If =odbh_jobmode= is never called, then
+this is the mode that is set implicitly.
+
+** =ODB_JMULTI=
+
+Whilest in the mode of =ODB_JMULTI=, you will be able to execute
+multiple jobs at once. This can also include piping the output of one
+job to the input of another job. Thus, you can acheive some really
+satsifactory results in terms of utilizing the multiple workers of the
+host.
+
+This can provide an uncomprehendsible amount of possibilites all
+performing very efficiently. Installing multiple jobs will then bring
+multiple workers and thus provide concurrent operations, even across
+multiple entries.
+
+In this mode, =odbj_read= and =odbj_write= take an interesting
+turn in how they treat their respective =buf= arguments. That is, when
+these functions return non-0, that doesn't mean they've articulated
+through all of the bytes. Instead, =odbj_read= and =odbj_write=
+/set/ the destination/source of the bytes to be written/read to/from
+for the given job (=jhandle=). This means that each respective =buf=
+pointer must point to valid memory until job is closed (as opposed to
+=ODB_JSEQ= to which the memory can be freed after the read/write
+function has returned).
 
 
 * Errors
+
+ - =EDB_EOPEN= - (=odbh_job=) Attempt to install another job before
+   the completion of the first job whilest in =ODB_JSEQ= mode.
+
+* Examples
+
+** TODO Piping 
+
+#+BEGIN_SRC c
+// ...
+void *in_oids;
+void *outstuff;
+odbj_read(selecthandle, in_oids);
+odbj_write(selecthandle, outstuff);
+hhhhhhhhhmmmmmmmmmmmmmmmmmmmmm need to poll here or something?
+odbj_read(selecthandle, in_oids);
+odbj_write(selecthandle, outstuff);
+
+// ...
+#+END_SRC
 
 * See Also
 

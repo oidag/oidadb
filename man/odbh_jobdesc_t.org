@@ -1,2 +1,197 @@
-#+SETUPFILE: ./0orgsetup.org
+#+bSETUPFILE: ./0orgsetup.org
 #+TITLE: odbh_jobdesc_t: Job Descriptions and Structures
+
+Every job is a combiniation of 1 function and 1 element that are
+bitwise-OR'd together. Not all combinations are valid.
+
+** Command
+ - =ODB_CSELECT=
+ - =ODB_CUPDATE= *
+ - =ODB_CREAD=
+ - =ODB_CREADMULTI=
+ - =ODB_CFILTER=
+ - =ODB_CWRITE= *
+ - =ODB_CCREATE= *
+ - =ODB_CDEL= *
+
+(/* requires write-access/)
+
+Note some common suffixes,
+ - =-W= means a write action will occour
+ - =-V= means a pointer-based write acction will occour
+
+** Element
+ - =ODB_ELMSTRCT=
+ - =ODB_ELMDYN=
+ - =ODB_ELMOBJ=
+ - =ODB_ELMENTS=
+ - =ODB_ELMRTN=
+
+* Common Protocol
+** Die-Error
+Almost everytime a =odb_err= datatype is read from the stream, it will
+signal if you can continue to execute the remainder of the protocol or
+not. We call this behaviour a *Die-Error* (or die-on-error). If a
+Die-Error is 0, this means no error was generated and you can continue
+with the protocol. Otherwise, the host would have closed the stream
+and the Job has made no change due to the returned error and thus you
+must call =odbj_close=.
+
+To reitorate, if you perform an =odbj_read= on a stream and the
+protocol documents that you'll be reading a =odb_err=-structured
+"Die-Error", you must not attempt to perform another =odbj_read= on
+that stream if this Die-Error is non-0 but instead call =odbj_close=
+** usrobj
+The *usrobj* is not a datatype. But instead, symbolizes the structure
+the user had defined for the object.
+
+** stream-pointer
+Sometimes when data should be presented to you for both reading and
+writing, its better design to instead give you an address to said data
+to which you can read and manipulate on your own terms. A pointer used
+in this manner is what we'll call a [[stream-pointer]].
+
+The defined validity of stream-pointers are only between the
+=odbj_read= / =odbj_write= call that retrieved/sent the pointer and
+the subsequent call to =odbj_read= / =odbj_write= / =odbj_close= in
+reference to that job.
+
+For example, if you read a stream-pointer from an =odbj_read= call,
+you must only access that pointer before you call any other =odbj_=
+function. After which, if you attempt to access that same point it may
+result in a segfault.
+
+/Note/ that depending on the enviorment, the pointer may be
+referencing data thats being temporarly held in the handle, or, may
+even be referencing data strait out of the database file... whichever
+the handle find more appropriate.
+
+* =ODB_ELMRTN=
+
+Routine management.
+
+* =ODB_ELMOBJ=
+
+** =ODB_ELMOBJ | ODB_CSELECT=, =ODB_ELMOBJ | ODB_CUPDATE= - Mass reading/read-writing
+
+When you need to read the an entire Object Entity's contents,
+=ODB_CSELECT= stream all objects in a given page range through to
+you. =ODB_CUPDATE= does the same but you will then also have to write
+back each row in its entirety.
+
+*** Protocol
+
+The protocol is as follows in both =ODB_CSELECT= and =ODB_CUPDATE=:
+
+| Direction  | Name       | Datatype | Notes                                            |
+|------------+------------+----------+--------------------------------------------------|
+| odbj_write | eid        | odb_eid  | The entry id to which we will perform the select |
+| odbj_write | page_start | odb_pid  | The starting page offset (0 for entity start)    |
+| odbj_write | page_cap   | odb_pid  | The maximum amount of pages to select (-1 for all pages) |
+| odbj_read  | err        | odb_err  | [[Die-Error]]: See Errors                            |
+| odbj_read  | objc       | uint64_t | The number of objects that will follow           |
+
+In the case of =ODB_CSELECT=, the following will reapeat =objc= times:
+
+| Direction | Name   | Datatype | Notes                                  |
+|-----------+--------+----------+----------------------------------------|
+| odbj_read | object | [[usrobj]]   | user defined object structure of =eid= |
+
+/Or/, in the case of =ODB_CUPDATE=, the following will reapeat =objc= times:
+
+| Direction | Name   | Datatype | Notes                                                     |
+|-----------+--------+----------+-----------------------------------------------------------|
+| odbj_read | object | [[usrobj]] * | A [[stream-pointer]] to a usrobj that you can read/write too. |
+
+*** Errors
+
+ - =ODB_ENOENT= - Entity (eid) not valid
+
+*** Remarks :tradesecret:
+
+The reason this protocol begins with you specifying which pages to
+span is to allow you to take advantage of multi-threading. For
+example, if you needed to update an entire Entity that is 500 pages
+long while the host had 5 workers, then you can start 5 jobs with each
+having its exclusive 100 pages to update.
+
+In most enviroments, these commands are increadibly efficient compared
+to the technical competition. Most databases use record-level locking
+when performing their respective update operations. Installing such
+volume of locks is /extreamly/ costly. Other databases (ie MyISAM)
+installs table-level locking, thus needing only needing to install 1
+lock it is faster though really falls apart in a multithreaded
+enviroment. These operations use /page-level/ locking, and, stream out
+the entire pages to the handles to process (instead of streaming
+row-by-row). The design of this causes absurd efficieny between the
+CPU, memory, and network.
+
+** =ODB_ELMOBJ | EDB_CREAD=, =ODB_ELMOBJ | EDB_CWRITE= - Read/Write an object's fixed-length data based off of its oid
+
+This is the basic read/write options by-oid. In most
+heavily-engineered enviroments, these jobs probably won't be the most
+optimial choice sense they only provide methods of updating 1 object
+at a time. But nonetheless, they're very easy to use.
+
+*** Protocol
+
+| Direction  | Name   | Datatype | Notes                                  |
+|------------+--------+----------+----------------------------------------|
+| odbj_write | oid    | odb_oid  | The object id you wish to read         |
+| odbj_read  | err    | odb_err  | [[Die-Error]]: See Errors                  |
+
+Then, for =EDB_CREAD=:
+
+| Direction | Name   | Datatype | Notes                  |
+|-----------+--------+----------+------------------------|
+| odbj_read | object | [[usrobj]]   | The object data itself |
+
+/Or/, for =ODB_CWRITE=: 
+
+| Direction  | Name   | Datatype | Notes                  |
+|------------+--------+----------+------------------------|
+| odbj_write | object | [[usrobj]]   | The object data itself |
+
+*** Errors
+
+ - =ODB_ENOENT= - Entity not valid
+ - =ODB_EDELETED= - Object is marked as deleted
+ - =ODB_EEOF= - oid's object offset is beyond
+
+** =ODB_ELMOBJ | ODB_CDEL=, =ODB_ELMOBJ | ODB_CDELX=, =ODB_ELMOBJ | ODB_CUNDEL= - Delete / undelete an object
+
+Unlike the normal create-then-delete paradigm, you have the ability to
+delete an object by its oid then re-use that deleted oid at a later
+time by manually taking it out of the trash.
+
+
+Do not be confused by the
+word "re-used" When an object is placed in the trash,
+
+
+hmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm do I need excluisve manual-oid delets?????
+
+*** Protocol
+
+| Direction  | Name | Datatype | Notes                                     |
+|------------+------+----------+-------------------------------------------|
+| odbj_write | oid  | odb_oid  | The object id you wish to delete/undelete |
+| odbj_read  | err  | odb_err  | [[Die-Error]]: See Errors                     |
+
+*** Errors
+
+ - =ODB_ENOENT= - Entity not valid
+ - =ODB_EEOF= - oid's object offset is beyond
+
+** =ODB_ELMOBJ | ODB_CCREATE= - Create a record
+
+
+
+
+** =ODB_ELMOBJ | EDB_CREADMULTI= - Read multiple objects
+
+Note that if the oids ordered you can expect this function to go much
+faster.
+
+ <- []oid... 0 (null terminated)
+ -> odb_err + void *rowdata (for each oid)

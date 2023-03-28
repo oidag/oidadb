@@ -1,0 +1,18 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: Routines
+
+* Routines
+You will see that some [[./odbh_jobdesc_t][jobs]] in OidaDB take in an argument of "Routine
+ID". When you see this, it is refering to which functionaility to use
+to perform certain algorethmic tasks.
+
+* Predefined Routines
+
+
+* Installing additional routines
+
+It should be noted, that additional routines installed this way will
+be treated the exact same as the predefined routines. The only
+difference is that predefined routines come pre-installed. Be assured
+that if your custom routine performs poorly compared to a predefined
+oue, this is exclusively your fault.
