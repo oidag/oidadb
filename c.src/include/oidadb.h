@@ -208,6 +208,8 @@ typedef enum edb_err {
 
 	/// Something was missed
 	EDB_EMISSED,
+
+	ODB_EDELETED
 } edb_err;
 
 /**
@@ -758,13 +760,14 @@ edb_err odb_hostpoll(const char *path, odb_event event, odb_event *o_env);
  * \{
  */
 typedef uint8_t odb_type;
-#define EDB_TINIT  0
-#define EDB_TDEL   1
-#define EDB_TSTRCT 2
-#define EDB_TOBJ   3
-#define EDB_TENTS  4
-#define EDB_TPEND  5
-#define EDB_TLOOKUP 6
+#define ODB_ELMINIT  0
+#define ODB_ELMDEL   1
+#define ODB_ELMSTRCT 2
+#define ODB_ELMOBJ   3
+#define ODB_ELMENTS  4
+#define ODB_ELMPEND  5
+#define ODB_ELMLOOKUP 6
+#define ODB_ELMDYN 7
 /// \}
 
 
@@ -840,13 +843,13 @@ edb_err odbh_structs(odbh *handle, edb_sid structureid, void *o_struct); //
  * odbh function is being used.
  */
 typedef enum odb_cmd {
-	EDB_CNONE   = 0x0000,
-	EDB_CCOPY   = 0x0100,
-	EDB_CWRITE  = 0x0200,
-	EDB_CCREATE = 0x0300,
-	EDB_CDEL    = 0x0400,
-	EDB_CUSRLKR  = 0x0500,
-	EDB_CUSRLKW  = 0x0600,
+	ODB_CNONE   = 0x0000,
+	ODB_CREAD   = 0x0100,
+	ODB_CWRITE  = 0x0200,
+	ODB_CCREATE = 0x0300,
+	ODB_CDEL    = 0x0400,
+	ODB_CUSRLKR  = 0x0500,
+	ODB_CUSRLKW  = 0x0600,
 } odb_cmd;
 
 // edb_jobclass must take only the first 4 bits. (to be xor'd with
@@ -859,13 +862,13 @@ typedef enum edb_jobclass {
 
 	// structure ops
 	//
-	//   (EDB_CWRITE: not supported)
-	//   EDB_CCREATE:
+	//   (ODB_CWRITE: not supported)
+	//   ODB_CCREATE:
 	//     <- edb_struct_t (no implicit fields)
 	//     -> edb_err (parsing error)
 	//     <- arbitrary configuration
 	//     -> uint16_t new structid
-	//   EDB_CDEL:
+	//   ODB_CDEL:
 	//     <- uint16_t structureid
 	//     -> edb_err
 	EDB_STRUCT = ODB_ELMSTRCT,
@@ -885,21 +888,21 @@ typedef enum edb_jobclass {
 	//     <- edb_oid (see also: EDB_OID_... constants)
 	//     (additional params, if applicable)
 	//     -> edb_err [1]
-	//  EDB_CCOPY:
+	//  ODB_CREAD:
 	//     (all cases)
 	//     -> void *rowdata
 	//     ==
-	//  EDB_CWRITE:
+	//  ODB_CWRITE:
 	//     (all cases)
 	//     <- void *rowdata
 	//     ==
-	//  EDB_CCREATE:
+	//  ODB_CCREATE:
 	//     (all cases)
 	//     // todo: what if they think the structure is X bytes long and sense has been updated and thus now is X+/-100 bytes long?
 	//     <- void *rowdata (note to self: keep this here, might as well sense we already did the lookup)
 	//     -> created ID
 	//     ==
-	//  EDB_CDEL
+	//  ODB_CDEL
 	//     (all cases)
 	//     ==
 	//  EDB_CUSRLK(R/W): (R)ead or (W)rite the persistant locks on rows.
@@ -913,26 +916,27 @@ typedef enum edb_jobclass {
 	//       - EDB_EHANDLE - handle closed stream/stream is invalid
 	//       - EDB_EINVAL - entry in oid was below 4.
 	//       - EDB_EINVAL - jobdesc was invalid
-	//       - EDB_EINVAL - (EDB_CWRITE) start wasn't less than end.
-	//       - EDB_ENOENT - (EDB_CWRITE, EDB_CCOPY) oid is deleted
-	//       - EDB_EOUTBOUNDS - (EDB_CWRITE): start was higher than fixedlen.
+	//       - EDB_EINVAL - (ODB_CWRITE) start wasn't less than end.
+	//       - EDB_ENOENT - (ODB_CWRITE, ODB_CREAD) oid is deleted todo:
+	//        todo: change this to entity not valid
+	//       - EDB_EOUTBOUNDS - (ODB_CWRITE): start was higher than fixedlen.
 	//       - EDB_EULOCK - failed due to user lock (see EDB_FUSR... constants)
-	//       - EDB_EEXIST - (EDB_CCREATE): Object already exists
+	//       - EDB_EEXIST - (ODB_CCREATE): Object already exists
 	//       - EDB_ECRIT - unknown error
-	//       - EDB_ENOSPACE - (EDB_CCREATE, using AUTOID): disk/file full.
+	//       - EDB_ENOSPACE - (ODB_CCREATE, using AUTOID): disk/file full.
 	//       - EDB_EEOF - the oid's entry or row was larger than the most possible value
 	//
 	EDB_OBJ = ODB_ELMOBJ,
 
 	// Modify the entries, updating the index itself.
 	//
-	// EDB_ENT | EDB_CCREATE
+	// EDB_ENT | ODB_CCREATE
 	//   <- edb_entry_t entry. Only the "parameters" group of the structure is used.
 	//      This determains the type and other parameters.
 	//   -> edb_err error
 	//   -> (if no error) uint16_t entryid of created ID
 	//
-	// EDB_ENT | EDB_CDEL
+	// EDB_ENT | ODB_CDEL
 	//   <- uint16_t entryid of ID that is to be deleted
 	//   -> edb_err error
 	//
@@ -992,15 +996,15 @@ argument (`handle`) is the handle, second argument (`jobclass`) is the
 
 `jobclass` is an XOR'd together integer with the following combinations:
 
-## `ODB_ELMOBJ | EDB_CREAD` (odb_oid id, voido_bufv, int bufc, int offset)
+## `ODB_ELMOBJ | ODB_CREAD` (odb_oid id, voido_bufv, int bufc, int offset)
     Read the contents of the object with `id` into `o_bufv` up to `bufc`
     bytes.
     todo: see above comment
 
-## `ODB_ELMOBJ | EDB_CWRITE` (odb_oid id, voidbufv, int bufc, int offset)
+## `ODB_ELMOBJ | ODB_CWRITE` (odb_oid id, voidbufv, int bufc, int offset)
     Write bytes stored at `bufv` up to `bufc` into the object with `id`.
 
-## `ODB_ELMOBJ | EDB_CCREATE` (odb_oid *o_id, void *bufv, int bufc, int offset)
+## `ODB_ELMOBJ | ODB_CCREATE` (odb_oid *o_id, void *bufv, int bufc, int offset)
    Create a new object
 
    During creation, the new object is written starting at `offset` and
@@ -1091,7 +1095,7 @@ edb_err odbh_jobread(odbj *handle, void *o_buf, int bufc);
 
 
 
-EDB_CWRITE (edb_struct_t *)
+ODB_CWRITE (edb_struct_t *)
 
  Create, update, or delete structures. Creation takes place when id
  is 0 but binv is not null. Updates take place when id is not 0 and

@@ -126,7 +126,7 @@ the entire pages to the handles to process (instead of streaming
 row-by-row). The design of this causes absurd efficieny between the
 CPU, memory, and network.
 
-** =ODB_ELMOBJ | EDB_CREAD=, =ODB_ELMOBJ | EDB_CWRITE= - Read/Write an object's fixed-length data based off of its oid
+** =ODB_ELMOBJ | ODB_CREAD=, =ODB_ELMOBJ | ODB_CWRITE= - Read/Write an object's fixed-length data based off of its oid
 
 This is the basic read/write options by-oid. In most
 heavily-engineered enviroments, these jobs probably won't be the most
@@ -140,7 +140,7 @@ at a time. But nonetheless, they're very easy to use.
 | odbj_write | oid    | odb_oid  | The object id you wish to read         |
 | odbj_read  | err    | odb_err  | [[Die-Error]]: See Errors                  |
 
-Then, for =EDB_CREAD=:
+Then, for =ODB_CREAD=:
 
 | Direction | Name   | Datatype | Notes                  |
 |-----------+--------+----------+------------------------|

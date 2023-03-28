@@ -51,14 +51,14 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 	// if err is non-0 after this then it will close
 	// **defer: edba_objectclose
 	switch (jobdesc & 0xFF00) {
-		case EDB_CDEL:
-		case EDB_CUSRLKW:
-		case EDB_CWRITE:
+		case ODB_CDEL:
+		case ODB_CUSRLKW:
+		case ODB_CWRITE:
 			// all require write access
 			err = edba_objectopen(handle, oid, EDBA_FWRITE);
 			break;
 
-		case EDB_CCREATE:
+		case ODB_CCREATE:
 			if((oid & EDB_OID_AUTOID) != EDB_OID_AUTOID) {
 				// find an ID to use.
 				err = edba_objectopenc(handle, &oid, EDBA_FWRITE | EDBA_FCREATE);
@@ -68,8 +68,8 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			}
 			break;
 
-		case EDB_CUSRLKR:
-		case EDB_CCOPY:
+		case ODB_CUSRLKR:
+		case ODB_CREAD:
 			// read only
 			err = edba_objectopen(handle, oid, 0);
 			break;
@@ -84,7 +84,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 	// do the routing
 	switch (jobdesc) {
-		case EDB_OBJ | EDB_CCREATE:
+		case EDB_OBJ | ODB_CCREATE:
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
 
 			// make sure this oid isn't already deleted
@@ -118,7 +118,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			edbs_jobwrite(self->curjob, &oid, sizeof(oid));
 			break;
 
-		case EDB_OBJ | EDB_CCOPY:
+		case EDB_OBJ | ODB_CREAD:
 			edbw_logverbose(self, "copy object: 0x%016lX", oid);
 
 			// is it deleted?
@@ -146,7 +146,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			edbs_jobwrite(self->curjob, data, strt->fixedc);
 			break;
 
-		case EDB_OBJ | EDB_CWRITE:
+		case EDB_OBJ | ODB_CWRITE:
 			edbw_logverbose(self, "edit object 0x%016lX", oid);
 
 			// is it deleted?
@@ -174,7 +174,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			edbs_jobread(self->curjob, data, strt->fixedc);
 
 			break;
-		case EDB_OBJ | EDB_CDEL:
+		case EDB_OBJ | ODB_CDEL:
 			// object-deletion
 			edbw_logverbose(self, "delete object 0x%016lX", oid);
 
@@ -193,7 +193,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			edbs_jobwrite(self->curjob, &err, sizeof(err));
 			break;
 
-		case EDB_OBJ | EDB_CUSRLKR:
+		case EDB_OBJ | ODB_CUSRLKR:
 			edbw_logverbose(self, "cuserlock read object 0x%016lX", oid);
 
 			// err 0
@@ -205,7 +205,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			edbs_jobwrite(self->curjob, &usrlocks, sizeof(odb_usrlk));
 			break;
 
-		case EDB_OBJ | EDB_CUSRLKW:
+		case EDB_OBJ | ODB_CUSRLKW:
 			edbw_logverbose(self, "cuserlock write object 0x%016lX", oid);
 
 			// err 0

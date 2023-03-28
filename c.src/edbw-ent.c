@@ -13,7 +13,7 @@ edb_err edbw_u_entjob(edb_worker_t *self) {
 	odb_spec_index_entry entryparams;
 	edb_eid eid;
 	switch (jobdesc & 0xFF00) {
-		case EDB_CCREATE:
+		case ODB_CCREATE:
 			edbs_jobread(job, &entryparams, sizeof(entryparams));
 			err = edba_entryopenc(handle, &eid, EDBA_FCREATE | EDBA_FWRITE);
 			if(err) {
@@ -30,7 +30,7 @@ edb_err edbw_u_entjob(edb_worker_t *self) {
 			edbs_jobwrite(job, &eid, sizeof(eid));
 			edba_entryclose(handle);
 			return 0;
-		case EDB_CDEL:
+		case ODB_CDEL:
 			edbs_jobread(job, &eid, sizeof(eid));
 			err = edba_entrydelete(handle, eid);
 			edbs_jobwrite(job, &err, sizeof(err));
