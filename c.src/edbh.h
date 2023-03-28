@@ -3,11 +3,6 @@
 
 #include <sys/types.h>
 
-typedef struct odbh {
-
-	pid_t hostpid;
-
-} odbh;
 
 
 #endif

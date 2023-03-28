@@ -279,4 +279,13 @@ typedef struct edbs_handle_t {
 	// shared memory file name. not stored in the shm itself.
 	char shm_name[32];
 
+	// the ID of the handle. The host will always be 0.
+	int name;
+
 } edbs_handle_t;
+
+// generates the file name for the shared memory
+// buff should be at least 32bytes.
+void static inline shmname(pid_t pid, char *buff) {
+	sprintf(buff, "/odb_host-%d", pid);
+}
