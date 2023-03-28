@@ -6,12 +6,12 @@
 //
 // assumptions:
 //     pidoffset_search is less than the total amount of pages in the edbp_object chapter
-edb_err static edba_u_lookup_rec(edba_handle_t *handle,
-								 edb_pid lookuproot,
-								 edb_pid selfpagestartoffset,
-								 edb_pid chapter_pageoff,
-								 edb_pid *o_pid,
-								 int depth) {
+odb_err static edba_u_lookup_rec(edba_handle_t *handle,
+                                 edb_pid lookuproot,
+                                 edb_pid selfpagestartoffset,
+                                 edb_pid chapter_pageoff,
+                                 edb_pid *o_pid,
+                                 int depth) {
 	// install sh lock on first byte of page per Object-Reading spec
 	edbl_lock lock = {
 			.type = EDBL_LLOOKUP_EXISTING,
@@ -22,7 +22,7 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle,
 	edbl_set(handle->lockh, EDBL_ASH, lock);
 
 	// ** defer: edbp_finish(&self->edbphandle);
-	edb_err err = edbp_start(handle->edbphandle, lookuproot);
+	odb_err err = edbp_start(handle->edbphandle, lookuproot);
 	if(err) {
 		edbl_set(handle->lockh, EDBL_ARELEASE, lock);
 		return err;
@@ -129,13 +129,13 @@ edb_err static edba_u_lookup_rec(edba_handle_t *handle,
 							 o_pid, depth-1);
 }
 
-edb_err edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
+odb_err edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
                          edb_pid chapter_pageoff, edb_pid *o_pid) {
 	if(chapter_pageoff >= entry->ref0c) {
-		return EDB_EEOF;
+		return ODB_EEOF;
 	}
-	edb_err err = edba_u_lookup_rec(handle, entry->ref1, 0, chapter_pageoff,
-									o_pid,entry->memory >> 12);
+	odb_err err = edba_u_lookup_rec(handle, entry->ref1, 0, chapter_pageoff,
+	                                o_pid, entry->memory >> 12);
 #ifdef EDB_FUCKUPS
 	if(*o_pid == 0) {
 		log_critf("o_pid returned 0 from lookup despite it being in page "

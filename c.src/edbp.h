@@ -85,15 +85,15 @@ typedef struct edbpcache_t edbpcache_t;
 // THREADING: Not MT-safe.
 //
 // ERRORS:
-//   - EDB_EINVAL: file or o_cache is null.
-//   - EDB_ENOMEM: not enough free memory
-//   - EDB_ECRIT
+//   - ODB_EINVAL: file or o_cache is null.
+//   - ODB_ENOMEM: not enough free memory
+//   - ODB_ECRIT
 //
 // UNDEFINED: calling edbp_decom whilest edbphandle's are out using cache will result
 // in undefined behaviour. If you wish to clean up a cache, make sure to free
 // the handlers of the cache first.
 // todo: update the above documentation
-edb_err edbp_cache_init(const edbd_t *file, edbpcache_t **o_cache);
+odb_err edbp_cache_init(const edbd_t *file, edbpcache_t **o_cache);
 void    edbp_cache_free(edbpcache_t *cache);
 
 
@@ -109,12 +109,12 @@ typedef enum edbp_config_opts {
 //
 // ERRORS:
 //
-//  - EDB_EINVAL - cache is null, opts is invalid.
-//  - EDB_EOPEN - cache has handles attached
-//  - EDB_ENOMEM - (EDBP_CONFIG_CACHESIZE) not enough memory needed to resize
+//  - ODB_EINVAL - cache is null, opts is invalid.
+//  - ODB_EOPEN - cache has handles attached
+//  - ODB_ENOMEM - (EDBP_CONFIG_CACHESIZE) not enough memory needed to resize
 //                 the cache to this size.
 //
-edb_err edbp_cache_config(edbpcache_t *cache, edbp_config_opts opts, ...);
+odb_err edbp_cache_config(edbpcache_t *cache, edbp_config_opts opts, ...);
 
 
 // create handles for the cache.
@@ -125,13 +125,13 @@ edb_err edbp_cache_config(edbpcache_t *cache, edbp_config_opts opts, ...);
 //
 // ERRORS:
 //  - EINVAL - o_cache / o_handle is null
-//  - EDB_ENOMEM - not enough memory
-//  - EDB_ENOSPACE - cannot create another handle because not enough space in
+//  - ODB_ENOMEM - not enough memory
+//  - ODB_ENOSPACE - cannot create another handle because not enough space in
 //                   the cache. (did you call edbp_cache_config w/ EDBP_CONFIG_CACHESIZE?)
-//  - EDB_ECRIT
+//  - ODB_ECRIT
 //
 // THREADING: Not MT safe.
-edb_err edbp_handle_init(edbpcache_t *cache,
+odb_err edbp_handle_init(edbpcache_t *cache,
                          unsigned int name,
                          edbphandle_t **o_handle);
 void    edbp_handle_free(edbphandle_t *handle);
@@ -165,16 +165,16 @@ typedef enum {
 //   the swap.
 //
 // ERRORS:
-//   EDB_EINVAL - edbp_start id was 0.
-//   EDB_EINVAL - edbp_start was called twice without calling
+//   ODB_EINVAL - edbp_start id was 0.
+//   ODB_EINVAL - edbp_start was called twice without calling
 //                edbp_finish
-//   EDB_EEOF   - Supplied id does not exist.
-//   EDB_ENOMEM - no memory left
-//   EDB_ECRIT
+//   ODB_EEOF   - Supplied id does not exist.
+//   ODB_ENOMEM - no memory left
+//   ODB_ECRIT
 //
 // UNDEFINED:
 //   - using an unitialized handle / uninitialized cache
-edb_err edbp_start (edbphandle_t *handle, edb_pid id);
+odb_err edbp_start (edbphandle_t *handle, edb_pid id);
 void    edbp_finish(edbphandle_t *handle);
 
 // called between edbp_start and edbp_finish. Simply returns the
@@ -201,9 +201,9 @@ edb_pid edbp_gpid(const edbphandle_t *handle);
 //
 // ERRORS:
 //   EDB_INVAL - opts not recognized
-//   EDB_ENOENT - edbp_mod was not called between successful edbp_start
+//   ODB_ENOENT - edbp_mod was not called between successful edbp_start
 //                and edbp_finish.
-//   EDB_EAGAIN - see EDBP_XLOCK later:
+//   ODB_EAGAIN - see EDBP_XLOCK later:
 //
 // THREADING:
 //   edbp_mod must be called on the same thread and inbetween edbp_start and edbp_finish
@@ -214,7 +214,7 @@ edb_pid edbp_gpid(const edbphandle_t *handle);
 //
 // UNDEFINED:
 //   - calling with an unitialized handle/cache
-edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...);
+odb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...);
 
 
 #endif

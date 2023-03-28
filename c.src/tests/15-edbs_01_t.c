@@ -36,7 +36,7 @@ const char *shmname = "/10EDBS_00_01_c";
 
 void *gothread(void *v) {
 	struct threadpayload *payload = v;
-	edb_err terr; // cannot use normal err sense we're multi-thread'n
+	odb_err terr; // cannot use normal err sense we're multi-thread'n
 	int i = 0;
 	uint64_t start = 0,finish = 0,diff = 0;
 	struct timeval startv,end = {0};
@@ -46,7 +46,7 @@ void *gothread(void *v) {
 		// select a job
 		edbs_job_t job;
 		if ((terr = edbs_jobselect(payload->h, &job, payload->name))) {
-			if(terr == EDB_ECLOSED) {
+			if(terr == ODB_ECLOSED) {
 				// host shut down.
 				break;
 			}
@@ -252,7 +252,7 @@ int main(int argc, const char **argv) {
 				int count = bytes_to_write_to_buff_per;
 				err = edbs_jobread(job, buff, count);
 				if(err) {
-					if(oneway && err == EDB_ECLOSED) {
+					if(oneway && err == ODB_ECLOSED) {
 						// if its a 1-way, then we actually expect to get an error
 						continue;
 					} else {

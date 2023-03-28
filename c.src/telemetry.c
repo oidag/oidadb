@@ -132,14 +132,14 @@ void static inline shmname(pid_t pid, char *buff) {
 }
 
 
-edb_err odbtelem_attach(const char *path) {
+odb_err odbtelem_attach(const char *path) {
 #ifndef EDBTELEM
-	return EDB_EVERSION;
+	return ODB_EVERSION;
 #endif
 	if(telemetry_listener.attached) {
-		return EDB_EOPEN;
+		return ODB_EOPEN;
 	}
-	edb_err err;
+	odb_err err;
 	pid_t hostpid;
 	if((err = edb_host_getpid(path, &hostpid))) {
 		return err;
@@ -150,8 +150,8 @@ edb_err odbtelem_attach(const char *path) {
 			 0666);
 	if(fd == -1) {
 		switch (errno) {
-			case ENOENT: return EDB_EPIPE;
-			default: return EDB_ECRIT;
+			case ENOENT: return ODB_EPIPE;
+			default: return ODB_ECRIT;
 		}
 	}
 
@@ -162,13 +162,13 @@ edb_err odbtelem_attach(const char *path) {
 		log_critf("read");
 		close(fd);
 		shm_unlink(telemtry_shared.shm_name);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	if(tmphead.magicnum != telemetry_shm_magicnum) {
 		// not done initializing
 		close(fd);
 		shm_unlink(telemtry_shared.shm_name);
-		return EDB_EPIPE;
+		return ODB_EPIPE;
 	}
 
 	// do the actual map
@@ -181,7 +181,7 @@ edb_err odbtelem_attach(const char *path) {
 		log_critf("mmap");
 		telemtry_shared.shm = 0;
 		shm_unlink(telemtry_shared.shm_name);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	telemtry_shared.shm_datav = (void *)telemtry_shared.shm
 			+ sizeof(telemetry_shm);
@@ -199,9 +199,9 @@ void odbtelem_detach() {
 	telemetry_listener.attached = 0;
 }
 
-edb_err odbtelem_poll(odbtelem_data *o_data) {
+odb_err odbtelem_poll(odbtelem_data *o_data) {
 	if(!telemetry_listener.attached) {
-		return EDB_EPIPE;
+		return ODB_EPIPE;
 	}
 	telemetry_shm *shm = telemtry_shared.shm;
 	odbtelem_data *shm_datav = telemtry_shared.shm_datav;
@@ -214,7 +214,7 @@ edb_err odbtelem_poll(odbtelem_data *o_data) {
 	if(!shm->hosted) {
 		// yup.
 		odbtelem_detach();
-		return EDB_EPIPE;
+		return ODB_EPIPE;
 	}
 	// check for misses
 	uint32_t shmraster = shm->futex_raster; // sense its voltile
@@ -232,7 +232,7 @@ edb_err odbtelem_poll(odbtelem_data *o_data) {
 		           "missed", diff);
 		telemetry_listener.raster += diff;
 		telemetry_listener.index = telemetry_listener.raster % shm->dataq;
-		return EDB_EMISSED;
+		return ODB_EMISSED;
 	}
 
 	// read the data on this position.
@@ -246,13 +246,13 @@ edb_err odbtelem_poll(odbtelem_data *o_data) {
 	return 0;
 }
 
-edb_err odbtelem_image(odbtelem_image_t *o_image) {
-	// todo: EDB_EVERSION
+odb_err odbtelem_image(odbtelem_image_t *o_image) {
+	// todo: ODB_EVERSION
 	if(!telemetry_listener.attached) {
-		return EDB_EPIPE;
+		return ODB_EPIPE;
 	}
 	if(!o_image) {
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 	// get the image from the shm. To avoid mutli-thread tearing, we use a
@@ -323,7 +323,7 @@ inline static void destroyshmbuffer() {
 
 // assumes buffer has not already been set.
 // Assumes started params has been set.
-inline static edb_err setshmbuffer() {
+inline static odb_err setshmbuffer() {
 
 #ifdef EDBTELEM_INNERPROC
 	int innerprocess = startedparams.innerprocess;
@@ -342,7 +342,7 @@ inline static edb_err setshmbuffer() {
 		                     0666);
 		if (shmfd == -1) {
 			log_critf("shm_open");
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 		}
 
 		// mmap the shm
@@ -356,7 +356,7 @@ inline static edb_err setshmbuffer() {
 			log_critf("mmap");
 			telemtry_shared.shm = 0;
 			shm_unlink(telemtry_shared.shm_name);
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 		}
 	}else{
 		telemtry_shared.shm = malloc(size);
@@ -384,11 +384,11 @@ inline static edb_err setshmbuffer() {
 	return 0;
 }
 
-edb_err odbtelem(int enabled, odbtelem_params_t params) {
+odb_err odbtelem(int enabled, odbtelem_params_t params) {
 #ifndef EDBTELEM
-	return EDB_EVERSION;
+	return ODB_EVERSION;
 #endif
-	edb_err err;
+	odb_err err;
 	if(telemenabled && enabled) return 0;
 	if(!telemenabled && !enabled) return 0;
 	if(enabled) {
@@ -396,10 +396,10 @@ edb_err odbtelem(int enabled, odbtelem_params_t params) {
 		destroyshmbuffer();
 	} else {
 		// We are going from disabled to enabled.
-		if(params.buffersize_exp < 0) return EDB_EINVAL;
-		if(params.buffersize_exp > 15) return EDB_EINVAL;
+		if(params.buffersize_exp < 0) return ODB_EINVAL;
+		if(params.buffersize_exp > 15) return ODB_EINVAL;
 #ifndef EDBTELEM_INNERPROC
-		if(params.innerprocess) return EDB_EVERSION;
+		if(params.innerprocess) return ODB_EVERSION;
 #endif
 		startedparams = params;
 		if((err = setshmbuffer())) {

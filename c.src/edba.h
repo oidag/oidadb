@@ -21,9 +21,9 @@ typedef struct edba_host_st {
 	edbpcache_t *pagecache;
 	edbd_t      *descriptor;
 } edba_host_t;
-edb_err edba_host_init(edba_host_t **o_host,
-					   edbpcache_t *pagecache,
-					   edbd_t *descriptor);
+odb_err edba_host_init(edba_host_t **o_host,
+                       edbpcache_t *pagecache,
+                       edbd_t *descriptor);
 void    edba_host_free(edba_host_t *host);
 
 typedef struct edba_handle_st {
@@ -58,7 +58,7 @@ typedef struct edba_handle_st {
 
 
 } edba_handle_t;
-edb_err edba_handle_init(edba_host_t *host, int name, edba_handle_t **o_handle);
+odb_err edba_handle_init(edba_host_t *host, int name, edba_handle_t **o_handle);
 void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 
 // todo: rename
@@ -105,13 +105,13 @@ void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 // IGNORES ALL USER LOCKS.
 //
 // RETURNS:
-//  - EDB_EINVAL - oid's entry id was invalid (below min/above max)
+//  - ODB_EINVAL - oid's entry id was invalid (below min/above max)
 //  - EDB_NOENT - oid's rowid was too high
-//  - EDB_EEOF - oid's entryid was too high (did you set oid's entryid?)
-//  - EDB_ENOSPACE - (edba_objectopenc w/ EDBA_FCREATE) failed to allocate more space, disk/file ful)
-//  - EDB_ENOSPACE - (edba_objectopenc w/o EDBA_FCREATE) no free space without needing creation
-edb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags);
-edb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags);
+//  - ODB_EEOF - oid's entryid was too high (did you set oid's entryid?)
+//  - ODB_ENOSPACE - (edba_objectopenc w/ EDBA_FCREATE) failed to allocate more space, disk/file ful)
+//  - ODB_ENOSPACE - (edba_objectopenc w/o EDBA_FCREATE) no free space without needing creation
+odb_err edba_objectopen(edba_handle_t *h, edb_oid oid, edbf_flags flags);
+odb_err edba_objectopenc(edba_handle_t *h, edb_oid *o_oid, edbf_flags flags);
 void    edba_objectclose(edba_handle_t *h);
 
 // edba_objectfixed
@@ -129,11 +129,11 @@ void   *edba_objectfixed(edba_handle_t *h);
 //   if not open with right objectflags (and bitch in console)
 //
 // RETURNS (edba_objectlocks_set)
-//  - EDB_EINVAL (EDB_FUCKUPS) object not open for writing
-//  - EDB_EINVAL - lk is not a valid mask. You can prevent this error entirely by
+//  - ODB_EINVAL (EDB_FUCKUPS) object not open for writing
+//  - ODB_EINVAL - lk is not a valid mask. You can prevent this error entirely by
 //                 bitwise-and-ing lk with _EDB_FUSRLALL.
 odb_usrlk edba_objectlocks_get(edba_handle_t *h);
-edb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk);
+odb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk);
 
 
 // edba_objectdeleted
@@ -158,10 +158,10 @@ edb_err edba_objectlocks_set(edba_handle_t *h, odb_usrlk lk);
 // IGNORES ALL USER LOCKS.
 //
 // RETURNS:
-//  - EDB_EINVAL (EDB_FUCKUPS) if object wasn't open for writing
+//  - ODB_EINVAL (EDB_FUCKUPS) if object wasn't open for writing
 unsigned int edba_objectdeleted(edba_handle_t *h);
-edb_err edba_objectdelete(edba_handle_t *h);
-edb_err edba_objectundelete(edba_handle_t *h);
+odb_err edba_objectdelete(edba_handle_t *h);
+odb_err edba_objectundelete(edba_handle_t *h);
 
 // edbf_objectstruct
 //   Will return the (readonly) structure data.
@@ -195,11 +195,11 @@ const odb_spec_index_entry  *edba_objectentry(edba_handle_t *h);
 //
 // ERRORS:
 //
-//   - EDB_ECRIT: programmer error (can be ignored) (will be logged)
-//   - EDB_ENOSPACE: (edba_entryopenc) no more entry slots availabe
-edb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags);
+//   - ODB_ECRIT: programmer error (can be ignored) (will be logged)
+//   - ODB_ENOSPACE: (edba_entryopenc) no more entry slots availabe
+odb_err edba_entryopenc(edba_handle_t *h, edb_eid *o_eid, edbf_flags flags);
 void    edba_entryclose(edba_handle_t *h);
-edb_err edba_entrydelete(edba_handle_t *h, edb_eid eid);
+odb_err edba_entrydelete(edba_handle_t *h, edb_eid eid);
 
 // Get a pointer to the entry for read-only purposes.
 const odb_spec_index_entry *edba_entrydatr(edba_handle_t *h);
@@ -217,13 +217,13 @@ const odb_spec_index_entry *edba_entrydatr(edba_handle_t *h);
 // everything else: ignored.
 //
 // ERRORS:
-//   - EDB_ECRIT - programmer failed to read documentation / other error
-//   - EDB_EINVAL - (FUCKUPS) e.type was not ODB_ELMOBJ or handle doesn't have
+//   - ODB_ECRIT - programmer failed to read documentation / other error
+//   - ODB_EINVAL - (FUCKUPS) e.type was not ODB_ELMOBJ or handle doesn't have
 //                  the entry open in write mode
-//   - EDB_EEOF - e.structureid was too high / does not exist
-//   - EDB_ENOSPACE - no more space left in file for blank pages.
-//   - EDB_ENOMEM - no memory for operaiton
-edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e);
+//   - ODB_EEOF - e.structureid was too high / does not exist
+//   - ODB_ENOSPACE - no more space left in file for blank pages.
+//   - ODB_ENOMEM - no memory for operaiton
+odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e);
 
 
 // open a new structure for editing.
@@ -247,19 +247,19 @@ edb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e);
 //   get a read-only pointer to the arbitrary configuration.
 //
 // ERRORS:
-//   - EDB_ENOSPACE - (edba_structopenc) cannot create another structure, out of space
+//   - ODB_ENOSPACE - (edba_structopenc) cannot create another structure, out of space
 //     in structure buffer.
-//   - EDB_EINVAL - (edba_structopenc) strct.fixedc was less than 4 (note the spec defines the min. as 2, but I'm doing
+//   - ODB_EINVAL - (edba_structopenc) strct.fixedc was less than 4 (note the spec defines the min. as 2, but I'm doing
 //     4 here just incase).
-//   - EDB_EEXIST - (edba_structdelete) cannot delete because an entry is using
+//   - ODB_EEXIST - (edba_structdelete) cannot delete because an entry is using
 //     this structure.
-//   - EDB_ENOENT - (edba_structopen) structure at sid is not initialized/invalid
-edb_err edba_structopen(edba_handle_t *h, edb_sid sid);
-edb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_struct strct);
+//   - ODB_ENOENT - (edba_structopen) structure at sid is not initialized/invalid
+odb_err edba_structopen(edba_handle_t *h, edb_sid sid);
+odb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_struct strct);
 void    edba_structclose(edba_handle_t *h);
-edb_err edba_structdelete(edba_handle_t *h);
+odb_err edba_structdelete(edba_handle_t *h);
 
 const void *edba_structconf(edba_handle_t *h);
-//edb_err edba_structconfset(edba_handle_t *h, void *conf); todo: when dynamics are complete.
+//odb_err edba_structconfset(edba_handle_t *h, void *conf); todo: when dynamics are complete.
 
 #endif

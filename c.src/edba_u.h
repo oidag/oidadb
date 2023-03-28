@@ -8,19 +8,19 @@
 #include "odb-structures.h"
 
 
-// returns EDB_EEOF if eid is out of bounds
+// returns ODB_EEOF if eid is out of bounds
 //
 // updates: handle->clutchentry
 //          handle->clutchentryeid
 //
-edb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl);
+odb_err edba_u_clutchentry(edba_handle_t *handle, edb_eid eid, int xl);
 void edba_u_clutchentry_release(edba_handle_t *host);
 
 // must be called AFTER edba_u_clutchentry
 // must be called AFTER edba_u_entrytrashlk (XL)
 //
 // Will add pages to the clutched chapter and update
-// trashlast. returns EDB_ENOSPACE if theres no more lookup
+// trashlast. returns ODB_ENOSPACE if theres no more lookup
 // references left and/or was too large for the hardware.
 //
 // will update handle->clutchedentry->trashlast (assumed to be 0)
@@ -34,11 +34,11 @@ void edba_u_clutchentry_release(edba_handle_t *host);
 // a return of 0 means that trashlast has been updated successfully.
 //
 // RETURNS:
-//   - EDB_ENOMEM - no memory to perform operation.
-//   - EDB_ENOSPACE - No more lookup refs are available to use to point to more object pages.
-//   - EDB_ENOSPACE - no more space left in file / cannot expand (will output in crit)
+//   - ODB_ENOMEM - no memory to perform operation.
+//   - ODB_ENOSPACE - No more lookup refs are available to use to point to more object pages.
+//   - ODB_ENOSPACE - no more space left in file / cannot expand (will output in crit)
 //   - Everything else - either criticals or fuckups
-edb_err edba_u_lookupdeepright(edba_handle_t *handle);
+odb_err edba_u_lookupdeepright(edba_handle_t *handle);
 
 // loads and unloads pages into the handle's page assignment.
 // between pageload and pagedeload you can use edbp_ functions
@@ -49,9 +49,9 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle);
 //
 // flags only check for EDBA_FWRITE, if true than makes the
 // row lock exclusvive
-edb_err edba_u_pageload_row(edba_handle_t *handle, edb_pid pid,
-					 uint16_t page_byteoff, const odb_spec_struct_struct *structdat,
-					     edbf_flags flags);
+odb_err edba_u_pageload_row(edba_handle_t *handle, edb_pid pid,
+                            uint16_t page_byteoff, const odb_spec_struct_struct *structdat,
+                            edbf_flags flags);
 void edba_u_pagedeload(edba_handle_t *handle);
 
 
@@ -82,13 +82,13 @@ void edba_u_pagedeload(edba_handle_t *handle);
 //       subsequent pages in the strait have rsvdL incrementally.
 //
 // RETURNS:
-//   - EDB_ENOSPACE - no more space left in file / cannot expand
-//   - EDB_ENOMEM - no memeory left
-edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
+//   - ODB_ENOSPACE - no more space left in file / cannot expand
+//   - ODB_ENOMEM - no memeory left
+odb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
                                  odb_spec_lookup header,
                                  edb_pid *o_pid,
                                  odb_spec_lookup_lref ref);
-edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
+odb_err edba_u_pagecreate_objects(edba_handle_t *handle,
                                   odb_spec_object header,
                                   const odb_spec_struct_struct *strct,
                                   uint8_t straitc, edb_pid *o_pid);
@@ -103,9 +103,9 @@ void edba_u_rid2chptrpageoff(edba_handle_t *handle, odb_spec_index_entry *entry,
 // ofsset to a pid.
 //
 // ERRORS:
-//   EDB_EEOF - chapter_pageoff was out of bounds.
-edb_err  edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
-                         edb_pid chapter_pageoff, edb_pid *o_pid);
+//   ODB_EEOF - chapter_pageoff was out of bounds.
+odb_err  edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
+                          edb_pid chapter_pageoff, edb_pid *o_pid);
 
 static void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid
 *o_rid) {
@@ -117,9 +117,9 @@ static void inline edba_u_oidextract(edb_oid oid, edb_eid *o_eid, edb_rid
 // mark the data at the pointer as deleted.
 // todo: locks?
 // ERRORS:
-//   - EDB_EINVAL: dynamicptr is 0
-//   - Everything else: EDB_ECRIT (ie: invalid pointer)
-static edb_err edba_u_dynamicdelete(edba_handle_t *handle,
-									uint64_t dynamicptr){ return 0; } // todo
+//   - ODB_EINVAL: dynamicptr is 0
+//   - Everything else: ODB_ECRIT (ie: invalid pointer)
+static odb_err edba_u_dynamicdelete(edba_handle_t *handle,
+                                    uint64_t dynamicptr){ return 0; } // todo
 
 #endif

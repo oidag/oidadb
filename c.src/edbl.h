@@ -19,15 +19,15 @@ typedef struct edbl_handle_t edbl_handle_t;
 // Initialize and deinitialize a host of edbl.
 //
 // ERRORS:
-//  - EDB_EINVAL - file,o_lockdir was null
-//  - EDB_ENOMEM - not enough memory
-edb_err edbl_host_init(edbl_host_t **o_lockdir, const edbd_t *file);
+//  - ODB_EINVAL - file,o_lockdir was null
+//  - ODB_ENOMEM - not enough memory
+odb_err edbl_host_init(edbl_host_t **o_lockdir, const edbd_t *file);
 void    edbl_host_free(edbl_host_t *h);
 
 // ERRORS:
-//  - EDB_EINVAL - file,o_lockdir was null
-//  - EDB_ENOMEM - not enough memory
-edb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **o_handle);
+//  - ODB_EINVAL - file,o_lockdir was null
+//  - ODB_ENOMEM - not enough memory
+odb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **o_handle);
 void    edbl_handle_free(edbl_handle_t *handle);
 
 typedef enum edbl_act {
@@ -95,19 +95,19 @@ typedef struct edbl_lock {
 
 // see locking.org.
 //
-// edbl_test will not place any lock but only return EDB_EAGAIN if such a
+// edbl_test will not place any lock but only return ODB_EAGAIN if such a
 // lock described will result in blocking. Or will return 0 if such a lock
 // would have been successful placed. (May also return CRIT, see RETURNS)
 //
 // RETURNS:
 //   This function will only return critical errors which
 //   occour in unexpected hardware problems, or, the lack of properly
-//   using them (EDB_EINVAL). If you're getting errors, then read the
+//   using them (ODB_EINVAL). If you're getting errors, then read the
 //   documentation better. Otherwise, you can always assume no errors.
 //
 // THREADING:
 //    Thread safe per-handle.
-edb_err edbl_set(edbl_handle_t *, edbl_act action, edbl_lock lock);
-edb_err edbl_test(edbl_handle_t *, edbl_act action, edbl_lock lock);
+odb_err edbl_set(edbl_handle_t *, edbl_act action, edbl_lock lock);
+odb_err edbl_test(edbl_handle_t *, edbl_act action, edbl_lock lock);
 
 #endif

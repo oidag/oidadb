@@ -29,7 +29,7 @@
  *     due to extra instructions and slow call-backs. So if you don't know what
  *     you're doing, nor why, don't use odbtelem (keep it disabled).
  *   - Not all libraries have odbtelem fully available, if at all. You'll see
- *     EDB_EVERSION returned a lot in those cases.
+ *     ODB_EVERSION returned a lot in those cases.
  *   - Telemetry is "lossless": this also means that all telemetry data is
  *     analyzed in the order that it happened.
  *   - Telemetry is not met for the detection of errors.
@@ -48,22 +48,22 @@ typedef struct odbtelem_params_t {
 	/// telemetry via \ref odbtelem_attach.
 	///
 	/// Default value is 0. Some versions may have `odbtelem` return
-	/// EDB_EVERSION if this is enabled.
+	/// ODB_EVERSION if this is enabled.
 	///
 	int innerprocess; // todo: delete this. Make it innerpocess by default.
 	//                         shm file permissions will take care of access.
 
 	/// The size of the telemetry poll buffer in form of an exponent of 2. A
 	/// smaller poll will increase the likely hood that \ref odbtelem_poll
-	/// will return EDB_EMISSED.
+	/// will return ODB_EMISSED.
 	///
 	/// buffersize_exp must be >= 0 and <= 15
 	///
 	/// Default value is 5 (2^5 = 32 buffer size).
 	///
-	/// EDB_EINVAL if buffersize_exp < 1
+	/// ODB_EINVAL if buffersize_exp < 1
 	///
-	/// \see The only true fix to avoid EDB_EMISSED is discussed in
+	/// \see The only true fix to avoid ODB_EMISSED is discussed in
 	///      odbtelem_poll
 	int buffersize_exp;
 
@@ -85,14 +85,14 @@ typedef struct odbtelem_params_t {
  * called in the first place.
  *
  * ## RETURNS
- *   - EDB_EVERSION - telementry not possible because this library was not
+ *   - ODB_EVERSION - telementry not possible because this library was not
  *                    built to have it.
- *   - EDB_EVERSION - See `odbtelem_params_t` structure
- *   - EDB_EINVAL   - See `odbtelem_params_t` structure
- *   - EDB_ECRIT
+ *   - ODB_EVERSION - See `odbtelem_params_t` structure
+ *   - ODB_EINVAL   - See `odbtelem_params_t` structure
+ *   - ODB_ECRIT
  *
  */
-edb_err odbtelem(int enabled, odbtelem_params_t params);
+odb_err odbtelem(int enabled, odbtelem_params_t params);
 
 /**
  * \brief Attach to a hosted database's telemetry stream
@@ -109,22 +109,22 @@ edb_err odbtelem(int enabled, odbtelem_params_t params);
  * `odbtelem_attach`, then it is as if odbtelem_detach was called.
  *
  * ## ERRORS
- *  - EDB_EVERSION - Library version does not provide telemetry attachments
- *  - EDB_EERRNO - An error was returned by open(2)... see errno.
- *  - EDB_ENOTDB - `odbtelem_attach` opened `path` and found not to be a
+ *  - ODB_EVERSION - Library version does not provide telemetry attachments
+ *  - ODB_EERRNO - An error was returned by open(2)... see errno.
+ *  - ODB_ENOTDB - `odbtelem_attach` opened `path` and found not to be a
  *                  oidadb file.
- *  - EDB_ENOHOST - The file is a oidadb file, but is not being hosted.
- *  - EDB_EPIPE   - The host exists and is running, but analytics are not
+ *  - ODB_ENOHOST - The file is a oidadb file, but is not being hosted.
+ *  - ODB_EPIPE   - The host exists and is running, but analytics are not
  *                  enabled. (See \ref odbtelem)
- *  - EDB_EOPEN -   Already attached successfully.
- *  - \ref EDB_ECRIT
+ *  - ODB_EOPEN -   Already attached successfully.
+ *  - \ref ODB_ECRIT
  *
  * \see odbtelem
  * \see odbtelem_poll
  * \see odbtelem_image
  *  \{
  */
-edb_err odbtelem_attach(const char *path);
+odb_err odbtelem_attach(const char *path);
 void    odbtelem_detach();
 // odbtelem_attach
 /// \}
@@ -134,8 +134,8 @@ void    odbtelem_detach();
  *
  *
  * ## ERRORS
- *  - EDB_EPIPE   - Not attached to host process (see \ref odbtelem_attach)
- *  - EDB_EMISSED - `odbtelem_poll` was called too infrequently and wasn't
+ *  - ODB_EPIPE   - Not attached to host process (see \ref odbtelem_attach)
+ *  - ODB_EMISSED - `odbtelem_poll` was called too infrequently and wasn't
  *                  able to capture all events in the buffer before elements
  *                  of the buffer had to be replaced. This happens because
  *                  you were not polling fast enough.
@@ -209,7 +209,7 @@ typedef struct odbtelem_data {
 	};
 
 } odbtelem_data;
-edb_err odbtelem_poll(odbtelem_data *o_data);
+odb_err odbtelem_poll(odbtelem_data *o_data);
 // odbtelem_poll
 /// \}
 
@@ -225,9 +225,9 @@ edb_err odbtelem_poll(odbtelem_data *o_data);
  * way to stay up to date.
  *
  * ## ERRORS
- *  - EDB_EVERSION - Version does not support imaging.
- *  - EDB_EPIPE   - Not attached to host process (see \ref odbtelem_attach)
- *  - EDB_EINVAL - o_image is null
+ *  - ODB_EVERSION - Version does not support imaging.
+ *  - ODB_EPIPE   - Not attached to host process (see \ref odbtelem_attach)
+ *  - ODB_EINVAL - o_image is null
  */
 typedef struct odbtelem_image_t {
 
@@ -257,7 +257,7 @@ typedef struct odbtelem_image_t {
 	unsigned int *job_workersv;
 
 } odbtelem_image_t;
-edb_err odbtelem_image(odbtelem_image_t *o_image);
+odb_err odbtelem_image(odbtelem_image_t *o_image);
 
 
 

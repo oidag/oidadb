@@ -82,16 +82,16 @@ unsigned int edbd_size(const edbd_t *c);
 // child descriptors and log messages.
 //
 // edbd_open can return the following:
-//   EDB_EINVAL - invalid config
-//   EDB_ENOMEM - not enough memory.
-//   EDB_EERRNO - from stat(2) or open(2)
-//   EDB_EFILE  - path is not a regular file,
-//   EDB_ENOTDB - if bad magic number (probably meaning not a edb file)
-//   EDB_EHW    - if invalid hardware.
+//   ODB_EINVAL - invalid config
+//   ODB_ENOMEM - not enough memory.
+//   ODB_EERRNO - from stat(2) or open(2)
+//   ODB_EFILE  - path is not a regular file,
+//   ODB_ENOTDB - if bad magic number (probably meaning not a edb file)
+//   ODB_EHW    - if invalid hardware.
 //
 // edb_fileclose will preserve errno.
 //
-edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config);
+odb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config);
 void    edbd_close(edbd_t *file);
 
 // Gives you a pointer to edbd memory in the index and structure buffers.
@@ -105,14 +105,14 @@ void    edbd_close(edbd_t *file);
 // Note: does nothing with locks. Be sure to use edbl properly.
 //
 // ERRORS:
-//   - EDB_EEOF: returned by both when the submitted id is out of bounds.
+//   - ODB_EEOF: returned by both when the submitted id is out of bounds.
 //     Note that if you submit an id that hasn't have itself initialized,
 //     then it will return errorless and the out pointer
 //     will point to an unititalized entry.
-edb_err edbd_index(const edbd_t *file, edb_eid eid,
-				   odb_spec_index_entry **o_entry);
-edb_err edbd_struct(const edbd_t *file, uint16_t structureid,
-					const odb_spec_struct_struct **o_struct);
+odb_err edbd_index(const edbd_t *file, edb_eid eid,
+                   odb_spec_index_entry **o_entry);
+odb_err edbd_struct(const edbd_t *file, uint16_t structureid,
+                    const odb_spec_struct_struct **o_struct);
 
 // edbd_add
 //   is the most primative way to create. will create a page strait of length straitc and will return the
@@ -123,16 +123,16 @@ edb_err edbd_struct(const edbd_t *file, uint16_t structureid,
 //   This will delete the pages.
 //
 // ERRORS:
-//   - EDB_EINVAL: (edbd_add) pid was null
-//   - EDB_EINVAL: (edbd_del) pid was 0
-//   - EDB_EINVAL: straitc is 0.
-//   - EDB_ENOSPACE (edbd_add): file size would exceed maximum file size
-//   - EDB_ECRIT: other critical error (logged)
+//   - ODB_EINVAL: (edbd_add) pid was null
+//   - ODB_EINVAL: (edbd_del) pid was 0
+//   - ODB_EINVAL: straitc is 0.
+//   - ODB_ENOSPACE (edbd_add): file size would exceed maximum file size
+//   - ODB_ECRIT: other critical error (logged)
 //
 // THREADING:
 //   Thread safe per file.
-edb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id);
-edb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id);
+odb_err edbd_add(edbd_t *file, uint8_t straitc, edb_pid *o_id);
+odb_err edbd_del(edbd_t *file, uint8_t straitc, edb_pid id);
 
 // helper functions
 

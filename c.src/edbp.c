@@ -23,7 +23,7 @@
 // returns only critical errors
 //
 // todo: update documentation to reflect signature
-static edb_err lockpages(edbpcache_t *cache,
+static odb_err lockpages(edbpcache_t *cache,
                          edb_pid starting,
                          edbphandle_t *h) {
 	// quick vars
@@ -91,10 +91,10 @@ static edb_err lockpages(edbpcache_t *cache,
 		// to do the swap again, but frankly if we're out of memory then we're out of memory.
 		switch (slot->futex_swap) {
 			case 3:
-				return EDB_ENOMEM;
+				return ODB_ENOMEM;
 			case 2:
 				log_critf("fail-cascading because waiting on swap to finish had failed");
-				return EDB_ECRIT;
+				return ODB_ECRIT;
 			default:
 				// was not undergoing a swap.
 				return 0;
@@ -164,17 +164,17 @@ static edb_err lockpages(edbpcache_t *cache,
 		// out of memory/some other critical error: bail out.
 		log_critf("failed to map page(s) into slot");
 		int eno = errno;
-		edb_err err;
+		odb_err err;
 		pthread_mutex_lock(&cache->mutexpagelock);
 		slot->page = 0;
 		slot->pra_score = 0;
 		// handle nomem.
 		if(eno == ENOMEM) {
 			slot->futex_swap = 3;
-			err = EDB_ENOMEM;
+			err = ODB_ENOMEM;
 		} else {
 			slot->futex_swap = 2;
-			err = EDB_ECRIT;
+			err = ODB_ECRIT;
 		}
 		syscall(SYS_futex, &slot->futex_swap, FUTEX_WAKE, INT_MAX, 0, 0, 0);
 		pthread_mutex_unlock(&cache->mutexpagelock);
@@ -247,10 +247,10 @@ void static unlockpage(edbpcache_t *cache, edbp_slotid slotid) {
 	pthread_mutex_unlock(&cache->mutexpagelock);
 }
 
-edb_err edbp_cache_config(edbpcache_t *pcache, edbp_config_opts opts, ...) {
+odb_err edbp_cache_config(edbpcache_t *pcache, edbp_config_opts opts, ...) {
 
-	if(!pcache) return EDB_EINVAL;
-	if(pcache->handles != 0) return EDB_EOPEN;
+	if(!pcache) return ODB_EINVAL;
+	if(pcache->handles != 0) return ODB_EOPEN;
 
 	va_list args;
 	va_start(args, opts);
@@ -258,7 +258,7 @@ edb_err edbp_cache_config(edbpcache_t *pcache, edbp_config_opts opts, ...) {
 		case EDBP_CONFIG_CACHESIZE:
 			break;
 		default:
-			return EDB_EINVAL;
+			return ODB_EINVAL;
 	}
 	unsigned int slotcount = va_arg(args, unsigned int);
 	va_end(args);
@@ -268,9 +268,9 @@ edb_err edbp_cache_config(edbpcache_t *pcache, edbp_config_opts opts, ...) {
 							sizeof(edbp_slot) * slotcount);
 	if (slots == 0) {
 		if(errno == ENOMEM)
-			return EDB_ENOMEM;
+			return ODB_ENOMEM;
 		log_critf("realloc");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	bzero(slots, sizeof(edbp_slot) * slotcount); // 0-out
 
@@ -284,24 +284,24 @@ edb_err edbp_cache_config(edbpcache_t *pcache, edbp_config_opts opts, ...) {
 }
 
 // see conf->pra_algo
-edb_err edbp_cache_init(const edbd_t *file, edbpcache_t **o_cache) {
+odb_err edbp_cache_init(const edbd_t *file, edbpcache_t **o_cache) {
 
 	// invals
-	if(!file || !o_cache) return EDB_EINVAL;
+	if(!file || !o_cache) return ODB_EINVAL;
 
 	// malloc the actual handle
 	*o_cache = malloc(sizeof(edbpcache_t));
 	if(*o_cache == 0) {
 		if(errno == ENOMEM)
-			return EDB_ENOMEM;
+			return ODB_ENOMEM;
 		log_critf("malloc failed");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	edbpcache_t *pcache = *o_cache;
 
 	// initialize
 	bzero(pcache, sizeof(edbpcache_t));
-	edb_err err = 0;
+	odb_err err = 0;
 
 	// parent file
 	pcache->fd = file;
@@ -311,7 +311,7 @@ edb_err edbp_cache_init(const edbd_t *file, edbpcache_t **o_cache) {
 	if (err) {
 		log_critf("failed to initialize pagelock mutex: %d", err);
 		edbp_cache_free(pcache);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	pcache->initialized = 1;
 	return 0;
@@ -339,20 +339,20 @@ void    edbp_cache_free(edbpcache_t *cache) {
 }
 
 // create handles for the cache
-edb_err edbp_handle_init(edbpcache_t *cache,
-						 unsigned int name,
-						 edbphandle_t **o_handle) {
-	if (!cache || !o_handle) return EDB_EINVAL;
-	if (cache->slot_count < cache->handles + 1) return EDB_ENOSPACE;
+odb_err edbp_handle_init(edbpcache_t *cache,
+                         unsigned int name,
+                         edbphandle_t **o_handle) {
+	if (!cache || !o_handle) return ODB_EINVAL;
+	if (cache->slot_count < cache->handles + 1) return ODB_ENOSPACE;
 	cache->handles++;
 
 	// malloc the actual handle
 	*o_handle = malloc(sizeof(edbphandle_t));
 	if(*o_handle == 0) {
 		if(errno == ENOMEM)
-			return EDB_ENOMEM;
+			return ODB_ENOMEM;
 		log_critf("malloc failed");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	edbphandle_t *phandle = *o_handle;
 
@@ -373,16 +373,16 @@ void    edbp_handle_free(edbphandle_t *handle) {
 	free(handle);
 }
 
-edb_err edbp_start (edbphandle_t *handle, edb_pid id) {
+odb_err edbp_start (edbphandle_t *handle, edb_pid id) {
 
 	// invals
 	if(id == 0) {
 		log_critf("attempting to start id 0");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	if(handle->lockedslotv != -1) {
 		log_errorf("cache handle attempt to double-lock");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 
@@ -395,7 +395,7 @@ edb_err edbp_start (edbphandle_t *handle, edb_pid id) {
 	off64_t size = lseek64(parent->fd->descriptor, 0, SEEK_END);
 	if((off64_t)id * (off64_t) edbd_size(parent->fd) > size) {
 		log_critf("attempting to access page id that doesn't exist");
-		return EDB_EEOF;
+		return ODB_EEOF;
 	}
 #endif
 
@@ -431,14 +431,14 @@ void *edbp_graw(const edbphandle_t *handle) {
 	return handle->parent->slots[handle->lockedslotv].page;
 }
 
-edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...) {
+odb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...) {
 	if(handle->lockedslotv == -1)
-		return EDB_ENOENT;
+		return ODB_ENOENT;
 
 	// easy pointers
 	edbpcache_t *cache = handle->parent;
 
-	edb_err err = 0;
+	odb_err err = 0;
 	edbp_hint hints;
 	va_list args;
 	va_start(args, opts);
@@ -450,7 +450,7 @@ edb_err edbp_mod(edbphandle_t *handle, edbp_options opts, ...) {
 			break;
 		case EDBP_ECRYPT:
 		default:
-			err = EDB_EINVAL;
+			err = ODB_EINVAL;
 			break;
 	}
 	va_end(args);

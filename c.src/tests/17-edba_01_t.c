@@ -75,7 +75,7 @@ void *createentry(void *pl) {
 	struct threadpayload *payload = pl;
 	edba_handle_t *edbahandle = payload->edbahandle;
 	int fixedc = payload->fixedc;
-	edb_err err; // make sure we have errs in our thread's stack.
+	odb_err err; // make sure we have errs in our thread's stack.
 
 	// create entry-structure pairs
 	// we do +1 here so we can create the last entry just to delete it.

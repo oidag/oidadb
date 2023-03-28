@@ -35,18 +35,18 @@ typedef struct edbs_job_t {
 // edbs_jobclose will do nothing if the descriptor is marked as the installer.
 //
 // ERRORS:
-//   - EDB_ECLOSED - there are no jobs available AND edbs_host_close has been
+//   - ODB_ECLOSED - there are no jobs available AND edbs_host_close has been
 //                   called, thus no more job installs are possible. This
 //                   means that edbs_jobselect will only block so long that
 //                   the host of the shm is running and accepting jobs.
 //                   Futhermore, edbs_jobselect will return even after
 //                   edbs_host_close has been called so long that there's jobs
 //                   that need to be doing.
-//   - EDB_EINVAL - (crit logged) ownerid is 0.
-//   - EDB_ECRIT
-edb_err edbs_jobselect(const edbs_handle_t *shm,
-					   edbs_job_t  *o_job,
-					   unsigned int ownerid);
+//   - ODB_EINVAL - (crit logged) ownerid is 0.
+//   - ODB_ECRIT
+odb_err edbs_jobselect(const edbs_handle_t *shm,
+                       edbs_job_t  *o_job,
+                       unsigned int ownerid);
 void edbs_jobclose(edbs_job_t job);
 //int     edbs_jobisclosed(edbs_job_t job); // todo: I don't think we need this
 
@@ -58,13 +58,13 @@ void edbs_jobclose(edbs_job_t job);
 // o_job.descriptortype be set to be 'installer'.
 //
 // ERRORS
-//  - EDB_ECLOSED - The host is closed, or is in the process of closing. So
+//  - ODB_ECLOSED - The host is closed, or is in the process of closing. So
 //                  no new jobs are being accepted.
-//  - EDB_EJOBDESC - odb_jobdesc is not valid
-//  - EDB_ECRIT
-edb_err edbs_jobinstall(const edbs_handle_t *shm,
+//  - ODB_EJOBDESC - odb_jobdesc is not valid
+//  - ODB_ECRIT
+odb_err edbs_jobinstall(const edbs_handle_t *shm,
                         odb_jobdesc jobclass,
-						edbs_job_t *o_job);
+                        edbs_job_t *o_job);
 
 // A transfer buffer is structured as a pipe, though bi-directional. If both
 // sides of the pipe do not follow specification, deadlocks will ensue. Here
@@ -97,20 +97,20 @@ edb_err edbs_jobinstall(const edbs_handle_t *shm,
 // installed over it. This edge case is not withstanding critical errors.
 //
 // RETURNS (all of them are logged)
-//  - EDB_EINVAL - buff is 0 and count is not 0.
-//  - EDB_EBADE - The executor tried to write first (before the installer), or,
+//  - ODB_EINVAL - buff is 0 and count is not 0.
+//  - ODB_EBADE - The executor tried to write first (before the installer), or,
 //                the installer tries to perform a read as its first operation.
-//  - EDB_EOPEN  - The installer called edbs_jobterm before its first write
-//  - EDB_EPROTO - edbs_jobwrite called without first reading other side's
+//  - ODB_EOPEN  - The installer called edbs_jobterm before its first write
+//  - ODB_EPROTO - edbs_jobwrite called without first reading other side's
 //                 bytes in bi-directional mode (due to failing to following
 //                 protocol specs). This can also occur if one side reads
 //                 and another side writes but their respective calls do
 //                 not have the same counts.
-//  - EDB_ECLOSED - the installer has tried to call read after successfully
+//  - ODB_ECLOSED - the installer has tried to call read after successfully
 //                  calling term
-//  - EDB_EPIPE - read/write has been interupted/ignored because executor has
+//  - ODB_EPIPE - read/write has been interupted/ignored because executor has
 //                just called - or previously called - jobterm.
-//  - EDB_ECRIT - the pipe was broken for unexpected reasons (ie: other side
+//  - ODB_ECRIT - the pipe was broken for unexpected reasons (ie: other side
 //                no longer responding/bad network) and thus can no longer
 //                read/write and there's no recovering.
 //
@@ -118,9 +118,9 @@ edb_err edbs_jobinstall(const edbs_handle_t *shm,
 //   For a given job, exclusively 1 thread must hold the installer role and
 //   exclusively 1 thread must hold the executor role.
 //
-edb_err edbs_jobread(edbs_job_t j, void *buff, int count);
-edb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count);
-edb_err edbs_jobterm(edbs_job_t j);
+odb_err edbs_jobread(edbs_job_t j, void *buff, int count);
+odb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count);
+odb_err edbs_jobterm(edbs_job_t j);
 
 
 // returns the job description (see odbh_job)

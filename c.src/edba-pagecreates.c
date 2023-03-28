@@ -6,12 +6,12 @@
 #include <strings.h>
 
 // helper function
-static edb_err xlloadlookup(edba_handle_t *handle,
+static odb_err xlloadlookup(edba_handle_t *handle,
                             edb_pid lookuppid,
                             edbl_lock *lock,
                             odb_spec_lookup **lookuphead,
                             odb_spec_lookup_lref **lookuprefs) {
-	edb_err err;
+	odb_err err;
 	edbphandle_t *edbp = handle->edbphandle;
 
 	// as per locking spec, we must place an XL lock on the second
@@ -61,11 +61,11 @@ static void deloadlookup(edba_handle_t *handle,
 //  4. update the entry with the page's id.
 // This will also be easy to pick out corrupted pages because their type will be ODB_ELMINIT.
 
-edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
+odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 #ifdef EDB_FUCKUPS
 	if(handle->clutchedentry->trashlast) {
 		log_critf("trashlast must be 0");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 #endif
 
@@ -75,7 +75,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	unsigned int entryid = handle->clutchedentryeid;
 	int depth = entry->memory >> 0xC;
 	unsigned int refmax = handle->clutchedentry->lookupsperpage;
-	edb_err err;
+	odb_err err;
 
 	// (if-error-then-destroy)
 	// The next 2 paragraphs of code will create the object but it will not
@@ -216,13 +216,13 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 			// OR, if we're at the root lookup page and it is also full, that
 			// means this entire tree is incabable of storing any more object pages.
 			// ... so destroy all the lookup pages and object pages we created and
-			// return EDB_ENOSPACE
+			// return ODB_ENOSPACE
 			if(i == 0) {
 
 				// the root branch page is full, this means we
 				// have no more space in the lookup tree.
 				log_warnf("attempted to create object pages with full OID lookup tree: entry#%d", entryid);
-				err = EDB_ENOSPACE;
+				err = ODB_ENOSPACE;
 				deloadlookup(handle, &lookuppagelock);
 				goto rollbackcreatedpages;
 			}
@@ -416,7 +416,7 @@ edb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	return err;
 }
 
-edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
+odb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
                                  odb_spec_lookup header,
                                  edb_pid *o_pid,
                                  odb_spec_lookup_lref ref) {
@@ -424,7 +424,7 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	// easy ptrs
 	edbphandle_t *edbp = handle->edbphandle;
 	edbd_t *descriptor = handle->parent->descriptor;
-	edb_err err;
+	odb_err err;
 
 	// later: need to reuse deleted pages rather than creating them by utilizing the
 	//        deleted page / trash line
@@ -479,13 +479,13 @@ edb_err edba_u_pagecreate_lookup(edba_handle_t *handle,
 	return 0;
 }
 
-edb_err edba_u_pagecreate_objects(edba_handle_t *handle,
+odb_err edba_u_pagecreate_objects(edba_handle_t *handle,
                                   odb_spec_object header,
                                   const odb_spec_struct_struct *strct,
                                   uint8_t straitc, edb_pid *o_pid) {
 	// easy ptrs
 	edbphandle_t *edbp = handle->edbphandle;
-	edb_err err;
+	odb_err err;
 	edbd_t *descriptor = handle->parent->descriptor;
 	unsigned int objectsperpage = (edbd_size(handle->parent->descriptor) -
 			ODB_SPEC_HEADSIZE)

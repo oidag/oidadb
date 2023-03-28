@@ -62,9 +62,9 @@ void edbs_host_free(edbs_handle_t *shm) {
 // builds, allocates, and initializes the static shared memory region.
 //
 //
-edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
+odb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 
-	edb_err eerr;
+	odb_err eerr;
 
 	// initialize a head on the stack to be copied into the shared memeory
 	edbs_shmhead_t stackhead = {0};
@@ -94,10 +94,10 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	edbs_handle_t *shm = malloc(sizeof(edbs_handle_t));
 	if(shm == 0) {
 		if(errno == ENOMEM) {
-			return EDB_ENOMEM;
+			return ODB_ENOMEM;
 		}
 		log_critf("malloc");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	*o_shm = shm;
 
@@ -112,11 +112,11 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 		if(errno == EEXIST) {
 			free(shm);
 			log_errorf("shared object already exists (ungraceful shutdown?)");
-			return EDB_EEXIST;
+			return ODB_EEXIST;
 		}
 		free(shm);
 		log_critf("shm_open(3) returned errno: %d", errno);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	int err = ftruncate64(shmfd, (int64_t)stackhead.shmc);
 	if(err == -1) {
@@ -125,7 +125,7 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 		log_critf("ftruncate(2) returned unexpected errno: %d", errnotmp);
 		close(shmfd);
 		errno = errnotmp;
-		eerr = EDB_ECRIT;
+		eerr = ODB_ECRIT;
 		goto clean_shm;
 	}
 	shm->shm = mmap(0, stackhead.shmc,
@@ -142,12 +142,12 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 		int errnotmp = errno;
 		if (errno == ENOMEM) {
 			// we handle this one.
-			eerr= EDB_ENOMEM;
+			eerr= ODB_ENOMEM;
 		} else {
 			// all others are criticals
 			errno = errnotmp;
 			log_critf("mmap(2) failed to map shared memory: %d", errno);
-			eerr= EDB_ECRIT;
+			eerr= ODB_ECRIT;
 		}
 		goto clean_shm;
 	}
@@ -164,15 +164,15 @@ edb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
 	// initialize mutexes.
 	pthread_mutexattr_t mutexattr;
 	if((err = pthread_mutexattr_init(&mutexattr))) {
-		if (err == ENOMEM) eerr = EDB_ENOMEM;
-		else eerr = EDB_ECRIT;
+		if (err == ENOMEM) eerr = ODB_ENOMEM;
+		else eerr = ODB_ECRIT;
 		log_critf("pthread_mutexattr_init(3): %d", err);
 		goto clean_map;
 	}
 	pthread_mutexattr_setpshared(&mutexattr, PTHREAD_PROCESS_SHARED);
 	if((err = pthread_mutex_init(&shm->head->jobmutex, &mutexattr))) {
-		if (err == ENOMEM) eerr = EDB_ENOMEM;
-		else eerr = EDB_ECRIT;
+		if (err == ENOMEM) eerr = ODB_ENOMEM;
+		else eerr = ODB_ECRIT;
 		log_critf("pthread_mutex_init(3): %d", err);
 		goto clean_mutex;
 	}
@@ -266,14 +266,14 @@ void edbs_handle_free(edbs_handle_t *shm) {
 	return deleteshm(shm, 0);
 }
 
-edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
+odb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 	edbs_handle_t *shm = malloc(sizeof (edbs_handle_t ));
 	if(shm == 0) {
 		if(errno == ENOMEM) {
-			return EDB_ENOMEM;
+			return ODB_ENOMEM;
 		}
 		log_critf("malloc");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	*o_shm = shm;
 
@@ -284,11 +284,11 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		// probably a bad pid or file is not hosted?
 		if(errno == ENOENT) {
 			free(shm);
-			return EDB_ENOHOST;
+			return ODB_ENOHOST;
 		}
 		free(shm);
 		log_critf("shm_open(3) returned errno: %d", errno);
-		return EDB_EERRNO;
+		return ODB_EERRNO;
 	}
 
 	// Lets make sure we confirm the magic number safely before we can trust
@@ -303,14 +303,14 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		close(shmfd);
 		errno = errnotmp;
 		free(shm);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	if(st.st_size < sizeof(edbs_shmhead_t)) {
 		log_noticef("hosted shm block not large enough to contain headers");
 		shm_unlink(shm->shm_name);
 		close(shmfd);
 		free(shm);
-		return EDB_ENOTDB;
+		return ODB_ENOTDB;
 	}
 
 	// Load the shared memeory
@@ -323,7 +323,7 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		shm_unlink(shm->shm_name);
 		close(shmfd);
 		free(shm);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	if (tmphead.magnum != EDB_SHM_MAGIC_NUM) {
 		// failed to read in the shared memeory head.
@@ -333,7 +333,7 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		            EDB_SHM_MAGIC_NUM,
 		            tmphead.magnum);
 		free(shm);
-		return EDB_ENOTDB;
+		return ODB_ENOTDB;
 	}
 	// we trust this shm to be the right size at this point: map it
 	shm->shm = mmap(0, tmphead.shmc,
@@ -355,7 +355,7 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		errno = errnotmp;
 		log_critf("mmap(2) failed to map shared memory: %d", errno);
 		free(shm);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 	// wait if the host is still setting up
@@ -368,7 +368,7 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		munmap(shm->shm, shm->head->shmc);
 		shm_unlink(shm->shm_name);
 		free(shm);
-		return EDB_ENOHOST;
+		return ODB_ENOHOST;
 	}
 
 	// assign buffer pointers
@@ -386,7 +386,7 @@ edb_err edbs_handle_init(edbs_handle_t **o_shm, pid_t hostpid) {
 		munmap(shm->shm, shm->head->shmc);
 		shm_unlink(shm->shm_name);
 		free(shm);
-		return EDB_ENOHOST;
+		return ODB_ENOHOST;
 	}
 
 	return 0;

@@ -6,11 +6,11 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-edb_err odbh_jobmode (odbh *handle, odb_jobmode_t mode);
-edb_err odbh_job     (odbh *handle, odb_jobdesc jobdesc, odbj **o_jhandle);
-edb_err odbj_write(odbj *jhandle, const void *buf, int bufc);
-edb_err odbj_read (odbj *jhandle, void *o_buf, int bufc);
-edb_err odbj_close(odbj *jhandle);
+odb_err odbh_jobmode (odbh *handle, odb_jobmode_t mode);
+odb_err odbh_job     (odbh *handle, odb_jobdesc jobdesc, odbj **o_jhandle);
+odb_err odbj_write(odbj *jhandle, const void *buf, int bufc);
+odb_err odbj_read (odbj *jhandle, void *o_buf, int bufc);
+odb_err odbj_close(odbj *jhandle);
 #+END_SRC
 
 
@@ -55,7 +55,7 @@ protocol's defintion of finished, only then can you call =odbh_job=
 once more for the next job.
 
 Attempting to install subsequent jobs before the completion of the
-first one will result in =odbh_job= to return =EDB_EOPEN=.
+first one will result in =odbh_job= to return =ODB_EOPEN=.
 
 =ODB_JSEQ= is set by default. If =odbh_jobmode= is never called, then
 this is the mode that is set implicitly.
@@ -86,7 +86,7 @@ function has returned).
 
 * Errors
 
- - =EDB_EOPEN= - (=odbh_job=) Attempt to install another job before
+ - =ODB_EOPEN= - (=odbh_job=) Attempt to install another job before
    the completion of the first job whilest in =ODB_JSEQ= mode.
 
 * Examples

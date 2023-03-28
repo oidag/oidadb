@@ -23,8 +23,8 @@
 // helper function to edb_open. returns 0 on success.
 // it is assumed that path does not exist.
 //
-// can return EDB_EERRNO from open(2)
-static edb_err createfile(int fd, odb_createparams params) {
+// can return ODB_EERRNO from open(2)
+static odb_err createfile(int fd, odb_createparams params) {
 	int err;
 	int syspagesize = (int)sysconf(_SC_PAGE_SIZE);
 	unsigned int pagemul = params.page_multiplier;
@@ -39,7 +39,7 @@ static edb_err createfile(int fd, odb_createparams params) {
 		int errnotmp = errno;
 		log_critf("ftruncate(2) returned error code: %d", errnotmp);
 		errno = errnotmp;
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 	// generate the head-intro structure.
@@ -75,11 +75,11 @@ static edb_err createfile(int fd, odb_createparams params) {
 		int errnotmp = errno;
 		log_critf("write(2) returned error code: %d", errnotmp);
 		errno = errnotmp;
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	if(n != sizeof(newhead)) {
 		log_critf("write(2) failed to write out entire head during creation");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 	// now the reserved indexes.
@@ -101,7 +101,7 @@ static edb_err createfile(int fd, odb_createparams params) {
 		                    indexstart + i * finalpsize);
 		if(page == (void*)-1) {
 			log_critf("mmap64 failed");
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 		}
 		if(i==0) {
 			// initialize the resevered slots.
@@ -127,7 +127,7 @@ static edb_err createfile(int fd, odb_createparams params) {
 		                    structstart + i * finalpsize);
 		if(page == (void*)-1) {
 			log_critf("mmap64 failed");
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 		}
 		if(i+1 == params.structurepages) {
 			edbd_u_initstructpage(page, finalpsize, 0);
@@ -144,32 +144,32 @@ static edb_err createfile(int fd, odb_createparams params) {
 
 // helper function to edb_open.
 // validates the headintro with the current system. returns
-// EDB_ENOTDB if bad magic number (probably meaning not a edb file)
-// EDB_EHW if invalid hardware.
-static edb_err validateheadintro(odb_spec_headintro head) {
+// ODB_ENOTDB if bad magic number (probably meaning not a edb file)
+// ODB_EHW if invalid hardware.
+static odb_err validateheadintro(odb_spec_headintro head) {
 	if(head.magic[0] != 0xA6 || head.magic[1] != 0xF0) {
 		log_errorf("invalid magic number: got {0x%02X, 0x%02X} but expecting {0x%02X, 0x%02X}",
 				   head.magic[0], head.magic[1],
 				   0xA6, 0xF0);
-		return EDB_ENOTDB;
+		return ODB_ENOTDB;
 	}
 	if(head.intsize != sizeof(int)) {
 		log_errorf("integer size mismatch: got %d but accepting %ld",
 				   head.intsize,
 				   sizeof(int));
-		return EDB_EHW;
+		return ODB_EHW;
 	}
 	if(head.entrysize != sizeof(odb_spec_index_entry)) {
 		log_errorf("entry size mismatch: got %d but accepting %ld",
 				   head.entrysize,
 				   sizeof(odb_spec_index_entry));
-		return EDB_EHW;
+		return ODB_EHW;
 	}
 	if(head.pagesize != sysconf(_SC_PAGE_SIZE)) {
 		log_errorf("minimum page size mismatch: got %d but accepting %ld",
 				   head.pagesize,
 				   sysconf(_SC_PAGE_SIZE));
-		return EDB_EHW;
+		return ODB_EHW;
 	}
 	if(head.pagemul != 1 &&
 	   head.pagemul != 2 &&
@@ -177,7 +177,7 @@ static edb_err validateheadintro(odb_spec_headintro head) {
 	   head.pagemul != 8) {
 		log_errorf("page multiplier is not an acceptable number: got %d",
 		           head.pagemul);
-		return EDB_EHW;
+		return ODB_EHW;
 	}
 	return 0;
 }
@@ -242,50 +242,50 @@ static int paramsvalid(odb_createparams params) {
 	return 1;
 }
 
-edb_err odb_create(const char *path, odb_createparams params) {
-	if(!paramsvalid(params)) return EDB_EINVAL;
+odb_err odb_create(const char *path, odb_createparams params) {
+	if(!paramsvalid(params)) return ODB_EINVAL;
 
 	// create the file itself.
 	int fd = open(path, O_CREAT | O_EXCL | O_RDWR, 0666);
 	if(fd == -1) {
 		if(errno == EEXIST) {
-			return EDB_EEXIST;
+			return ODB_EEXIST;
 		}
-		return EDB_EERRNO;
+		return ODB_EERRNO;
 	}
-	edb_err err = createfile(fd, params);
+	odb_err err = createfile(fd, params);
 	close(fd);
 	return err;
 }
 
-edb_err odb_createt(const char *path, odb_createparams params) {
-	if(!paramsvalid(params)) return EDB_EINVAL;
+odb_err odb_createt(const char *path, odb_createparams params) {
+	if(!paramsvalid(params)) return ODB_EINVAL;
 
 	// create the file itself.
 	int fd = open(path, 0666, O_TRUNC | O_RDWR);
 	if(fd == -1) {
 		if(errno == ENOENT) {
-			return EDB_ENOENT;
+			return ODB_ENOENT;
 		}
-		return EDB_EERRNO;
+		return ODB_EERRNO;
 	}
-	edb_err err = createfile(fd, params);
+	odb_err err = createfile(fd, params);
 	close(fd);
 	return err;
 }
 
-// returns EDB_EINVAL if params are invalid
-static edb_err openconfigparamsvalid(edbd_config config) {
+// returns ODB_EINVAL if params are invalid
+static odb_err openconfigparamsvalid(edbd_config config) {
 	if(config.delpagewindowsize < 1) {
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	return 0;
 }
 
-edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
+odb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 
 	if(openconfigparamsvalid(config)) {
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 	// initialize memeory.
@@ -303,12 +303,12 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 		                           0);
 		if(o_file->head_page == MAP_FAILED) {
 			log_critf("failed to call mmap(2) due to unpredictable errno");
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 		}
 
 		// validate the head intro on the system to make sure
 		// it can run on this architecture.
-		edb_err valdationerr = validateheadintro(o_file->head_page->intro);
+		odb_err valdationerr = validateheadintro(o_file->head_page->intro);
 		if(valdationerr != 0) {
 			munmap(o_file->head_page, sysconf(_SC_PAGE_SIZE));
 			return valdationerr;
@@ -339,7 +339,7 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 		int errnotmp = errno;
 		log_critf("failed to call mmap(2) due to unpredictable errno: %d", errnotmp);
 		errno = errnotmp;
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 	// **defer-on-fail: edbd_close(o_file)
@@ -363,11 +363,11 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 					   "structure "
 					   "pages: need a total of %ld KiB", totalbytes/1024);
 			edbd_close(o_file);
-			return EDB_ENOMEM;
+			return ODB_ENOMEM;
 		}
 		log_critf("failed to call mmap(2) due to unpredictable errno");
 		edbd_close(o_file);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 	// helper vars (needed to have edbd_index working)
@@ -400,10 +400,10 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 				log_errorf("not enough memory to allocate database deletion "
 						   "page window (%d max pages)", o_file->delpagesq);
 				edbd_close(o_file);
-				return EDB_ENOMEM;
+				return ODB_ENOMEM;
 			}
 			log_critf("failed to call mmap(2) due to unpredictable errno");
-			err = EDB_ECRIT;
+			err = ODB_ECRIT;
 			edbd_close(o_file);
 		}
 		// next loop we fill it up with the page before this one.
@@ -415,7 +415,7 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 	if(err) {
 		log_critf("failed to initialize eof mutex: %d", err);
 		edbd_close(o_file);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 
@@ -424,14 +424,14 @@ edb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 	return 0;
 }
 
-edb_err edbd_index(const edbd_t *file, edb_eid eid
+odb_err edbd_index(const edbd_t *file, edb_eid eid
 				   , odb_spec_index_entry **o_entry) {
 
 	int pageoff = eid / file->enteriesperpage;
 
-	// check for EDB_EEOF
+	// check for ODB_EEOF
 	if(pageoff >= file->edb_indexc) {
-		return EDB_EEOF;
+		return ODB_EEOF;
 	}
 
 	// go to the body section on that page
@@ -444,14 +444,14 @@ edb_err edbd_index(const edbd_t *file, edb_eid eid
 	return 0;
 }
 
-edb_err edbd_struct(const edbd_t *file, uint16_t structureid,
+odb_err edbd_struct(const edbd_t *file, uint16_t structureid,
                     const odb_spec_struct_struct **o_struct) {
 
 	int pageoff = structureid / file->structsperpage;
 
-	// check for EDB_EEOF
+	// check for ODB_EEOF
 	if(pageoff >= file->edb_structc) {
-		return EDB_EEOF;
+		return ODB_EEOF;
 	}
 
 	// go to the body section on that page

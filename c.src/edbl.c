@@ -33,21 +33,21 @@ typedef struct edbl_handle_t {
 	int fd_d;
 } edbl_handle_t;
 
-edb_err edbl_host_init(edbl_host_t **o_lockdir, const edbd_t *file) {
+odb_err edbl_host_init(edbl_host_t **o_lockdir, const edbd_t *file) {
 
 	// invals
 	if(!o_lockdir) {
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 	// ret
 	edbl_host_t *ret = malloc(sizeof(edbl_host_t));
 	if(ret == 0) {
 		if (errno == ENOMEM) {
-			return EDB_ENOMEM;
+			return ODB_ENOMEM;
 		}
 		log_critf("malloc");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	bzero(ret, sizeof(edbl_host_t));
 	*o_lockdir = ret;
@@ -59,21 +59,21 @@ edb_err edbl_host_init(edbl_host_t **o_lockdir, const edbd_t *file) {
 	if(err) {
 		log_critf("failed to initialize pthread");
 		free(ret);
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	err = pthread_mutex_init(&ret->mutex_index,0);
 	if(err) {
 		pthread_mutex_destroy(&ret->mutex_struct);
 		free(ret);
 		log_critf("failed to initialize pthread");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	err = pthread_mutex_init(&ret->mutex_index,0);
 	if(err) {
 		pthread_mutex_destroy(&ret->mutex_struct);
 		free(ret);
 		log_critf("failed to initialize pthread");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	return 0;
 }
@@ -82,9 +82,9 @@ void    edbl_host_free(edbl_host_t *h) {
 	pthread_mutex_destroy(&h->mutex_struct);
 	free(h);
 }
-edb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **oo_handle) {
+odb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **oo_handle) {
 	if(!host || !oo_handle) {
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 
 	// We use O_DIRECT just cuz why not. We're never going to call read(2)
@@ -95,17 +95,17 @@ edb_err edbl_handle_init(edbl_host_t *host, edbl_handle_t **oo_handle) {
 								   , 0666);
 	if(fd == -1) {
 		log_critf("failed to create open file descriptor");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 
 	// malloc the return value
 	edbl_handle_t *h = malloc(sizeof(edbl_handle_t));
 	if(h == 0) {
 		if (errno == ENOMEM) {
-			return EDB_ENOMEM;
+			return ODB_ENOMEM;
 		}
 		log_critf("malloc");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	bzero(h, sizeof(edbl_handle_t));
 	*oo_handle = h;
@@ -133,8 +133,8 @@ void    edbl_handle_free(edbl_handle_t *handle) {
 // extracted so can be used between edbl_set and edbl_test functions.
 // if test is non-null then will run fcntl(fd, F_OFD_GETLK, test), otherwise
 // F_OFD_SETLKW will be used and nothing outputted.
-static edb_err _edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock,
-				  struct flock64 *test) {
+static odb_err _edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock,
+                         struct flock64 *test) {
 	struct flock64 *flock;
 	struct flock64 flock_noptr;
 	int cmd;
@@ -162,7 +162,7 @@ static edb_err _edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock,
 			break;
 		default:
 			log_critf("edbl_set INVAL");
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 	}
 
 	// note: don't trust this after the switch statement.
@@ -249,26 +249,26 @@ static edb_err _edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock,
 
 		default:
 			log_critf("edbl_set INVAL");
-			return EDB_ECRIT;
+			return ODB_ECRIT;
 	}
 	// if we're here then the above switch statement had an error.
 	log_critf("critical error in edbl_set lock-phase switch");
-	return EDB_ECRIT;
+	return ODB_ECRIT;
 }
 
-edb_err edbl_test(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
+odb_err edbl_test(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
 	struct flock64 test;
-	edb_err err = _edbl_set(h, action, lock, &test);
+	odb_err err = _edbl_set(h, action, lock, &test);
 	if(err) {
 		return err;
 	}
 	if(test.l_type == F_UNLCK) {
 		return 0;
 	} else {
-		return EDB_EAGAIN;
+		return ODB_EAGAIN;
 	}
 
 }
-edb_err edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
+odb_err edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock) {
 	return _edbl_set(h, action, lock, 0);
 }

@@ -55,18 +55,18 @@ static edb_host_t host = {0};
 
 
 // helper function for edb_host to Check for EDB_EINVALs
-static edb_err validatehostops(const char *path, odb_hostconfig_t hostops) {
+static odb_err validatehostops(const char *path, odb_hostconfig_t hostops) {
 	if(path == 0) {
 		log_errorf("path is null");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	if(hostops.job_buffq <= 0) {
 		log_errorf("job buffer is either <=0 or not a multiple of edb_job_t");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	if(hostops.job_transfersize == 0) {
 		log_errorf("transfer buffer cannot be 0");
-		return  EDB_EINVAL;
+		return  ODB_EINVAL;
 	}
 	if(hostops.job_transfersize % sysconf(_SC_PAGE_SIZE) != 0) {
 		log_warnf("transfer buffer is not an multiple of system page size (%ld), "
@@ -74,26 +74,26 @@ static edb_err validatehostops(const char *path, odb_hostconfig_t hostops) {
 	}
 	if(hostops.event_bufferq <= 0) {
 		log_errorf("event buffer is <=0");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	if(hostops.worker_poolsize == 0) {
 		log_errorf("worker_poolsize is 0");
-		return EDB_EINVAL;
+		return ODB_EINVAL;
 	}
 	if(hostops.slot_count < hostops.worker_poolsize) {
 		log_errorf("page buffer is smaller than worker_poolsize");
-		return  EDB_EINVAL;
+		return  ODB_EINVAL;
 	}
 	return 0;
 }
 
 // places a lock on the file according to locking spec. If a lock has already
-// been placed on this file, EDB_EOPEN is returned and o_curhost is written too.
+// been placed on this file, ODB_EOPEN is returned and o_curhost is written too.
 //
 // Also retursn
 //
 // See unlock file to remove the lock
-edb_err static lockfile(pid_t *o_curhost) {
+odb_err static lockfile(pid_t *o_curhost) {
 	// read any fcntl locks
 	struct flock dblock = (struct flock){
 			.l_type = F_WRLCK,
@@ -110,10 +110,10 @@ edb_err static lockfile(pid_t *o_curhost) {
 		if(errno == EACCES || errno == EAGAIN) {
 			fcntl(host.fdescriptor, F_OFD_GETLK, &dblock);
 			*o_curhost = dblock.l_pid;
-			return EDB_EOPEN;
+			return ODB_EOPEN;
 		}
 		log_critf("fcntl(2) returned unexpected errno");
-		return EDB_ECRIT;
+		return ODB_ECRIT;
 	}
 	return 0;
 }
@@ -133,16 +133,16 @@ void static unlockfile() {
 	}
 }
 
-edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
+odb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 
 	// check for EINVAL
-	edb_err eerr;
+	odb_err eerr;
 	eerr = validatehostops(path, hostops);
 	if(eerr) return eerr;
 
 	// make sure host isn't already running
 	if(host.state != HOST_NONE) {
-		return EDB_EAGAIN;
+		return ODB_EAGAIN;
 	}
 
 	// easy vals
@@ -170,10 +170,10 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 				log_errorf("failed to open file %s: path of file does not "
 						   "exist",
 						   path);
-				return EDB_ENOENT;
+				return ODB_ENOENT;
 			default:
 				log_errorf("failed to open file %s", path);
-				return EDB_EERRNO;
+				return ODB_EERRNO;
 		}
 	}
 	// **defer: close(host.fdescriptor)
@@ -232,10 +232,10 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 	host.workerv = malloc(host.config.worker_poolsize * sizeof(edb_worker_t));
 	if(host.workerv == 0) {
 		if (errno == ENOMEM) {
-			eerr = EDB_ENOMEM;
+			eerr = ODB_ENOMEM;
 		} else {
 			log_critf("malloc(3) returned an unexpected error: %d", errno);
-			eerr = EDB_ECRIT;
+			eerr = ODB_ECRIT;
 		}
 		goto ret;
 	}
@@ -345,12 +345,12 @@ edb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 }
 
 // must NOT be called from a worker thread.
-edb_err odb_hoststop() {
+odb_err odb_hoststop() {
 	if(host.state == HOST_NONE) {
-		return EDB_ENOHOST;
+		return ODB_ENOHOST;
 	}
 	if(host.state != HOST_OPEN) {
-		return EDB_EAGAIN;
+		return ODB_EAGAIN;
 	}
 
 	// we must set this before the FUTEX_WAKE to prevent lost wakes.

@@ -20,12 +20,12 @@ static void edbw_logverbose(edb_worker_t *self, const char *fmt, edb_oid oid) {
 }
 
 // job data is assumed to be EDB_OBJ
-edb_err edbw_u_objjob(edb_worker_t *self) {
+odb_err edbw_u_objjob(edb_worker_t *self) {
 
 	// easy pointers
 	edbs_job_t job = self->curjob;
 	int jobdesc = edbs_jobdesc(job);
-	edb_err err = 0;
+	odb_err err = 0;
 	edba_handle_t *handle = &self->edbahandle;
 
 	// check for some common errors regarding the edb_jobclass
@@ -34,11 +34,11 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 	// all of these job classes need an id parameter
 	ret = edbs_jobread(job, &oid, sizeof(oid));
 	if(ret == -1) {
-		err = EDB_ECRIT;
+		err = ODB_ECRIT;
 		edbs_jobwrite(job, &err, sizeof(err));
 		return err;
 	} else if(ret == -2) {
-		err = EDB_EHANDLE;
+		err = ODB_EHANDLE;
 		edbs_jobwrite(job, &err, sizeof(err));
 		return err;
 	}
@@ -75,7 +75,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			break;
 
 		default:
-			return EDB_EJOBDESC;
+			return ODB_EJOBDESC;
 	}
 	if(err) {
 		edbs_jobwrite(self->curjob, &err, sizeof(err));
@@ -89,7 +89,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 			// make sure this oid isn't already deleted
 			if(!edba_objectdeleted(handle)) {
-				err = EDB_EEXIST;
+				err = ODB_EEXIST;
 				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
@@ -97,7 +97,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			// lock check
 			usrlocks = edba_objectlocks_get(handle);
 			if(usrlocks & EDB_FUSRLCREAT) {
-				err = EDB_EULOCK;
+				err = ODB_EULOCK;
 				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
@@ -123,7 +123,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 			// is it deleted?
 			if(edba_objectdeleted(handle)) {
-				err = EDB_ENOENT;
+				err = ODB_ENOENT;
 				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
@@ -131,7 +131,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			// lock check
 			usrlocks = edba_objectlocks_get(handle);
 			if(usrlocks & EDB_FUSRLRD) {
-				err = EDB_EULOCK;
+				err = ODB_EULOCK;
 				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
@@ -151,7 +151,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 
 			// is it deleted?
 			if(edba_objectdeleted(handle)) {
-				err = EDB_ENOENT;
+				err = ODB_ENOENT;
 				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
@@ -159,7 +159,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			// lock check
 			usrlocks = edba_objectlocks_get(handle);
 			if(usrlocks & EDB_FUSRLWR) {
-				err = EDB_EULOCK;
+				err = ODB_EULOCK;
 				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
@@ -181,7 +181,7 @@ edb_err edbw_u_objjob(edb_worker_t *self) {
 			// lock check
 			usrlocks = edba_objectlocks_get(handle);
 			if(usrlocks & EDB_FUSRLWR) {
-				err = EDB_EULOCK;
+				err = ODB_EULOCK;
 				edbs_jobwrite(self->curjob, &err, sizeof(err));
 				break;
 			}
