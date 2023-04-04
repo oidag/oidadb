@@ -4,9 +4,9 @@
 * Introduction
 
 OidaDB is software designed to make accessible a massive amount of
-structured data across multiple computers on a network. The magnituded
-of such data can grow to be millions of terabytes, with every byte
-accessible within nanoseconds.
+structured data to global a network. The magnituded of such data can
+grow to millions of terabytes, with every byte accessible within
+nanoseconds.
 
 This software is provided to you by means of a software library. The
 library will handle the storage, retrieval, caching, multithreading,
@@ -50,7 +50,7 @@ you're ready to begin.
 
 * Index
  1. [[./preface.org][Preface]]
- 2. Errors - 50% of your job is handling errors; the other 50% is
+ 2. [[./errors.org][Errors]] - 50% of your job is handling errors; the other 50% is
     making them.
     1. =odb_errstr=
  3. Telemetry - Telemetry options for monitoring internal workings of
@@ -67,10 +67,16 @@ you're ready to begin.
 	3. =odb_hostpoll=
 	4. =odb_hostconfig_t=
  6. [[./elements.org][OidaDB Elements]] - The fundemental building blocks of every database
+    1. [[./odb_elm_jobs.org][Jobs]]
+	2. [[./odb_elm_objects][Objects]]
+	3. [[./odb_elm_structs][Structures]] 
+	4. [[./odb_elm_entities][Index & Entities]]
+	5. Dynamics
+	6. Lookups
  7. [[./odbh.org][The OidaDB Handle]]
     1. [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]]
-    1. [[./odbh_job.org][=odbh_job=]]
-	2. [[./odbh_poll.org][=odbh_poll=]]
+    2. [[./odbh_job.org][=odbh_job=]]
+	3. [[./odbh_poll.org][=odbh_poll=]]
  8. [[./routines.org][Routines]] - Arbitrary programming for OidaDB
 
 * Appendix

@@ -1,0 +1,17 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: Errors of OidaDB
+
+* =odb_err=
+Nearly all functions in OidaDB will return an *=odb_err=*. If this is not 0
+then this indicates an error has ocoured. The exact nature of the value
+depends on the function.
+
+=odb_err= itself represents an enum of very general errors. Again,
+their exact practical purpose depends on which function returned them.
+
+With the exception of EDB_CRITICAL. This will mean the same thing
+every time.
+
+* See Also
+
+ - [[./telemtry.org][Telemetry]]

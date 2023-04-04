@@ -1,16 +1,14 @@
 #+SETUPFILE: ./0orgsetup.org
-#+TITLE: odbh_job family
+#+TITLE: odbh_job, odbh_j* family
 
 * Synopsis
 
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
-
-odb_err odbh_jobmode (odbh *handle, odb_jobmode_t mode);
-odb_err odbh_job     (odbh *handle, odb_jobdesc jobdesc, odbj **o_jhandle);
-odb_err odbj_write(odbj *jhandle, const void *buf, int bufc);
-odb_err odbj_read (odbj *jhandle, void *o_buf, int bufc);
-odb_err odbj_close(odbj *jhandle);
+odb_err odbh_job   (odbh *handle, odb_jobtype_t jobtype, odb_jobflag_t flags);
+odb_err odbh_jwrite(odbh *handle, const void *buf, int bufc);
+odb_err odbh_jread (odbh *handle, void *o_buf, int bufc);
+odb_err odbh_jclose(odbh *handle,);
 #+END_SRC
 
 
@@ -21,122 +19,61 @@ into the host. For every job that is installed inside the host, a
 worker will eventually come by and take ownership of the job and
 execute the job to either failure or completion.
 
-Though the exact behaviour of each function will vary depending on the
-job mode (set by *=odbh_jobmode=*, which we'll discuss later), though
-the fundemetnal purpose of each function stays the same:
+Each job installed will open up what is known as a /transfer
+buffer/. This transfer buffer is treated like a stream in terms that
+it can be read and written too provided that you follow the protocol
+specified by the [[See Also][=jobtype=]] (required reading, types & job protocols
+not discussed in this chapter).
 
- - *=odbh_jobmode=* - Set the job mode of =handle=, replacing the mode
-   that was previously set.
- - *=odbh_job=* - Install a job described by [[./odbh_jobdesc_t.org][=jobdesc=]] into the host
-   to which =handle= has connected too. Then return a handle for that
-   job into the output pointer of =o_jhandle=.
- - *=odbj_write=* - Set the job (refered to by =jhandle=) to write
+ - *=odbh_job=* - Install a job denoted by =jobtype= and with
+   modifiers [[See Also][=flags=]] into the host to which =handle= has connected
+   too. Then return a handle for that job into the output pointer of
+   =o_jhandle= if non-errornous.
+ - *=odbh_jwrite=* - Set the job (refered to by =jhandle=) to write
    =bufc= bytes of =buf= into the transfer buffer.
- - *=odbj_read=* - Set the job (refered to by =jhandle=) to read
+ - *=odbh_jread=* - Set the job (refered to by =jhandle=) to read
    =bufc= bytes of the transfer buffer into =o_buf=.
- - *=odbj_close=* - Close the job (refered to by =jhandle=).
-
-To provide any further useful information we must dive into job
-modes. When calling =odbh_jobmode=, =mode= will be one of the
-following with the provided effects:
-
-** =ODB_JSEQ= (default)
-
-Whilest in the mode of =ODB_JSEQ=, jobs are expected to be installed
-sequencially and managed /sequentially/. This is the most intuitive
-mode, because this implies the handle will install and manage one job
-at a time, and waiting for that job to complete before installing
-another one.
-
-This would mean you'd have to install the job, and then use
-=odbj_write= and =odbj_read= in accordance to the protocol
-specified by the job's =jobdesc=. And depending based on that
-protocol's defintion of finished, only then can you call =odbh_job=
-once more for the next job.
-
-Attempting to install subsequent jobs before the completion of the
-first one will result in =odbh_job= to return =ODB_EOPEN=.
-
-=ODB_JSEQ= is set by default. If =odbh_jobmode= is never called, then
-this is the mode that is set implicitly.
-
-** =ODB_JMULTI=
-
-Whilest in the mode of =ODB_JMULTI=, you will be able to execute
-multiple jobs at once. This can also include piping the output of one
-job to the input of another job. Thus, you can acheive some really
-satsifactory results in terms of utilizing the multiple workers of the
-host.
-
-This can provide an uncomprehendsible amount of possibilites all
-performing very efficiently. Installing multiple jobs will then bring
-multiple workers and thus provide concurrent operations, even across
-multiple entries.
-
-In this mode, =odbj_read= and =odbj_write= take an interesting
-turn in how they treat their respective =buf= arguments. That is, when
-these functions return non-0, that doesn't mean they've articulated
-through all of the bytes. Instead, =odbj_read= and =odbj_write=
-/set/ the destination/source of the bytes to be written/read to/from
-for the given job (=jhandle=). This means that each respective =buf=
-pointer must point to valid memory until job is closed (as opposed to
-=ODB_JSEQ= to which the memory can be freed after the read/write
-function has returned).
-
+ - *=odbh_jclose=* - Close the job (refered to by =jhandle=). TODO:
+   make note about calling this before the initial write will thus
+   make the stream unidrectional.
 
 * Errors
 
+ - =ODB_EINVAL= - =jhandle= or =handle= was null
+ - =ODB_EINVAL= - (=odbh_jread=/=odbh_jwrite=) buff is null and count is
+   not 0.
+ - =ODB_ECLOSED= - Call to =odbh_jclose= / =odbh_jread= / =odbh_jwrite= after the stream
+   has been marked as closed (either by =odbh_jclose= or otherwise).
+ - =ODB_EVERSION= - =jobtype= was not valid or not defined in this library's version
  - =ODB_EOPEN= - (=odbh_job=) Attempt to install another job before
-   the completion of the first job whilest in =ODB_JSEQ= mode.
+   the completion of the first job.
+ - =ODB_EPROTO= - (=odbh_jread=/=odbh_jwrite=) You failed to properly
+   follow protocol for the installed =jobtype=.
+ - =ODB_EPIPE= - The stream was deliberately broken by the host.
+ - =ODB_ECRIT= - The stream was broken for unexpected reasons (such as
+   bad network, host no longer responding, ect). The stream will be
+   marked as closed.
 
-* Examples
+* Voltility
 
-** TODO Piping 
+Depending on the type, the rules of what is atomic and what is not
+atomic vary. See [[See Also][odbh_jobtype_t]] for more information.
 
-#+BEGIN_SRC c
-// ...
-void *in_oids;
-void *outstuff;
-odbj_read(selecthandle, in_oids);
-odbj_write(selecthandle, outstuff);
-hhhhhhhhhmmmmmmmmmmmmmmmmmmmmm need to poll here or something?
-odbj_read(selecthandle, in_oids);
-odbj_write(selecthandle, outstuff);
+A single handle may conduct a single job at any given time. If you
+wish to execute multiple jobs at once, you may do so via multiple
+handles all executing their own jobs. I will remind you though that
+every handle must have its own thread. If you attempt to execute
+multiple jobs on the same thread you'll run into deadlocks that will
+slow down the rest of the database.
 
-// ...
-#+END_SRC
 
 * See Also
 
  - [[./odbh.org][OidaDB Handles]]
- - [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]]
-
-an error that can happen with edbh_job is that the caller has too many
-jobs open: "too many" means they have more jobs open concurrently then
-there are threads. If we allow more jobs to remain open than threads, this
-will cause a deadlock sense all threads (ie: 2) will be doing something,
-if we have a 3rd job also open and streaming into, that third jobs buffer
-will fill up and then block. The original 2 jobs will then never have
-their buffers cleared. Dead locks can also happen due to a full edbp cache.
-
-This only applies to "open buffer" jobs though. If the job has been fully
-installed then no deadlock can happen.
-
-Further more, we can have multiple handles (ie: 4) all have an open buffer
-job installed and this will not cause a deadlock hmmm
-
-If we have 2 workers, 3 handles h1, h2, h3 . Each handle installs 1 open
-buffer job j1, j2, j3... no dead lock.
-
-But what if 1 handle installed 2 jobs j4 thus:
-
-h1 -> j1*
-h2 -> j2
-h3 -> j3, j4*
-
-* = worker adopted job.
-
-No... no deadlock. Sense each handle is on its own thread, they will all
-clear buffers so the worker will always be able to move on.
-
-Make sure handles are installed on different threads!
+ - [[./odb_elm_jobs.org][Jobs]] - A high-level overview of OdbaDB jobs and their life
+   cycle. As well as discussion and advise for increasing performance.
+ - [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]] - For specifications on protocols of job
+   types. This is required reading to properly use =odbh_jread= and
+   =odbh_jwrite=.
+ - [[./odbh_jobflags][=odbh_jobflags_t=]] - Optional flags and modifiers for installing
+   jobs.

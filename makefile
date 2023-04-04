@@ -23,7 +23,7 @@ COMMITS=$(shell git rev-list --all --count)
 LASTCOMMIT=$(shell git log -1 --format=%cI)
 REVISION=$(shell git log -1 --format=%H)
 TODOCOUNT=$(shell grep -rne 'todo:' | wc -l)
-LINECOUNT=$(shell ( find ./spec ./c.src -type f -print0 | xargs -0 cat ) | wc -l)
+LINECOUNT=$(shell ( find ./spec ./c.src ./man -type f -print0 | xargs -0 cat ) | wc -l)
 build/metrics.m4: .force
 	@mkdir -p build
 	echo 'dnl' > $@
