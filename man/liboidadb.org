@@ -69,7 +69,7 @@ you're ready to begin.
  6. [[./elements.org][OidaDB Elements]] - The fundemental building blocks of every database
     1. [[./odb_elm_jobs.org][Jobs]]
 	2. [[./odb_elm_objects][Objects]]
-	3. [[./odb_elm_structs][Structures]] 
+	3. [[./odb_elm_structs.org][Structures]]
 	4. [[./odb_elm_entities][Index & Entities]]
 	5. Dynamics
 	6. Lookups
@@ -77,7 +77,7 @@ you're ready to begin.
     1. [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]]
     2. [[./odbh_job.org][=odbh_job=]]
 	3. [[./odbh_poll.org][=odbh_poll=]]
- 8. [[./routines.org][Routines]] - Arbitrary programming for OidaDB
+ 8. [[./routines.org][Routines]] - Programming for OidaDB
 
 * Appendix
  - Glossery
