@@ -1,0 +1,74 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_createparams_t - Database creation/initialization parameters
+
+* Synopsis
+
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+typedef struct odb_createparams_t {
+
+	uint16_t page_multiplier;
+	uint16_t structurepages;
+	uint16_t indexpages;
+
+} odb_createparams_t;
+
+const odb_createparams_t odb_createparams_defaults;
+#+END_SRC
+
+* Description
+** =odb_createparams_defaults= - Default values
+This constant value can be use in place of discovering your own needs
+in favor of the recommended values for those who are not seeking to
+get the absolute max out of OidaDB.
+
+** =page_multiplier= - Database Page multiplier.
+This is a multiplier for the overall page size of the database. This
+cannot be changed after the database's creation.
+
+Must be either 1, 2, 4, or 8.
+
+If you don't know what this is or how databases work, set it to 2 and
+move on.
+
+*** Advanced
+If you're still reading its because you know exactly what page sizes
+are and how they effect databases. So let me derive for you the
+information that you should be aware about regarding oidadb compared
+to other databases...
+
+Although larger page sizes are typically associated with faster
+database performance (see the mariadb.com article in see also), what
+must be considered is the heavy multi-threaded environment that oidadb
+is in compared to other databases. A single page can only be accessed
+by a single worker at a given time (note though workers can often take
+turns accessing a page within the same job). But because of this, if
+you have a massive page size, this means a single work will "lock"
+more data than it needs too.
+
+On the other hand, larger page sizes will reduce CPU time due to less
+calcuations needed to find pages sense their will be so far fewer of
+them.
+
+If you wish to truly optimize this number, it will take some
+testing. But with that said, I can provide you with some heuristics
+that I'm sure you'll agree with. I'll split it up into /volume/ (the
+amount of bytes read/write) and /frequency/ (the avg. amount of
+concurrent jobs) . These metrics completely abstract, though.
+
+ - For high volume, low frequency: use a large page size
+ - For low volume, high frequency: use a small page size.
+ - For equal volume and frequency: use a medium page size
+
+** =structurepages=
+The total number of structure pages the database will have.
+
+Recommended value is 32 for beginners.
+** =indexpages=
+The number of index pages the database will have.
+
+Recommended value is 32 for beginners.
+* See Also
+ - [[./odb_create.org][=odb_create=]]
+ - [[https://mariadb.com/resources/blog/does-innodb-page-size-matter/][MariaDB's Discussion on Page Sizes]]

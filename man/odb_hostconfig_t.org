@@ -1,0 +1,107 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_hostconfig_t - Hosting Configuration
+
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+typedef struct odb_hostconfig_t {
+
+
+	unsigned int job_buffq;
+	unsigned int job_transfersize;
+	unsigned int event_bufferq;
+	unsigned int worker_poolsize;
+	uint32_t slot_count;
+
+	/* ... */
+
+} odb_hostconfig_t;
+
+const odb_hostconfig_t odb_hostconfig_default
+#+END_SRC
+
+* Description
+
+** =job_buffq=
+
+Job buffer size The host will manage memory that will be shared
+between host and handles known as the job buffer. Submitting a job
+entails writing to the job buffer.
+
+Installed jobs will stay there until a worker goes through and
+completes that job. If the job buffer fills up, subsequent calls that
+interact with this buffer will start blocking.
+
+The optimal job buffer is related to the worker_poolsize, the speed of
+individual cores of the hardware, and the frequency of expensive
+operations.
+
+The job buffer must be greater than 0 and /should/ (but not required)
+be equal or larger than worker_poolsize; otherwise, you risk workers
+doing nothing but taking up resources.
+
+A good heuristic here is to have the buffer size equal to the
+worker_poolsize squared:
+
+ - job_buffersize = worker_poolsize * worker_poolsize
+
+** =job_transfersize=
+
+Job Transfer Buffer size The amount of Transfer Buffer that is
+allocated for each job in the job buffer. The Transfer Buffer acts as
+the input/output of a given job between the host and the handle that
+submitted the job.
+
+This must be at least 1... but that is very much not recommended. For
+maximum efficiency, it's recommend that this be a multiple of the
+system page size (=sysconf(_SC_PAGE_SIZE)=). For databases that will
+experience larger amounts of data transfer, this number should be
+bigger. There's no drawback for having this number too big other than
+unnecessary allocation of memory.
+
+For the most part, =1 * sysconf(_SC_PAGE_SIZE)= will be suitable for
+most applications both big and small. Unless you expect data to be
+transferred between host and handle to exceed that.
+** =event_bufferq=
+Event Buffer size As things happen in the database (something is
+updated/deleted/ect) this will constitute as an "event". This event is
+then stored in the event buffer which can be read by handles. Handles
+must read this buffer before newer events start to replace the older
+ones to stay up to date.
+
+Small buffers save memory but can result in more lost-events for
+slower performing handles. There's no scientific way to completely
+remove the chance of lost events, at least not in the functionality of
+this library alone. This is because the collection of events by their
+respective handlers is not allowed to compromise the efficiency of the
+database (ie. if 1 handle is being very slow, oidabd is designed to
+prevent that slowness from spreading to other handles).
+
+This must be at least 1. The proper buffer size is directly related to
+the amount of operations per second and the speed of the handles. A
+good heuristic would be 32 for new users. Once you start seeing event
+loss, you should first work on the efficiency of handles and then look
+to increasing this number.
+** =worker_poolsize=
+Worker pool size The worker pool count that will be managed to execute
+jobs. On paper, the optimial amount of workers is equal to the number
+of cores on the hardware (see get_nprocs(2)). But it is up to you to
+and your knowledge of your hardware to decide.
+
+worker_poolsize must be at least 1. Note that if worker_poolsize is
+indeed 1 this will result in no new workers to be created outside the
+thread that was used to call edb_host.
+
+** =slot_count=
+Slot Count AKA Page Buffer.
+
+Jobs sent to the database will need to move pages to and from the
+underlying storage and memory. Thus pages that are moved into memory
+are moved into what are known as slots.
+
+=slot_count= cannot be smaller than =worker_poolsize=.
+
+At the time of writting this, I really have no idea what would be the
+optimal page buffer. More research needed. Lets just say it'll be 4x
+the worker size.... why not.

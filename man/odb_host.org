@@ -1,0 +1,69 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_host - Hosting OidaDB Files
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+edb_err odb_host    (const char *path, odb_hostconfig_t hostops);
+edb_err odb_hoststop();
+#+END_SRC
+
+* Description
+
+Starts hosting a database for the given OidaDB file located at =path=.
+
+=odb_host= will place special locks and hints on the file that will
+prevent other processes and threads from trying to host it.
+
+=odb_host= will block the calling thread and will only (naturally)
+return once =odb_hoststop= is called on a separate thread. Any time a
+host has been shut down in this manner will return non-errornous.
+
+There is a boat load of configuration available, these are discussed
+inside of [[./odb_hostconfig_t.org][=odb_hostconifg_t=]]. Use =odb_hostconfig_default= if this
+sounds scary though.
+
+* Threading
+=odb_host= must only be called once a given process and wait for it to
+return before calling it again, regardless of which thread.
+
+=odb_hoststop= is to be called on a seperate thread than =odb_host=
+but on the same process.
+
+The aforementioned write-locks use Open File Descriptors (see
+fcntl(2)), this means that attempts to open the same file in two
+separate threads will behave the same way as doing the same with two
+separate processes. This also means the host can be used in the same
+process as the handles (though its recommended not to do this on the
+basis of good engineering and departmentalizing crashes).
+
+Only 1 =odb_host= can be active per process.
+
+=odb_hoststop= must be called in the same process as odb_host.
+
+* Errors
+
+=odb_host= can return:
+
+ - =EDB_EINVAL= - hostops is invalid and/or path is null
+ - =EDB_EERRNO= - Unexpected error from stat(2) or open(2), see errno.
+ - =EDB_EOPEN= - Another process is already hosting this file.
+ - =EDB_EAGAIN= - odb_host is already active.
+ - =EDB_EFILE= - Path is not a regular file.
+ - =EDB_EHW= - this file was created on a different (non compatible)
+   architecture and cannot be hosted on this machine.
+ - =EDB_ENOTDB= - File is invalid format, possibly not a database.
+ - =EDB_ENOMEM= - Not enough memory to reliably host database.
+ - =EDB_ECRIT=
+
+=odb_hoststop= can return
+
+ - =EDB_EAGAIN= - odb_host is in the process of booting up. try again
+   in a little bit.
+ - =EDB_ENOHOST= - odb_host not active at all.
+
+* See Also
+
+ - [[./odb_create.org][=odb_create=]]
+ - [[./odb_hostconfig_t.org][=odb_hostconfig_t=]]

@@ -1,0 +1,55 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_handle - Creating a handle on a hosted database
+
+* Synopsis
+
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odb_handle     (const char *path, odbh **o_handle);
+void    odb_handleclose(odbh *handle);
+#+END_SRC
+
+* Description
+
+This is how one "connects" to a database that is being hosted. This
+will return a handle to which you an use to submit jobs and monitor
+the database as a client. Once a handle is obtained successfully, you
+are then to use the [[./odbh.org][=odbh_*= family]].
+
+=odb_handleclose= is a safe function. It will ensure that =handle= is not
+null and not already free'd.
+
+=path= is a path to a file that is currently being hosted.
+
+=o_handle= is a pointer-to-output. You just need to allocate where to
+place the pointer itself, memory allocation is handled between
+odb_handle (allocations) and odb_handleclose (frees).
+
+* Error
+
+ - =EDB_EINVAL= - o_handle is null/path is null.
+ - =EDB_EINVAL= - params.path is null
+ - =EDB_EERRNO= - error with open(2), (ie, file does not exist, permssions, see errorno)
+ - =EDB_ENOHOST= - file is not being hosted
+ - =EDB_ENOTDB= - file/host is not oidadb format/protocol
+ - =EDB_ENOMEM= - not enough memory
+ - =EDB_ECRIT=
+
+
+* Threading
+
+=odb_handle= can be called on any thread, though all [[./odbh.org][odbh methods]]
+requiring the returned handle must be called on the same thread that
+=odb_handle= was originally called from, including =odb_handleclose=.
+
+You should not generate more than 1 handle per thread, using multiple
+handles from the same thread can cause deadlocks in rare cases.
+
+In conclusion, all threads (regardless of process) must have either 0
+or 1 handle active at any given time.
+
+* See Also
+
+ - [[./odbh.org][The =odbh_*= family]]
+ - [[./odb_host.org][=odb_host=]]

@@ -1,0 +1,46 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_hostpoll - Listen for hosting status changes
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odb_hostpoll(const char *path, odb_event event, odb_event *o_env);
+#+END_SRC
+
+* Description
+
+Wait for hosting-related events on a file.
+
+Anytime you want to "listen" to a given file and have your thread wait
+around for a particular event(s), use this function.
+
+Calling this odb_hostpoll (on a valid file) will block the caller
+until an event that was included into the odb_event bitmask is
+triggered. See below for specific information about each event.
+
+odb_event is a bitwise-OR'd mask of which events you'd like to wait around
+for. ODB_EVENT_ANY can be used to select any event.
+
+You may also optionally provide o_env so that when that when an event
+is triggered, o_env will specify which event had triggered.
+
+Only one event is returned per call. Note that events will be
+triggered retroactively.
+
+ - ODB_EVENT_HOSTED - Triggered when the file is now hosted, or is
+   currently hosted when odb_hostpoll was called.
+
+ - ODB_EVENT_CLOSED - Triggered when the file's host has closed, or is
+   currently closed when odb_hostpoll was called.
+
+* Threading
+
+=odb_hostpoll= can be called from any thread.
+
+* Errors
+
+ - =EDB_EINVAL= - event was not an allowed value
+ - =EDB_EINVAL= - path was null
+ - =EDB_ENOENT= - file does not exist.
+ - =EDB_ECRIT=

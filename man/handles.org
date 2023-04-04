@@ -1,0 +1,25 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: Hosting and Handles
+
+Everything needed to host a oidadb file, and everything to connect to
+such host.
+
+After a oidadb file has been created, it is now ready to be
+hosted. Hosting means to give a process special & exclusive rights to
+that file. A file can only be attached to a single hosting process at
+a given time.
+
+Once a file is hosted, an unlimited number of processes can connect to
+the host and establish what are known as handles on that file. Handles
+need to be provided the file location and can then find the host based
+on hints set by both the file and OS as to what is the host process.
+
+Handles can submit jobs, read events, and read telemetry. A host does
+everything else. Host/handle is a server/client relationship.
+
+* Contents
+
+ 1. [[./odb_host.org][=odb_host=]] - Hosting OidaDB Files
+ 2. [[./odb_hostconfig_t.org][=odb_hostconfig_t=]] - Host Configuration
+ 3. [[./odb_hostpoll.org][=odb_hostpoll=]] - Listening for database status changes
+ 4. [[./odb_handle.org][=odb_handle=]] - Getting handles for a hosted database
