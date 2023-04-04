@@ -5,6 +5,7 @@
 
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
+
 odb_err odbh_job   (odbh *handle, odb_jobtype_t jobtype, odb_jobflag_t flags);
 odb_err odbh_jwrite(odbh *handle, const void *buf, int bufc);
 odb_err odbh_jread (odbh *handle, void *o_buf, int bufc);
