@@ -1,31 +1,11 @@
 #+bSETUPFILE: ./0orgsetup.org
-#+TITLE: odbh_jobdesc_t: Job Descriptions and Structures
+#+TITLE: odbh_jobtype_t: Job types and their protocols
 
-Every job is a combiniation of 1 function and 1 element that are
-bitwise-OR'd together. Not all combinations are valid.
+Here we describe the job types. Each job type specifies a framework,
+or *protocol* to which must be followed to execute the job.
 
-** Command
- - =ODB_CSELECT=
- - =ODB_CUPDATE= *
- - =ODB_CREAD=
- - =ODB_CREADMULTI=
- - =ODB_CFILTER=
- - =ODB_CWRITE= *
- - =ODB_CCREATE= *
- - =ODB_CDEL= *
-
-(/* requires write-access/)
-
-Note some common suffixes,
- - =-W= means a write action will occour
- - =-V= means a pointer-based write acction will occour
-
-** Element
- - =ODB_ELMSTRCT=
- - =ODB_ELMDYN=
- - =ODB_ELMOBJ=
- - =ODB_ELMENTS=
- - =ODB_ELMRTN=
+* odbh_jobflags_t
+** =ODB_JF_MUTED=
 
 * Common Protocol
 ** Die-Error
@@ -70,63 +50,45 @@ the handle find more appropriate.
 
 Routine management.
 
-* =ODB_ELMOBJ=
-
-** =ODB_ELMOBJ | ODB_CSELECT=, =ODB_ELMOBJ | ODB_CUPDATE= - Mass reading/read-writing
-
-When you need to read the an entire Object Entity's contents,
-=ODB_CSELECT= stream all objects in a given page range through to
-you. =ODB_CUPDATE= does the same but you will then also have to write
-back each row in its entirety.
+* Objects
+** =ODB_JCREATE= - Create a object
+This will create a new object for a given entity. If OidaDB can, it
+will reuse something that has previously been deleted. Thus, the
+returned oid may be one that has been returned before.
 
 *** Protocol
 
-The protocol is as follows in both =ODB_CSELECT= and =ODB_CUPDATE=:
-
-| Direction  | Name       | Datatype | Notes                                            |
-|------------+------------+----------+--------------------------------------------------|
-| odbj_write | eid        | odb_eid  | The entry id to which we will perform the select |
-| odbj_write | page_start | odb_pid  | The starting page offset (0 for entity start)    |
-| odbj_write | page_cap   | odb_pid  | The maximum amount of pages to select (-1 for all pages) |
-| odbj_read  | err        | odb_err  | [[Die-Error]]: See Errors                            |
-| odbj_read  | objc       | uint64_t | The number of objects that will follow           |
-
-In the case of =ODB_CSELECT=, the following will reapeat =objc= times:
-
-| Direction | Name   | Datatype | Notes                                  |
-|-----------+--------+----------+----------------------------------------|
-| odbj_read | object | [[usrobj]]   | user defined object structure of =eid= |
-
-/Or/, in the case of =ODB_CUPDATE=, the following will reapeat =objc= times:
-
-| Direction | Name   | Datatype | Notes                                                     |
-|-----------+--------+----------+-----------------------------------------------------------|
-| odbj_read | object | [[usrobj]] * | A [[stream-pointer]] to a usrobj that you can read/write too. |
+| Direction  | Name   | Datatype | Notes                                |
+|------------+--------+----------+--------------------------------------|
+| odbj_write | eid    | odb_eid  | The entity id to create a new object |
+| odbj_read  | err    | odb_err  | [[Die-Error]]: See Errors                |
+| odbj_read  | oid    | odb_oid  | The OID of the newly created item    |
+| odbj_write | object | [[usrobj]]   | The object data itself               |
 
 *** Errors
 
- - =ODB_ENOENT= - Entity (eid) not valid
+ - =ODB_ENOENT= - Entity not valid.
+ - =ODB_ENOSPACE= - No more space could be allocated for this entity.
+** =ODB_JDELETE= - Delete an object
 
-*** Remarks :tradesecret:
+Not much to talk about here. This will delete a given object.
 
-The reason this protocol begins with you specifying which pages to
-span is to allow you to take advantage of multi-threading. For
-example, if you needed to update an entire Entity that is 500 pages
-long while the host had 5 workers, then you can start 5 jobs with each
-having its exclusive 100 pages to update.
+*** Protocol
 
-In most enviroments, these commands are increadibly efficient compared
-to the technical competition. Most databases use record-level locking
-when performing their respective update operations. Installing such
-volume of locks is /extreamly/ costly. Other databases (ie MyISAM)
-installs table-level locking, thus needing only needing to install 1
-lock it is faster though really falls apart in a multithreaded
-enviroment. These operations use /page-level/ locking, and, stream out
-the entire pages to the handles to process (instead of streaming
-row-by-row). The design of this causes absurd efficieny between the
-CPU, memory, and network.
+| Direction  | Name | Datatype | Notes                                     |
+|------------+------+----------+-------------------------------------------|
+| odbj_write | oid  | odb_oid  | The object id you wish to delete/undelete |
+| odbj_read  | err  | odb_err  | [[Die-Error]]: See Errors                     |
 
-** =ODB_ELMOBJ | ODB_CREAD=, =ODB_ELMOBJ | ODB_CWRITE= - Read/Write an object's fixed-length data based off of its oid
+*** Errors
+
+ - =ODB_ENOENT= - Entity not valid
+ - =ODB_EEOF= - oid's object offset is so large that it is beyond a possible valid OID
+ - =ODB_EDELETED= - oid was found and valid, but has already been
+   deleted, so no action was performed. This error can be ignored in
+   most cases for obvious reasons.
+   
+** =ODB_JWRITE=, =ODB_JREAD= - Read/Write an object's fixed-length data based off of its oid
 
 This is the basic read/write options by-oid. In most
 heavily-engineered enviroments, these jobs probably won't be the most
@@ -158,40 +120,94 @@ Then, for =ODB_CREAD=:
  - =ODB_EDELETED= - Object is marked as deleted
  - =ODB_EEOF= - oid's object offset is beyond
 
-** =ODB_ELMOBJ | ODB_CDEL=, =ODB_ELMOBJ | ODB_CDELX=, =ODB_ELMOBJ | ODB_CUNDEL= - Delete / undelete an object
+** =ODB_JSELECT=, =ODB_JUPDATE= - reading/writing of all objects in an entity
 
-Unlike the normal create-then-delete paradigm, you have the ability to
-delete an object by its oid then re-use that deleted oid at a later
-time by manually taking it out of the trash.
+When you need to read the an entire Object Entity's contents,
+=ODB_CSELECT= stream all objects in a given page range through to
+you. =ODB_CUPDATE= does the same but you will then also have to write
+back each row in its entirety.
 
-
-Do not be confused by the
-word "re-used" When an object is placed in the trash,
-
-
-hmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm do I need excluisve manual-oid delets?????
+The reason this protocol begins with you specifying which pages to
+span is to allow you to take advantage of multi-threading. For
+example, if you needed to update an entire Entity that is 500 pages
+long while the host had 5 workers, then you can start 5 jobs with each
+having its exclusive 100 pages to update.
 
 *** Protocol
 
-| Direction  | Name | Datatype | Notes                                     |
-|------------+------+----------+-------------------------------------------|
-| odbj_write | oid  | odb_oid  | The object id you wish to delete/undelete |
-| odbj_read  | err  | odb_err  | [[Die-Error]]: See Errors                     |
+The protocol is as follows in both =ODB_CSELECT= and =ODB_CUPDATE=:
+
+| Direction  | Name       | Datatype | Notes                                            |
+|------------+------------+----------+--------------------------------------------------|
+| odbj_write | eid        | odb_eid  | The entry id to which we will perform the select |
+| odbj_write | page_start | odb_pid  | The starting page offset (0 for entity start)    |
+| odbj_write | page_cap   | odb_pid  | The maximum amount of pages to select (-1 for all pages) |
+| odbj_read  | err        | odb_err  | [[Die-Error]]: See Errors                            |
+| odbj_read  | objc       | uint64_t | The number of objects that will follow           |
+
+In the case of =ODB_JSELECT=, the following will reapeat =objc= times:
+
+| Direction | Name   | Datatype | Notes                                  |
+|-----------+--------+----------+----------------------------------------|
+| odbj_read | object | [[usrobj]]   | user defined object structure of =eid= |
+
+/Or/, in the case of =ODB_JUPDATE=, the following will reapeat =objc= times:
+
+| Direction | Name   | Datatype | Notes                                                     |
+|-----------+--------+----------+-----------------------------------------------------------|
+| odbj_read | object | [[usrobj]] * | A [[stream-pointer]] to a usrobj that you can read/write too. |
 
 *** Errors
 
- - =ODB_ENOENT= - Entity not valid
- - =ODB_EEOF= - oid's object offset is beyond
+ - =ODB_ENOENT= - Entity (eid) not valid
 
-** =ODB_ELMOBJ | ODB_CCREATE= - Create a record
+*** Remarks :tradesecret:
+
+In most enviroments, these commands are increadibly efficient compared
+to the technical competition. Most databases use record-level locking
+when performing their respective update operations. Installing such
+volume of locks is /extreamly/ costly. Other databases (ie MyISAM)
+installs table-level locking, thus needing only needing to install 1
+lock it is faster though really falls apart in a multithreaded
+enviroment. These operations use /page-level/ locking, and, stream out
+the entire pages to the handles to process (instead of streaming
+row-by-row). The design of this causes absurd efficieny between the
+CPU, memory, and network.
 
 
 
 
-** =ODB_ELMOBJ | EDB_CREADMULTI= - Read multiple objects
+** TODO =ODB_JREAD_STREAM=, =ODB_JWRITEMULTI= - Read/update multiple existing objects by their OIDs
+I can probably delete these
+*** Protocol
 
-Note that if the oids ordered you can expect this function to go much
-faster.
+We make use of a stream-friendly protocol here. This will allow you to
+pass an undertermained amount of objects into this stream.
+
+The protocol consists of repeating the following an unlimited amount
+of times until =odbj_close= is called.
+
+| Direction  | Name   | Datatype | Notes                                |
+|------------+--------+----------+--------------------------------------|
+| odbj_write | oids   | odb_oid  | The entity id to create a new object |
+| odbj_read  | err    | odb_err  | [[Die-Error]]: See Errors                |
+| odbj_read  | oid    | odb_oid  | The created OID                      |
+| odbj_write | object | [[usrobj]]   | The object data itself               |
+
+*** Errors
+
+ - =ODB_ENOENT= - Entity not valid.
+ - =ODB_ENOSPACE= - No more space could be allocated for this entity.
+
 
  <- []oid... 0 (null terminated)
  -> odb_err + void *rowdata (for each oid)
+*** Remarks
+Note that if the oids are in accending order you can expect this
+function to go much faster than if they were not.
+* See Also
+ - [[./odbh.org][OidaDB Handles]]
+ - [[./odb_elm_jobs.org][Jobs]] - A high-level overview of OdbaDB jobs and their life
+   cycle. As well as discussion and advise for increasing performance.
+ - [[odbh_job.org][=odbh_job=]] - Functions to install jobs and to read, write, and
+   close the transfer buffer.
