@@ -1,0 +1,17 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_struct_t: Object structure paremeters
+
+* =odb_struct_t=
+
+#+BEGIN_SRC c
+typedef struct odb_struct_t {
+	uint16_t    fixedc;
+	uint16_t    confc;
+	uint16_t    rsvd;
+	uint8_t     flags;
+	uint8_t     data_ptrc;
+
+	// const uint8_t *subpagesizes; // = (edb_struct_t*) + sizeof(edb_struct_t)
+	// const void    *confv;        // = (edb_struct_t*) + sizeof(edb_struct_t) + sizeof(uint8_t) * data_ptrc
+} odb_struct_t;
+#+END_SRC

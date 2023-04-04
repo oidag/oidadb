@@ -1,4 +1,4 @@
-#+bSETUPFILE: ./0orgsetup.org
+#+SETUPFILE: ./0orgsetup.org
 #+TITLE: odbh_jobtype_t: Job types and their protocols
 
 Here we describe the job types. Each job type specifies a framework,
@@ -45,10 +45,6 @@ result in a segfault.
 referencing data thats being temporarly held in the handle, or, may
 even be referencing data strait out of the database file... whichever
 the handle find more appropriate.
-
-* =ODB_ELMRTN=
-
-Routine management.
 
 * Objects
 ** =ODB_JCREATE= - Create a object
@@ -174,40 +170,66 @@ the entire pages to the handles to process (instead of streaming
 row-by-row). The design of this causes absurd efficieny between the
 CPU, memory, and network.
 
+* Structures
+** =ODB_JSTRCTCREATE= - Create an structure
 
+Create a new structure
 
-
-** TODO =ODB_JREAD_STREAM=, =ODB_JWRITEMULTI= - Read/update multiple existing objects by their OIDs
-I can probably delete these
 *** Protocol
 
-We make use of a stream-friendly protocol here. This will allow you to
-pass an undertermained amount of objects into this stream.
+| Direction   | Name      | Datatype     | Notes                       |
+|-------------+-----------+--------------+-----------------------------|
+| odbh_jwrite | odbstruct | [[See Also][odb_struct_t]] | See above                   |
+| odbh_jread  | error     | odb_err      | See Errors                  |
+| odbh_jread  | sid        | odb_sid      | The newly created structure id |
 
-The protocol consists of repeating the following an unlimited amount
-of times until =odbj_close= is called.
+*** TODO Errors
 
-| Direction  | Name   | Datatype | Notes                                |
-|------------+--------+----------+--------------------------------------|
-| odbj_write | oids   | odb_oid  | The entity id to create a new object |
-| odbj_read  | err    | odb_err  | [[Die-Error]]: See Errors                |
-| odbj_read  | oid    | odb_oid  | The created OID                      |
-| odbj_write | object | [[usrobj]]   | The object data itself               |
+** =ODB_JSTRCTDELETE= - Delete an structure
 
-*** Errors
+Delete an existing structure
 
- - =ODB_ENOENT= - Entity not valid.
- - =ODB_ENOSPACE= - No more space could be allocated for this entity.
+*** Protocol
 
+| Direction   | Name  | Datatype | Notes                         |
+|-------------+-------+----------+-------------------------------|
+| odbh_jwrite | sid    | odb_sid  | The structure you wish to delete |
+| odbh_jread  | error | odb_err  | See Errors                    |
 
- <- []oid... 0 (null terminated)
- -> odb_err + void *rowdata (for each oid)
-*** Remarks
-Note that if the oids are in accending order you can expect this
-function to go much faster than if they were not.
+*** TODO Errors
+
+* Entities
+** =ODB_JENTCREATE= - Create an entity
+
+Create a new entity
+
+*** Protocol
+
+| Direction   | Name      | Datatype     | Notes                       |
+|-------------+-----------+--------------+-----------------------------|
+| odbh_jwrite | odbstruct | [[See Also][odb_entity_t]]  | See above                   |
+| odbh_jread  | error     | odb_err      | See Errors                  |
+| odbh_jread  | eid       | odb_eid      | The newly created entity id  |
+
+*** TODO Errors
+
+** =ODB_JENTDELETE= - Delete an entity
+
+Delete an existing entity
+
+*** Protocol
+
+| Direction   | Name  | Datatype | Notes                         |
+|-------------+-------+----------+-------------------------------|
+| odbh_jwrite | eid   | odb_eid  | The entiiy you wish to delete  |
+| odbh_jread  | error | odb_err  | See Errors                    |
+
+*** TODO Errors
+* Dynamics
 * See Also
  - [[./odbh.org][OidaDB Handles]]
  - [[./odb_elm_jobs.org][Jobs]] - A high-level overview of OdbaDB jobs and their life
    cycle. As well as discussion and advise for increasing performance.
  - [[odbh_job.org][=odbh_job=]] - Functions to install jobs and to read, write, and
    close the transfer buffer.
+ - [[./odb_elm_structs.org][odb_struct_t]]
