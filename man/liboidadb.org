@@ -16,12 +16,12 @@ error handling. /Your/ software will use this library and gain the
 aformentioned accessability without the worry of those things.
 
 If you have previous experiances with other database such as OidaDB's
-so called /competition/ such as MySQL, MariaDB, Oracle, SAP, RocksDB,
-MongoDB, ect., just go ahead and forget everything you know about
-those products. OidaDB is very different from anything else you may
-have used. Though your technical knowledge of the underlining system
-(linux & general computer technology) will benifit your OidaDB
-experiance greatly.
+so called such as MySQL, MariaDB, Oracle, SAP, RocksDB, MongoDB, ect.,
+just go ahead and forget everything you know about those
+products. OidaDB is very different from anything else you have
+used. Though your technical knowledge of the underlining system (linux
+& general computer technology) will benifit your OidaDB experiance
+greatly.
 
 * Installation
 The library file, =liboidadb.so= (sometimes with version number before
@@ -47,7 +47,6 @@ int main()
 With =gcc main.c -loidadb && a.out=. If you see OidaDB's version,
 you're ready to begin.
 
-
 * Index
  1. [[./preface.org][Preface]]
     1. [[./hardware.org][Hardware]] - Hardware information
@@ -72,24 +71,16 @@ you're ready to begin.
 	2. [[./odb_elm_objects][Objects]]
 	3. [[./odb_elm_structs.org][Structures]]
 	4. [[./odb_elm_entities.org][Index & Entities]]
-	5. Dynamics
-	6. Lookups
+	5. Dynamics - coming soon
+	6. Lookups - coming soon
 	7. [[./odb_elm_events.org][Events]]
  7. [[./odbh.org][The OidaDB Handle]]
     1. [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]]
     2. [[./odbh_job.org][=odbh_job=]]
 	3. [[./odbh_poll.org][=odbh_poll=]]
- 8. [[./routines.org][Routines]] - Programming for OidaDB
+ 8. Routines - coming soon
 
 * Appendix
-** Glossary
-(todo: alphabetically sort when done)
-
- - Pages: [[Pages]]
- - Table: [[Tables]]
- - Objects: [[Objects]]
- - Rows: [[Rows]]
-
 ** See Also
 Here's some continued reading that influanced OidaDB in one way or
 another:
@@ -112,109 +103,3 @@ another:
    - (Part VII)
    - Shoutout to Postgres team
 
-* Configuration
-Also note here that configuration is the core database. For network
-configuration, see Architectual Configuration
-** Page Size
-** Memory Settings
-** Network Settings
-* Architectual Configuration
-** Network
-** Nodes
-Make sure to warn them about overly complex architecutres in leu of
-just using a single machine.
-** Node Polymorphism
-** Host Nodes
-** Event Nodes
-** Maintance Nodes
-** Index Nodes
-* Initialization
-** Configuring
-** Hosting
-** Connecting
-* Errors
-** Error Conventions
-Talk about error levels.
-** Error Definitions
-Talk about the error enum
-** Critical Errors
-* Jobs
-everything below this heading should be jobs (structures, entries, ect)
-
- - make a note on how a single process/thread can install multiple
-   jobs but despite the handle running single threaded, the host will
-   always execute jobs mutli-threaded.
-
-** Job Lifecycle
-** Installing
-** Job Buffers
-** Failed Jobs
-* Structures
-** Structure Index
-** Structure Anatomy
-Make sure to talk about how they're stupid, deliberately.
-** Creating Structures
-** Updating Structures
-Talk about how you can't delete structures, only recreate
-** Deleting Structures
-* Entries
-** Tables
-** Entry Index
-** Entry Anatomy
-*** Minimum Page Straits
-** Creating Entries
-** Updating Entries
-** Deleting Entries
-* Objects
-** Rows
-** Creating Objects
-** Updating Objects
-** Deleting Objects
-** Parallel Executions
-** Trash Management
-*** Trash Faults
-** User Locks
-* Dynamics
-** Dynamic Configuration
-* Lookups
-** Native Lookups
-** Extended Lookups
-* Automatted Maintance
-** Defragging
-** Excretion
-* Notes
-
- - OidaDB (natively) does NOT contain any permission other the ones
-   inheritted from the file. The concept of restricting users to
-   certain records is not built in. This is up to you to implement.
-
-* Appendix
-** Glossary
-(todo: alphabetically sort when done)
-
- - Pages: [[Pages]]
- - Table: [[Tables]]
- - Objects: [[Objects]]
- - Rows: [[Rows]]
-
-** See Also
-Here's some continued reading that influanced OidaDB in one way or
-another:
-
- - https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout
- - https://www.percona.com/blog/2019/11/12/watch-out-for-disk-i-o-performance-issues-when-running-ext4/
- - https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html
- - http://www.dba-oracle.com/t_row_locks_vs_table_locks.htm
- - https://blog.jcole.us/2013/01/03/the-basics-of-innodb-space-file-layout/
- - https://blog.jcole.us/2013/01/07/the-physical-structure-of-innodb-index-pages/
- - https://blog.jcole.us/2013/01/04/page-management-in-innodb-space-files/
- - https://blog.jcole.us/2013/01/10/btree-index-structures-in-innodb/
- - https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-row-format.html
- - https://www.youtube.com/watch?v=0Dj96yFl1SE
- - https://www.cs.cmu.edu/~christos/courses/721-resources/p297-o_neil.pdf
- - https://mariadb.com/resources/blog/does-innodb-page-size-matter/
- - https://dev.mysql.com/doc/refman/5.7/en/sorted-index-builds.html
- - https://en.wikipedia.org/wiki/R-tree
- - https://www.postgresql.org/files/documentation/pdf/15/postgresql-15-A4.pdf
-   - (Part VII)
-   - Shoutout to Postgres team

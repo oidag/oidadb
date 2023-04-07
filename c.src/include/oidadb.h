@@ -41,48 +41,6 @@ typedef struct odbh odbh;
  *
  ********************************************************************/
 
-// RW Conjugation
-//
-// Function groups that use this conjugation all have 2 parameters,
-// the first parameter being a pointer to the handle and the second
-// being a structure of the specific item. -copy will be
-// pass-by-refrence in the second parameter.
-//
-//  -copy(*handle, *struct)
-//  -write(*handle, struct)
-//
-// The second parameter's structure will contain a void pointer named
-// "binv" (array of binary) as well as an id simply called "id". It
-// may also contain some other fields not covered in this
-// description. But the behaviour of binv will be dictated by the
-// choice of the conjugation.
-//
-// This conjugation contains -copy and -write.
-//
-//   -copy will copy binc bytes into memory pointed by binv. Thus, it
-//   is up to the caller to manage that memory. Obtaining the proper
-//   binc varies depending on the use of this conjugation.
-//
-//   -write binv should point to the data to which will be written to
-//   the database. Write also takes into account id to determain the
-//   nature of the operation:
-//
-//     - creating: id  = 0, binv != 0
-//     - updating: id != 0, binv != 0
-//     - deleting: id != 0, binv  = 0
-//
-// THREADING: -copy and -write are both threadsafe. The exact
-//   mechanics of how this obtained depends on the use of this
-//   conjugation. But the caller can rest assured that they are thread
-//   safe.
-//
-//   Note that subsequent -copy calls can yeild different results due
-//   to interweaving -write calls. Furthermore, structure values
-//   passed through -write are not guarnteed to be returned by
-//   subsequent -read calls, even on the same thread. As long as the
-//   -write call is valid, it will only be scheduled, it may take time
-//   for it to fully process.
-
 
 
 
@@ -348,7 +306,7 @@ odb_err odb_log_poll(odbh *handle, odb_log_t *o_log);
  * Upon successful execution, the file can then be opened in \ref odb_host
  * and \ref odb_handle.
  *
- * When using odb_create, you must study \ref odb_createparams. As there are
+ * When using odb_create, you must study \ref odb_createparams_t. As there are
  * many aspects of the database that cannot be changed after creation without
  * a ton of hassle.
  *
@@ -364,7 +322,7 @@ odb_err odb_log_poll(odbh *handle, odb_log_t *o_log);
 /**
 * \brief Parameters used for creation-time in the oidadb lifecycle.
 */
-typedef struct odb_createparams {
+typedef struct odb_createparams_t {
 
 	/**
 	 * \brief Database Page multiplier
@@ -432,18 +390,18 @@ typedef struct odb_createparams {
 	 */
 	uint16_t indexpages;
 
-} odb_createparams;
+} odb_createparams_t;
 
 /**
  * \brief Default parameters for a typical beginner.
  */
-static const odb_createparams odb_createparams_defaults = (odb_createparams){
+static const odb_createparams_t odb_createparams_defaults = (odb_createparams_t){
 		.page_multiplier = 2,
 		.indexpages = 32,
 		.structurepages = 32,
 };
-odb_err odb_create(const char *path, odb_createparams params);
-odb_err odb_createt(const char *path, odb_createparams params); // truncate existing
+odb_err odb_create(const char *path, odb_createparams_t params);
+odb_err odb_createt(const char *path, odb_createparams_t params); // truncate existing
 
 /**\}*/
 /**\}*/
@@ -850,6 +808,7 @@ typedef enum odb_cmd {
 	ODB_CDEL    = 0x0400,
 	ODB_CUSRLKR  = 0x0500,
 	ODB_CUSRLKW  = 0x0600,
+	ODB_CSELECT  = 0x0700,
 } odb_cmd;
 
 // odb_jobclass must take only the first 4 bits. (to be xor'd with
@@ -946,7 +905,25 @@ typedef enum odb_jobclass {
 
 
 // OR'd together values from odb_jobclass and odb_cmd
-typedef unsigned int odb_jobdesc;
+typedef enum odb_jobdesc {
+
+	// Objects
+	ODB_JCREATE
+	, ODB_JDELETE
+	, ODB_JWRITE
+	, ODB_JREAD
+	, ODB_JSELECT
+	, ODB_JUPDATE
+
+	// Structure
+	, ODB_JSTRCTCREATE
+	, ODB_JSTRCTDELETE
+
+	// Entities
+
+	// Dynamics
+
+} odb_jobdesc;
 
 
 /**
