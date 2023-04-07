@@ -1,0 +1,54 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: Events, the event buffer, database event stream
+
+A hosted OidaDB database will have hosted what is known as the *Event
+Buffer*. This is a special buffer that the host fills up with events
+that all handles can listen too so that the handles can stay
+up-to-date with the changes made by other handles.
+
+Everytime the host adds an event to the Event Buffer, it is
+broadcasted to all connected handles as equals, regardless of which
+handle had been resposible for the event's creation. For example, if
+Handles A, B, and C are all connected to a Host, if Handle A were to
+install a Job that invokes an event, this event can possibily be
+broadcasted to Handles B and C even before Handle A.
+
+* Event Stream
+The event stream is one of the distinct features of OidaDB. Everytime
+something in the database changes, this change is logged in what is
+known as the *Event Buffer*. Handles can then optionally listen to the
+Event Buffer and poll for the flow of events. This allows Hanldes to
+remain updated on what is happening to records they care about.
+
+Speaking in analogies, everytime there's a ~INSERT~ or ~UPDATE~
+statement executed, an event is dispatched to everything that is
+currently listening to the database so long that they subscribe to
+it.
+
+** Application
+The purpose of the Event Stream is for real-time obsessed
+applications... which, admittedly is a very general term. And
+unforuntely I cannot give you examples of rather you need real-time
+data or not, it is a design desicion that you are able to have with
+OidaDB.
+
+I put it in there so I can applications with live-feed CRUD forms. For
+instance, if I'm looking at a user's information on my computer, and
+across the world that user decides to update their name on their
+phone, I'll see them update their own name right there on my screen.
+
+** Subscriptions
+* Event Miss
+An important concept you must understand about the Event Stream is its
+volitility: the stream will flow, with or without you. The Event
+Stream does not wait if all of its subscribers have caught up to
+it.
+
+So I submit to you the invention of an "Event Miss": it happens when a
+Handle fails to poll from the Event Stream fast enough and thus fails
+to observe past events that have sense been overridden from the
+buffer. The only way to prevent this from happening is to have faster
+handles, such as seconday buffer pools and faster ways to which they
+can filter out events they don't need. Though you can increase the
+size of the Event Buffer, this usually is not a fix to most cases of
+Event Misses as slow handles will always eventually fall behind.

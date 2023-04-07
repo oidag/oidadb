@@ -19,31 +19,5 @@ parts of the metadata that can/will change over time.
 Everytime a database is opened, its Metadata is scanned for
 validity. Metadata includes details about the database's (bit-wise)
 architecture, version, and page sizes.
-* Index & Entities
-Every database has an Index which is at its most literal form, a list
-of what are known as Entities. The Index itself does not grow on its
-own: every database has a fixed size index and thus every database has
-a maximum number of Entities that can be used. This size is
-configurable, though the maximum theoretical size is 2^16-1.
 
-The Index in its entirety describes every byte in the database, which
-includes the Index in itself. As things are added and removed from the
-database, the Index will update approprietly.
-
-** Static Entities
-In a fresh database, as well as in a petabyte-sized database, they
-have in common the same amoung of *Static Entities*. These are
-entities who's purpose are integeral and extensively used. Static
-Entities are hard-coded, cannot be deleted, and cannot are not
-directly impacted by Jobs with the exception of The Structure Entity.
-
-These Entities are
-
- - The Index Entity - The entity that describes the index. 
- - The Trash Entity - The entity that describes where trash pages are found
-   in the database so it can be used later.
- - The Structure Entity - The entity that lists all structures to be
-   used by Object entities.
-
-** Object Entities
 

@@ -71,9 +71,10 @@ you're ready to begin.
     1. [[./odb_elm_jobs.org][Jobs]]
 	2. [[./odb_elm_objects][Objects]]
 	3. [[./odb_elm_structs.org][Structures]]
-	4. [[./odb_elm_entities][Index & Entities]]
+	4. [[./odb_elm_entities.org][Index & Entities]]
 	5. Dynamics
 	6. Lookups
+	7. [[./odb_elm_events.org][Events]]
  7. [[./odbh.org][The OidaDB Handle]]
     1. [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]]
     2. [[./odbh_job.org][=odbh_job=]]
@@ -131,45 +132,6 @@ just using a single machine.
 ** Configuring
 ** Hosting
 ** Connecting
-* Event Stream
-The event stream is one of the distinct features of OidaDB. Everytime
-something in the database changes, this change is logged in what is
-known as the *Event Buffer*. Handles can then optionally listen to the
-Event Buffer and poll for the flow of events. This allows Hanldes to
-remain updated on what is happening to records they care about.
-
-Speaking in analogies, everytime there's a ~INSERT~ or ~UPDATE~
-statement executed, an event is dispatched to everything that is
-currently listening to the database so long that they subscribe to
-it.
-
-** Application
-The purpose of the Event Stream is for real-time obsessed
-applications... which, admittedly is a very general term. And
-unforuntely I cannot give you examples of rather you need real-time
-data or not, it is a design desicion that you are able to have with
-OidaDB.
-
-I put it in there so I can applications with live-feed CRUD forms. For
-instance, if I'm looking at a user's information on my computer, and
-across the world that user decides to update their name on their
-phone, I'll see them update their own name right there on my screen.
-
-** Subscriptions
-** Event Miss
-An important concept you must understand about the Event Stream is its
-volitility: the stream will flow, with or without you. The Event
-Stream does not wait if all of its subscribers have caught up to
-it. If it did wait then it would take but 1 bad handle to grind the
-entire database to a hault.
-
-So I submit to you the invention of an "Event Miss": it happens when a
-Handle fails to poll from the Event Stream fast enough and thus fails
-to observe past events that have sense been overridden from the
-buffer. The only way to prevent this from happening is to have faster
-handles, with larger buffer pools and faster ways to which they can
-filter out events they don't need.
-
 * Errors
 ** Error Conventions
 Talk about error levels.

@@ -1,0 +1,37 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbh_tune - Advnace configure and tune of handle
+
+* Synopsis
+
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odbh_tune(odbh *handle, odb_option_t option, ... /* args */);
+#+END_SRC
+
+* Description
+
+=odbh_tune= is used to configure many options of the handle at any
+point in the =handle='s life cycle.
+
+The =option= parameter describes what must be used in =args=. Below is
+a list of all options as well as what parameters must be passed into
+=args=.
+
+ - =ODB_OFILTER (odb_event_t)= - Configure [[./odbh_poll.org][=odbh_poll=]] to only poll
+   the list of events that have been OR'd into the =odb_event_t=
+   argument.
+ - =ODB_OCOOKIE (uint64_t)= - Anytime this host installs a job that
+   then invokes events, those event's will have their cookie field set
+   to the provided argument. For more information, see [[./odbh_poll.org][=odbh_poll=]] for
+   more information.
+
+
+* Errors
+
+ - =ODB_EINVAL= - =handle= is invalid, or =option= is not recognized.
+ - All other errors are documented above.
+
+* See Also
+
+ - [[./odb_handle.org][=odb_handle=]]
