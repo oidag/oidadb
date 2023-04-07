@@ -8,13 +8,23 @@ build/publish-index.html:  spec/publish-index.m4.html build/metrics.m4
 	@mkdir -p build
 	m4 build/metrics.m4 $< > $@
 
+
+manual_src := $(shell find -type f -name '*.org')
+manual_html:= $(patsubst ./man/%.org,./build/man/%.html,$(manual_src))
+
+build/man/%.html: man/%.org
+	@mkdir -p `dirname $@`
+	emacs $< -Q --batch --kill --eval '(org-html-export-to-html)'
+	mv $(patsubst %.org,%.html,$<) $@
+
+
 build/manual.html: spec/manual.org
 	@mkdir -p build
 	emacs $< --batch --kill -f org-html-export-to-html
 	mv spec/manual.html build
 
-doc: scripts/doxyfile
-	doxygen scripts/doxyfile
+doc: $(manual_html)
+	echo $(manual_html)
 
 
 PUBLISHDATE=$(shell date '+%F')
