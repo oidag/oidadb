@@ -1,0 +1,75 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbh_poll - Poll events from the database's event stream
+
+* Synopsis
+
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+ODB_VWRITE (oid0, oid1) (starting/ending oid, tirggered by both jwrite and jupdate)
+
+ODB_VCREATE (oid0, oid1)
+ODB_VDELETE (oid0, oid1) // page-wide deletes?
+
+ODB_VENTCREATE (eid)
+ODB_VENTDELETE (eid)
+
+ODB_VSTRCTCREATE (sid)
+ODB_VSTRCTDELETE (sid)
+
+struct {
+
+// The cookie is set by job cookie to communicate between broadcasts.
+uint64_t cookie;
+
+union {
+odb_oid oid0;
+};
+
+union {
+odb_oid oid1;
+};
+
+} hmmmmmmmmmmm;
+
+
+typedef uint64_t odb_event_t;
+odb_err odbh_poll  (odbh *handle, odb_event_t *o_evt);
+#+END_SRC
+
+* Description
+=odbh_poll= will block the calling thread until it returns
+
+=odbh_pollfd= outputs a file descriptor to =o_fd=. This file
+descriptor is read-only and should always be treated as an anonmous
+file (See [[Notes]]). =odbh_pollfd= allows you to utilize the =select(2)=
+and =read(2)= system calls.
+
+** =odbh_config= options
+
+ - =ODB_OFILTER (odb_event_t)= - Configure =odbh_poll= to only poll
+   the list of events that have been OR'd into the =odb_event_t=
+   argument. This is not the same as filtering out the poll'd events
+   on your own, as the handle will interact more deeply with the host
+   for better performance.
+ - =ODB_OCOOKIE (uint64_t)= - Anytime this host installs a job that
+   then invokes events, those event's will have their cookie field set
+   to the provided argument. For more information, see [[./odbh_poll.org][=odbh_poll=]] for
+   more information.
+
+* Errors
+
+ - =ODB_EMISSED= - An Event Miss has happened (See [[./odb_elm_events.org][Events]] for what
+   that is).
+* Notes
+
+Though it is documented that =odbh_pollfd='s returning =o_fd= should
+always be treated as an anonymous file, the handle may in some cases
+use other methods that will all result in the use of file descriptors
+outside the use of memfd_create(2). But you should never assume you
+can use this as a real file, so limit your system calls to that
+assumption.
+
+* See Also
+
+ - [[./odb_elm_events.org][Events]] - For high level information on Events, Event Misses

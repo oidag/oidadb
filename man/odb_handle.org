@@ -39,15 +39,18 @@ odb_handle (allocations) and odb_handleclose (frees).
 
 * Threading
 
-=odb_handle= can be called on any thread, though all [[./odbh.org][odbh methods]]
-requiring the returned handle must be called on the same thread that
-=odb_handle= was originally called from, including =odb_handleclose=.
+=odb_handle= can be called on any thread, =odb_handleclose= must be
+called on the same thread as the =odb_handle= to which returned the
+=handle=. You should not generate more than 1 handle per thread, using
+multiple handles from the same thread can cause deadlocks in rare
+cases.
 
-You should not generate more than 1 handle per thread, using multiple
-handles from the same thread can cause deadlocks in rare cases.
-
-In conclusion, all threads (regardless of process) must have either 0
-or 1 handle active at any given time.
+All =odbh_*= functions will take a =odbh= handle as their first
+argument. These functions do not need to be called from the same
+thread as the =odb_handle= that created it. However, none of these
+functions have any means of concurrency control. It is up to you to
+call all =odbh_*= within the context of the =handle= argument
+atomically.
 
 * See Also
 
