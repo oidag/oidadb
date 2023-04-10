@@ -611,3 +611,7 @@ void  edbs_jobclose(edbs_job_t job) {
 
 	pthread_mutex_unlock(&head->jobmutex);
 }
+
+int edbs_jobdesc(edbs_job_t j) {
+	return j.shm->jobv[j.jobpos].jobdesc;
+}
