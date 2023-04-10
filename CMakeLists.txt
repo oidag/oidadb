@@ -1,13 +1,17 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(edb C)
+project(liboidadb C)
 
 set(CMAKE_C_STANDARD 17)
 
 # liboidadb
 file(GLOB liboidadb_src c.src/*.c)
 include_directories(c.src/include)
-add_library(liboidadb ${liboidadb_src})
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_compile_options("-fvisibility=hidden")
+    add_link_options("-s")
+endif()
+add_library(oidadb SHARED ${liboidadb_src})
 
 # odbm
 file(GLOB_RECURSE odbm_src c.src/odbm/*.c)

@@ -9,23 +9,31 @@ build/publish-index.html:  spec/publish-index.m4.html build/metrics.m4
 	m4 build/metrics.m4 $< > $@
 
 
-manual_src := $(shell find -type f -name '*.org')
-manual_html:= $(patsubst ./man/%.org,./build/man/%.html,$(manual_src))
+manual_src := $(wildcard man/*.org)
+manual_html:= $(patsubst man/%.org,build/man/%.html,$(manual_src))
 
 build/man/%.html: man/%.org
 	@mkdir -p `dirname $@`
 	emacs $< -Q --batch --kill --eval '(org-html-export-to-html)'
 	mv $(patsubst %.org,%.html,$<) $@
 
-
-build/manual.html: spec/manual.org
-	@mkdir -p build
-	emacs $< --batch --kill -f org-html-export-to-html
-	mv spec/manual.html build
-
 doc: $(manual_html)
-	echo $(manual_html)
 
+build/release/liboidadb.so: .force
+	cmake --build build/cmakerel --target oidadb -v
+
+includesrc = $(wildcard c.src/include/*.h)
+oidadb-release.tar.gz: $(manual_src) $(manual_html) build/release/liboidadb.so $(includesrc)
+	@mkdir -p build/packaged/include
+	@mkdir -p build/packaged/manual-html
+	@mkdir -p build/packaged/manual-org
+	cp build/release/liboidadb.so build/packaged
+	cp $(includesrc) build/packaged/include
+	cp $(manual_html) build/packaged/manual-html
+	cp $(manual_src) build/packaged/manual-org
+	cd build/ && tar -czf oidadb-release.tar.gz -C packaged .
+
+release: oidadb-release.tar.gz
 
 PUBLISHDATE=$(shell date '+%F')
 BUILDVERSION := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
@@ -49,4 +57,4 @@ build/metrics.m4: .force
 clean:
 	-rm -r build
 
-.PHONY: publish .force clean doc
+.PHONY: publish .force clean doc release
