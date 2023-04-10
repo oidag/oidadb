@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "edbs_u.h"
+#include "wrappers.h"
 
 #include <sys/mman.h>
 #include <sys/shm.h>

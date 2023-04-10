@@ -6,9 +6,7 @@
  */
 #ifndef _EDB_H_
 #define _EDB_H_ 1
-#define _GNU_SOURCE
 #include <stdint.h>
-//#include <sys/fcntl.h>
 #include <syslog.h>
 #include <sys/user.h>
 
@@ -1010,61 +1008,18 @@ Fuck.
 \see odbh_structs
  */
 
-// - write-only?
-// - wait-to-commit (wait until odbh_jobpoll is called to execute all jobs
-//                   atomically)
-// -
+// todo: replace this with what is documented.
 typedef enum odb_jobhint_t {
-
-	// all jobs installed in odbh_job will be written too and will have no
-	// response when jobread is called.
-
-	what about streaming one job to another?
-
-	ODB_JNOREAD,
-
-	// force the jobs to execute sequencially as they were installed
-	ODB_JSEQ,
-
-	// does nothing right now. In the future this will make all jobs
-	// installed in odbh_job not to start execution until jobreturn is called.
-	ODB_JATOMIC,
+	a
 } odb_jobhint_t;
 odb_err odbh_jobmode(odbh *handle, odb_jobhint_t hint);
 
-// an error that can happen with edbh_job is that the caller has too many
-// jobs open: "too many" means they have more jobs open concurrently then
-// there are threads. If we allow more jobs to remain open than threads, this
-// will cause a deadlock sense all threads (ie: 2) will be doing something,
-// if we have a 3rd job also open and streaming into, that third jobs buffer
-// will fill up and then block. The original 2 jobs will then never have
-// their buffers cleared. Dead locks can also happen due to a full edbp cache.
-//
-// This only applies to "open buffer" jobs though. If the job has been fully
-// installed then no deadlock can happen.
-//
-// Further more, we can have multiple handles (ie: 4) all have an open buffer
-// job installed and this will not cause a deadlock hmmm
-//
-// If we have 2 workers, 3 handles h1, h2, h3 . Each handle installs 1 open
-// buffer job j1, j2, j3... no dead lock.
-//
-// But what if 1 handle installed 2 jobs j4 thus:
-//
-// h1 -> j1*
-// h2 -> j2
-// h3 -> j3, j4*
-//
-// * = worker adopted job.
-//
-// No... no deadlock. Sense each handle is on its own thread, they will all
-// clear buffers so the worker will always be able to move on.
-//
-// Make sure handles are installed on different threads!
-
-odb_err odbh_job(odbh *handle, odb_jobdesc jobdesc, odbj **o_jhandle);
-odb_err odbh_jobwrite(odbj *handle, const void *buf, int bufc);
-odb_err odbh_jobread(odbj *handle, void *o_buf, int bufc);
+// todo:
+typedef uint64_t odb_jobtype_t;
+odb_err odbh_job   (odbh *handle, odb_jobtype_t jobtype);
+odb_err odbh_jwrite(odbh *handle, const void *buf, int bufc);
+odb_err odbh_jread (odbh *handle, void *o_buf, int bufc);
+odb_err odbh_jclose(odbh *handle);
 
 
 /**

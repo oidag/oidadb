@@ -7,7 +7,7 @@ odb_err edbw_u_structjob(edb_worker_t *self) {
 	edbs_job_t job = self->curjob;
 	int jobdesc = edbs_jobdesc(job);
 	odb_err err = 0;
-	edba_handle_t *handle = &self->edbahandle;
+	edba_handle_t *handle = self->edbahandle;
 
 	// working variables
 	odb_spec_struct_struct s;
@@ -22,7 +22,8 @@ odb_err edbw_u_structjob(edb_worker_t *self) {
 				edbs_jobwrite(job, &err, sizeof(err));
 				return err;
 			}
-			void *conf = edba_structconf(handle);
+			void *conf;
+			edba_structconfset(handle, &conf);
 			edbs_jobread(job, conf, s.confc);
 			edba_structclose(handle);
 			edbs_jobwrite(job, &structid, sizeof(structid));

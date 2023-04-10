@@ -6,6 +6,7 @@
 #include <syscall.h>
 #include <sys/time.h>
 #include <errno.h>
+#include <stdio.h>
 
 #define EDB_SHM_MAGIC_NUM 0x1A18BB0ADCA4EE22
 

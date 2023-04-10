@@ -4,10 +4,13 @@
 #include "../include/oidadb.h"
 #include "teststuff.h"
 
+#include <fcntl.h>
 #include <mariadb/mysql.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 int newdeletedpages = 0;
 

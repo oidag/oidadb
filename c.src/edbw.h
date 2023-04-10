@@ -26,7 +26,7 @@ typedef struct edb_worker_st {
 	unsigned int workerid;
 	pthread_t pthread;
 
-	edba_handle_t edbahandle;
+	edba_handle_t *edbahandle;
 
 	// filled in the second the worker is operating on a job.
 	// if curjob.job is null that means no job currently.

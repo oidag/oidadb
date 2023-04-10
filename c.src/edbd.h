@@ -1,6 +1,5 @@
 #ifndef _edbdFILE_H_
 #define _edbdFILE_H_ 1
-#define _GNU_SOURCE
 
 #include "odb-structures.h"
 #include "include/oidadb.h"
@@ -137,10 +136,10 @@ odb_err edbd_del(edbd_t *file, uint8_t straitc, odb_pid id);
 // helper functions
 
 // changes the pid into a file offset.
-static inline off64_t edbd_pid2off(const edbd_t *c, odb_pid id) {
-	return (off64_t)id * edbd_size(c);
+static inline int64_t edbd_pid2off(const edbd_t *c, odb_pid id) {
+	return (int64_t)id * edbd_size(c);
 }
-static odb_pid edbd_off2pid(const edbd_t *c, off64_t off) {
+static odb_pid edbd_off2pid(const edbd_t *c, int64_t off) {
 	return off / edbd_size(c);
 }
 

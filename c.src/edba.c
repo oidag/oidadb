@@ -30,7 +30,7 @@ void    edba_host_free(edba_host_t *host) {
 }
 
 odb_err edba_handle_init(edba_host_t *host,
-                         int name,
+                         unsigned int name,
                          edba_handle_t **o_handle) {
 	odb_err err;
 	edba_handle_t *ret = malloc(sizeof(edba_handle_t));

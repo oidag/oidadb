@@ -3,6 +3,7 @@
 #include "errors.h"
 #include "options.h"
 #include "telemetry.h"
+#include "wrappers.h"
 
 #include <linux/futex.h>
 #include <sys/syscall.h>

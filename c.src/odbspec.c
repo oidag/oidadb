@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "odb-structures.h"
 #include "options.h"
 #include "errors.h"
@@ -11,27 +12,27 @@ __attribute__((constructor))
 static void checkstructures() {
 	// all structures must be headsize
 	if(sizeof(odb_spec_lookup) != ODB_SPEC_HEADSIZE) {
-		log_critf("not headsize (%d): odb_spec_lookup (%d)",
+		log_critf("not headsize (%d): odb_spec_lookup (%ld)",
 				  ODB_SPEC_HEADSIZE, sizeof(odb_spec_lookup));
 	}
 	if(sizeof(odb_spec_object) != ODB_SPEC_HEADSIZE) {
-		log_critf("not headsize (%d): odb_spec_object (%d)",
+		log_critf("not headsize (%d): odb_spec_object (%ld)",
 		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_object));
 	}
 	if(sizeof(odb_spec_dynamic) != ODB_SPEC_HEADSIZE) {
-		log_critf("not headsize (%d): odb_spec_dynamic (%d)",
+		log_critf("not headsize (%d): odb_spec_dynamic (%ld)",
 		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_dynamic));
 	}
 	if(sizeof(odb_spec_struct) != ODB_SPEC_HEADSIZE) {
-		log_critf("not headsize (%d): odb_spec_struct (%d)",
+		log_critf("not headsize (%d): odb_spec_struct (%ld)",
 		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_struct));
 	}
 	if(sizeof(odb_spec_index) != ODB_SPEC_HEADSIZE) {
-		log_critf("not headsize (%d): odb_spec_index (%d)",
+		log_critf("not headsize (%d): odb_spec_index (%ld)",
 		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_index));
 	}
 	if(sizeof(odb_spec_deleted) != ODB_SPEC_HEADSIZE) {
-		log_critf("not headsize (%d): odb_spec_deleted (%d)",
+		log_critf("not headsize (%d): odb_spec_deleted (%ld)",
 		          ODB_SPEC_HEADSIZE, sizeof(odb_spec_deleted));
 	}
 	if(sizeof(odb_spec_struct_full_t) !=
