@@ -1,0 +1,59 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_log - See log output information
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+/* Callback for odb_logcb */
+typedef void(odb_logcb_t)(odb_logchannel_t channel, const char *log);
+
+export odb_err odb_logcb(odb_logchannel_t channelmask, odb_logcb_t cb);
+#+END_SRC
+
+* Description
+
+The =odb_log= family allows you to output very detailed information
+about what is going on inside of the oidadb instance. Log messages can
+be generated at any time for any reason. A given log messages is
+assigned a channel (designated by =odb_logchannel_t=). See [[Channels]]
+section for a breakdown of each one.
+
+=odb_logcb= is the callback-approach to seeing this log messages. By
+setting an bitwise OR combination of [[Channels]] in =channelmask=, this
+will have all log messages generated that fall into that mask be
+passed into the callback =cb=. Subsequent calls to =odb_logcb= will
+replace the configuration of the previous call: you can only have 1
+callback method set at single time. Setting
+=channelmask= to -1 will enable all channels.
+
+** Channels
+
+ - =ODB_LCHAN_CRIT= - Messages that have been generated when something
+   that definitely wasn't suppose to happen has happened. The purpose
+   of this channel is to inform you of /our/ mistakes. Messages sent
+   through here will be because of some crazy edge case the developer
+   did not deem possible. If you see a message pass through this
+   channel, please contact the developers with the messages and any
+   possible information you may have. Note that everytime a
+   [[./errors.org][=ODB_ECRIT=]] is generated, a log message will be passed through this
+   channel.
+ - =ODB_LCHAN_ERROR= - Error messages are generated when something
+   happened when it objectively shouldn't have /because of you/. The
+   purpose of this channel is to inform you of your mistakes.
+ - =ODB_LCHAN_WARN= - Warnings is anything that is supposed to happen,
+   but should be avoided from happening for one reason or the other.
+ - =ODB_LCHAN_INFO= - Info messages also known as "verbose"
+   messages. This will describe pretty much everything that is going
+   on. Regardless of its importance to you. This maybe disabled on
+   some builds.
+ - =ODB_LCHAN_DEBUG= - Debugging messages will be generated when
+   something non-obvious that can impact predictability has
+   happened. This maybe disabled on some builds.
+
+
+* Remarks
+** Localization
+
+Note that I will make an effort to localize all log messages. Though
+this is not guaranteed at this time.

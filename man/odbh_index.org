@@ -1,0 +1,15 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbh_index - Read the database index
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+typedef struct {
+odb_type type;
+odb_sid  structureid;
+} odb_entrystat
+
+export odb_err odbh_index(odbh *handle, odb_eid eid, const void **o_entry);
+
+#+END_SRC

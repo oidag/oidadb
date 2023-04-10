@@ -52,11 +52,8 @@ you're ready to begin.
     1. [[./hardware.org][Hardware]] - Hardware information
  2. [[./errors.org][Errors]] - 50% of your job is handling errors; the other 50% is
     making them.
-    1. =odb_errstr=
- 3. Telemetry - Telemetry options for monitoring internal workings of
-    OidaDB.
-    1. =odbtelem=
-	2. =odbtelem_poll=
+    1. [[./odb_errstr.org][=odb_errstr=]]
+	2. [[./odb_log.org][=odb_log=]]
  4. [[./database.org][Database Creation/Deletion]] - All the info about creating and
     deleting database files. Then the subsequent opening and closing.
     1. [[./odb_create.org][=odb_create=]] - Generating new OidaDB Files

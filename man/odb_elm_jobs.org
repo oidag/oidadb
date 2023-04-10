@@ -1,0 +1,14 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: Jobs
+
+* Jobs
+everything below this heading should be jobs (structures, entries, ect)
+
+ - make a note on how a single process/thread can install multiple
+   jobs but despite the handle running single threaded, the host will
+   always execute jobs mutli-threaded.
+
+** Job Lifecycle
+** Installing
+** Job Buffers
+** Failed Jobs

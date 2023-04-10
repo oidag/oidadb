@@ -5,7 +5,7 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-odb_err odb_hostpoll(const char *path, odb_event event, odb_event *o_env);
+odb_err odb_hostpoll(const char *path, odb_hostevent_t event, odb_hostevent_t *o_env);
 #+END_SRC
 
 * Description
@@ -28,15 +28,11 @@ is triggered, o_env will specify which event had triggered.
 Only one event is returned per call. Note that events will be
 triggered retroactively.
 
- - ODB_EVENT_HOSTED - Triggered when the file is now hosted, or is
+ - =ODB_EVENT_HOSTED= - Triggered when the file is now hosted, or is
    currently hosted when odb_hostpoll was called.
 
- - ODB_EVENT_CLOSED - Triggered when the file's host has closed, or is
+ - =ODB_EVENT_CLOSED= - Triggered when the file's host has closed, or is
    currently closed when odb_hostpoll was called.
-
-* Threading
-
-=odb_hostpoll= can be called from any thread.
 
 * Errors
 
