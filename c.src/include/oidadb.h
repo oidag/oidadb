@@ -1,15 +1,21 @@
-/**
- * \file
- * \brief The only header file needed to do everything with oidadb databases.
+/*
+ * LICENSE
  *
- *
+ * Copyright Property of Kevin Marschke, all rights reserved.
+ * Copying, modifying, sharing is strictly prohibited. Use allowed by exclusive
+ * written notice.
+ */
+/*
+ * This file is NOT met to be a manual/documentation. See the documentation
+ * files.
  */
 #ifndef _EDB_H_
-#define _EDB_H_ 1
+#define _EDB_H_
 #include <stdint.h>
 #include <syslog.h>
 #include <sys/user.h>
 
+#define export __attribute__((__visibility__("default")))
 
 /** @name ID Types
  * Note that these typedefs are by-definition. These will be the same across
@@ -171,7 +177,7 @@ typedef enum odb_err {
 /**
  * \brief Returns the string representation of the error. Good for logging.
  */
-const char *odb_errstr(odb_err error);
+export const char *odb_errstr(odb_err error);
 /**\}*/
 
 
@@ -256,7 +262,7 @@ typedef enum edb_log_channel {
  * This function can be called on any thread. And keep in mind that `cb` will
  * be invoked by any random thread.
  */
-void edb_setlogger(odbh *handle, unsigned int logmask,
+export void edb_setlogger(odbh *handle, unsigned int logmask,
                    void (*cb)(edb_log_channel logtype, const char *log));
 
 // todo: use polling method instead:
@@ -264,7 +270,7 @@ typedef struct odb_log_t {
 	edb_log_channel channel;
 	const char *log;
 } odb_log_t;
-odb_err odb_log_poll(odbh *handle, odb_log_t *o_log);
+export odb_err odb_log_poll(odbh *handle, odb_log_t *o_log);
 
 /// \}
 
@@ -398,8 +404,9 @@ static const odb_createparams_t odb_createparams_defaults = (odb_createparams_t)
 		.indexpages = 32,
 		.structurepages = 32,
 };
-odb_err odb_create(const char *path, odb_createparams_t params);
-odb_err odb_createt(const char *path, odb_createparams_t params); // truncate existing
+export odb_err odb_create(const char *path, odb_createparams_t params);
+export odb_err odb_createt(const char *path, odb_createparams_t params); //
+// truncate existing
 
 /**\}*/
 /**\}*/
@@ -468,8 +475,8 @@ odb_err odb_createt(const char *path, odb_createparams_t params); // truncate ex
  *
  * \{
  */
-odb_err odb_handle(const char *path, odbh **o_handle);
-void    odb_handleclose(odbh *handle);
+export odb_err odb_handle(const char *path, odbh **o_handle);
+export void    odb_handleclose(odbh *handle);
 /// \}
 
 /** \defgroup odb_host odb_host
@@ -647,8 +654,8 @@ static const odb_hostconfig_t odb_hostconfig_default = {
 		.flags = 0,
 };
 
-odb_err odb_host(const char *path, odb_hostconfig_t hostops);
-odb_err odb_hoststop();
+export odb_err odb_host(const char *path, odb_hostconfig_t hostops);
+export odb_err odb_hoststop();
 
 // odb_host
 /// \}
@@ -695,7 +702,8 @@ typedef unsigned int odb_event;
 #define ODB_EVENT_HOSTED 1
 #define ODB_EVENT_CLOSED 2
 #define ODB_EVENT_ANY (odb_event)(-1)
-odb_err odb_hostpoll(const char *path, odb_event event, odb_event *o_env);
+export odb_err odb_hostpoll(const char *path, odb_event event, odb_event
+*o_env);
 // odb_hostpoll
 /// \}
 
@@ -768,7 +776,8 @@ typedef uint8_t odb_type;
  *
  * \see elements for information on what an entry is.
  */
-odb_err odbh_index(odbh *handle, odb_eid eid, void *o_entry); //todo: what is
+export odb_err odbh_index(odbh *handle, odb_eid eid, void *o_entry); //todo:
+// what is
 // o_entry?
 
 /** \brief Get structure data
@@ -789,7 +798,8 @@ odb_err odbh_index(odbh *handle, odb_eid eid, void *o_entry); //todo: what is
  *
  * \see elements to for information as to what a structure is.
  */
-odb_err odbh_structs(odbh *handle, odb_sid structureid, void *o_struct); //
+export odb_err odbh_structs(odbh *handle, odb_sid structureid, void *o_struct)
+; //
 // todo: what is o_struct?
 
 /**
@@ -1012,14 +1022,14 @@ Fuck.
 typedef enum odb_jobhint_t {
 	a
 } odb_jobhint_t;
-odb_err odbh_jobmode(odbh *handle, odb_jobhint_t hint);
+export odb_err odbh_jobmode(odbh *handle, odb_jobhint_t hint);
 
 // todo:
 typedef uint64_t odb_jobtype_t;
-odb_err odbh_job   (odbh *handle, odb_jobtype_t jobtype);
-odb_err odbh_jwrite(odbh *handle, const void *buf, int bufc);
-odb_err odbh_jread (odbh *handle, void *o_buf, int bufc);
-odb_err odbh_jclose(odbh *handle);
+export odb_err odbh_job   (odbh *handle, odb_jobtype_t jobtype);
+export odb_err odbh_jwrite(odbh *handle, const void *buf, int bufc);
+export odb_err odbh_jread (odbh *handle, void *o_buf, int bufc);
+export odb_err odbh_jclose(odbh *handle);
 
 
 /**
@@ -1051,7 +1061,8 @@ ODB_CWRITE (edb_struct_t *)
  \see odbh_structs For reading structures
  \see elements to find out what an "structure" is.
 */
-odb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);
+export odb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg
+ * */);
 
 
 //
@@ -1077,7 +1088,7 @@ If this function is called too infrequently then there's a
 possibility that the caller will miss certain events. But this is a
 very particular edge case that is described elsewhere probably.
  */
-odb_err odbh_select(odbh *handle, edb_select_t *params);
+export odb_err odbh_select(odbh *handle, edb_select_t *params);
 
 /** \} */ // odbh
 
@@ -1180,13 +1191,13 @@ typedef struct edb_infodatabase_st {
 
 // all these info- functions just return their relevant structure's
 // data that can be used for debugging reasons.
-odb_err edb_infohandle(odbh *handle, edb_infohandle_t *info);
-odb_err edb_infodatabase(odbh *handle, edb_infodatabase_t *info);
+export odb_err edb_infohandle(odbh *handle, edb_infohandle_t *info);
+export odb_err edb_infodatabase(odbh *handle, edb_infodatabase_t *info);
 
 // dump- functions just format the stucture and pipe it into fd.
 // these functions provide no more information than the equvilient
 // info- function.
-int edb_dumphandle(odbh *handle, int fd);
-int edb_dumpdatabase(odbh *handle, int fd);
+export int edb_dumphandle(odbh *handle, int fd);
+export int edb_dumpdatabase(odbh *handle, int fd);
 	
 #endif // _EDB_H_
