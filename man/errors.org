@@ -2,16 +2,45 @@
 #+TITLE: Errors of OidaDB
 
 * =odb_err=
-Nearly all functions in OidaDB will return an *=odb_err=*. If this is not 0
-then this indicates an error has ocoured. The exact nature of the value
-depends on the function.
+Nearly all functions in OidaDB will return an *=odb_err=*. If this is
+not 0 then this indicates an error has ocoured. The exact nature of
+the value depends on the function. An error code of 0 means no error,
+thus all =odb_err= returned types are setup so you can program error
+handling in the following way:
+
+#+BEGIN_SRC c
+odb_err err;
+if((err = odb_func())) {
+    // handle error
+} else {
+    // no error
+}
+#+END_SRC
 
 =odb_err= itself represents an enum of very general errors. Again,
-their exact practical purpose depends on which function returned them.
+their exact practical purpose depends on which function returned
+them. You can see the full list of all errors in the header file under
+the =odb_err= enum. You'll notice simularities between =odb_err= and
+=errno=.
 
-With the exception of EDB_CRITICAL. This will mean the same thing
-every time.
+* =ODB_CRIT= - The "not the your fault" error
+=ODB_CRIT= is a special error code. This will be returned by any
+function that has it documented. When this error happens This will
+mean the same thing every time: something has happened that isn't your
+fault.
+
+You should never get this. If you do, try what you did again and look
+closely at the [[./logs.org][Logs]] - Everytime this is returned, a ODB_LCRIT message
+would have been generated. You should probably send this message to
+the maintainers and steps to reproduce it so they can ensure it cannot
+happen again.
+
+This error can also happen in really un-accounted-for cases like
+running out of memory, corrupted file systems, ect. Even then, please
+report it to me. Its my mission to have all =ODB_ECRIT= errors
+impossible to get.
 
 * See Also
 
- - [[./telemtry.org][Telemetry]]
+ - [[./odb_errstr.org][=odb_errstr=]]
+ - [[./logs.org][Logs]]

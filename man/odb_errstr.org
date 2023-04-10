@@ -1,0 +1,35 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_errstr - Convert an odb_err into a string representation
+
+* Synopsis
+
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+const char *odb_errstr(odb_err error);
+#+END_SRC
+
+* Description
+
+All error =odb_err= codes have a respective string representation. But
+be warned that the string representation wont provide many clues about
+what happened with the context by which function to which the error
+was generated from.
+
+* Examples
+
+** Display the error that had been returned from =odb_create=
+#+BEGIN_SRC c
+/* ... */
+
+odb_err err;
+if((err = odb_host("myfile.odb", odb_hostconfig_default))) {
+    printf("failed to open database: %s (error code %d)", odb_errstr(err), err);
+}
+
+/* ... */
+#+END_SRC
+
+* See Also
+
+ - [[./errors.org][Errors]]

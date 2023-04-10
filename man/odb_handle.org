@@ -8,6 +8,11 @@
 
 odb_err odb_handle     (const char *path, odbh **o_handle);
 void    odb_handleclose(odbh *handle);
+
+// coming soon: over-socket/network handles
+// #include <sys/socket.h>
+// #include <netinet/in.h>
+// odb_err odb_handlens6(struct in6_addr host, odbh **o_handle);
 #+END_SRC
 
 * Description

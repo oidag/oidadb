@@ -5,8 +5,12 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-edb_err odb_host    (const char *path, odb_hostconfig_t hostops);
-edb_err odb_hoststop();
+odb_err odb_host    (const char *path, odb_hostconfig_t hostops);
+odb_err odb_hoststop();
+
+// comming soon...
+// odb_hostns6(const char *path, struct in6_addr bind, odb_hostconfig_t hostops);
+// odb_relayns6(struct in6_addr host, struct in6_addr bind);
 #+END_SRC
 
 * Description
@@ -31,16 +35,9 @@ return before calling it again, regardless of which thread.
 =odb_hoststop= is to be called on a seperate thread than =odb_host=
 but on the same process.
 
-The aforementioned write-locks use Open File Descriptors (see
-fcntl(2)), this means that attempts to open the same file in two
-separate threads will behave the same way as doing the same with two
-separate processes. This also means the host can be used in the same
-process as the handles (though its recommended not to do this on the
-basis of good engineering and departmentalizing crashes).
-
-Only 1 =odb_host= can be active per process.
-
-=odb_hoststop= must be called in the same process as odb_host.
+The host can be used in the same process as the handles (though its
+recommended not to do this on the basis of good engineering and
+departmentalizing crashes).
 
 * Errors
 
