@@ -1,12 +1,12 @@
 #ifndef _edbHOST_H_
 #define _edbHOST_H_
 
-#include <sys/types.h>
-#include <unistd.h>
-
 #include "edbs.h"
 #include "include/oidadb.h"
 #include "errors.h"
+
+#include <sys/types.h>
+#include <unistd.h>
 
 enum hoststate {
 	HOST_NONE = 0,

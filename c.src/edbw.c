@@ -25,29 +25,7 @@ static odb_err execjob(edb_worker_t *self) {
 	edbs_job_t *job = &self->curjob;
 	int jobdesc = edbs_jobdesc(*job);
 	odb_err err = 0;
-	edba_handle_t *handle = &self->edbahandle;
-
-	// note to self: inside this function we have our own thread to ourselves.
-	// its slightly better to be organized than efficient in here sense we have
-	// nothing serious waiting on us. All the other jobs that are being submitted
-	// are being handled elsewhere.
-	// Take your time Kev :-)
-
-	// "FRH" - when you see this acroynm in the comments that means the referenced
-	// code is "function redundant to handle". This means that the code is redundant
-	// to what the handle checks for. It can be excluded, but just a safety check.
-	// Best to have this type of code wrapped in macros that can enable and disable
-	// "extra safety features"
-	//
-	// Useful for when handle process mysteriously start misbehaving.
-
-	// FRH
-	// Cannot take jobs with a closed buffer
-	if(edbs_jobisclosed(*job)) {
-		err = ODB_ECRIT;
-		log_critf("job accepted by worker but the handle did not open job buffer");
-		goto closejob;
-	}
+	edba_handle_t *handle = self->edbahandle;
 
 	// route the job to the relevant sub-namespace
 	switch (jobdesc & 0x00FF) {
@@ -97,7 +75,9 @@ odb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edbs_hand
 	o_worker->workerid = nextworkerid++;
 	o_worker->shm = shm;
 	o_worker->curjob.jobpos = 0;
-	eerr = edba_handle_init(edbahost, &o_worker->edbahandle);
+	eerr = edba_handle_init(edbahost,
+							o_worker->workerid,
+							&o_worker->edbahandle);
 	if(eerr) {
 		return eerr;
 	}
@@ -106,7 +86,7 @@ odb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edbs_hand
 
 void edbw_decom(edb_worker_t *worker) {
 	edbw_stop(worker);
-	edba_handle_decom(&worker->edbahandle);
+	edba_handle_decom(worker->edbahandle);
 }
 
 

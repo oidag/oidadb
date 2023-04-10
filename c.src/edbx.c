@@ -193,7 +193,11 @@ odb_err odb_host(const char *path, odb_hostconfig_t hostops) {
 	host.state = HOST_OPENING_FILE;
 
 	// open the file
-	eerr = edbd_open(&(host.file), host.fdescriptor, host.fname);
+	// todo: let the user set this config.
+	edbd_config edbdconfig = {
+			.delpagewindowsize = 4
+	};
+	eerr = edbd_open(&(host.file), host.fdescriptor, edbdconfig);
 	if(eerr) {
 		goto ret;
 	}

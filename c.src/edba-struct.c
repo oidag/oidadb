@@ -1,7 +1,7 @@
-#include "oidadb.h"
 #include "edba.h"
 #include "edbl.h"
 #include "edba_u.h"
+#include "include/oidadb.h"
 
 // special imports from edbd
 
@@ -130,7 +130,7 @@ odb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 		// edbd_struct are aligned.
 		const odb_spec_struct_struct *test;
 		edbd_struct(file, *o_sid, &test);
-		odb_spec_struct_struct *addr = &h->strct->content;
+		void *addr = &h->strct->content;
 		if(test != addr) {
 			log_critf("edbd_struct and structure search logic misaligned.");
 			edba_u_clutchentry_release(h);
@@ -162,7 +162,14 @@ void    edba_structclose(edba_handle_t *h) {
 	h->openflags = 0;
 }
 const void *edba_structconf(edba_handle_t *h) {
-	// Need to first implement edbp_dynamic pages before I can deal with this
+	// todo Need to first implement edbp_dynamic pages before I can deal with
+	// this
+	implementme();
+
+	//h->strct->dy_pointer...
+}
+odb_err edba_structconfset(edba_handle_t *h, void **conf) {
+	// todo
 	implementme();
 
 	//h->strct->dy_pointer...

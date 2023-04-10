@@ -68,30 +68,21 @@ void odb_handleclose(odbh *handle) {
 	atomic_fetch_sub(&safety_threadwarn, 1);
 }
 
-odb_err odbh_job(odbh *handle, odb_jobdesc jobclass, ... /* args */) {
+odb_err odbh_job(odbh *handle, odb_jobtype_t jobclass) {
 
 	// invals
-	if(!handle) {
+	if (!handle) {
 		return ODB_EINVAL;
 	}
 
 	// install the job
 	odb_err err;
 	edbs_job_t job;
-	if((err = edbs_jobinstall(handle->shm
-					, jobclass
-					, &job))) {
+	if ((err = edbs_jobinstall(handle->shm, jobclass, &job))) {
 		return err;
 	}
-	/*
-	 * odbh_job()
-	 * odbh_job()
-	 * odbh_job()
-	 * odbh_job()
-	 * while() odbh_poll()
-	 */
-
-	hmmm... need to be able to install multiple jobs...
+	// todo;
+	implementme();
 }
 
 odb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg */);

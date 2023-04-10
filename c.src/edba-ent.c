@@ -1,6 +1,6 @@
-#include "include/oidadb.h"
 #include "edba.h"
 #include "edba_u.h"
+#include "include/oidadb.h"
 
 odb_err edba_entryopenc(edba_handle_t *h, odb_eid *o_eid, edbf_flags flags) {
 

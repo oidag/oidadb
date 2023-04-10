@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "include/oidadb.h"
 #include "edba.h"
 #include "edbw.h"
@@ -26,7 +28,7 @@ odb_err edbw_u_objjob(edb_worker_t *self) {
 	edbs_job_t job = self->curjob;
 	int jobdesc = edbs_jobdesc(job);
 	odb_err err = 0;
-	edba_handle_t *handle = &self->edbahandle;
+	edba_handle_t *handle = self->edbahandle;
 
 	// check for some common errors regarding the odb_jobclass
 	odb_oid oid;

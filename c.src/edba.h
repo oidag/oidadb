@@ -58,7 +58,9 @@ typedef struct edba_handle_st {
 
 
 } edba_handle_t;
-odb_err edba_handle_init(edba_host_t *host, int name, edba_handle_t **o_handle);
+odb_err edba_handle_init(edba_host_t *host
+						 , unsigned int name
+						 , edba_handle_t **o_handle);
 void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 
 // todo: rename
@@ -260,6 +262,6 @@ void    edba_structclose(edba_handle_t *h);
 odb_err edba_structdelete(edba_handle_t *h);
 
 const void *edba_structconf(edba_handle_t *h);
-//odb_err edba_structconfset(edba_handle_t *h, void *conf); todo: when dynamics are complete.
+odb_err edba_structconfset(edba_handle_t *h, void **o_conf);
 
 #endif

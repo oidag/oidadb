@@ -1,9 +1,8 @@
 #ifndef _edbl_h_
 #define _edbl_h_
-#define _GNU_SOURCE
-#include "include/oidadb.h"
 #include "options.h"
 #include "edbd.h"
+#include "include/oidadb.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -85,7 +84,7 @@ typedef struct edbl_lock {
 		odb_eid eid;
 		odb_pid lookup_pid;
 		odb_pid object_pid;
-		off64_t l_start;
+		int64_t l_start;
 	};
 	union {
 		unsigned int page_ioffset; // page (i)ntra offset

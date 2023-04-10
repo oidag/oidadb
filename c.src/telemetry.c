@@ -346,7 +346,11 @@ inline static odb_err setshmbuffer() {
 		}
 
 		// mmap the shm
-		ftruncate(shmfd, size);
+		if(ftruncate(shmfd, size) == -1) {
+			log_critf("ftruncate");
+			return ODB_ECRIT;
+		}
+
 		telemtry_shared.shm = mmap(0, size,
 		                           PROT_READ,
 		                           MAP_SHARED,
