@@ -26,7 +26,6 @@ a list of all options as well as what parameters must be passed into
    to the provided argument. For more information, see [[./odbh_poll.org][=odbh_poll=]] for
    more information.
 
-
 * Errors
 
  - =ODB_EINVAL= - =handle= is invalid, or =option= is not recognized.
