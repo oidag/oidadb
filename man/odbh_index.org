@@ -5,11 +5,108 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-typedef struct {
-odb_type type;
-odb_sid  structureid;
-} odb_entrystat
+typedef struct odb_entstat_t {
 
-export odb_err odbh_index(odbh *handle, odb_eid eid, const void **o_entry);
+    /* ... */
 
+    odb_type type;
+    odb_sid  structureid;
+
+	/* ... */
+
+} odb_entstat_t
+
+odb_err odbh_index(odbh *handle, odb_eid eid, odb_entstat_t *o_entry);
 #+END_SRC
+
+Get entity information that has a given entity id.
+
+* Description
+Every OidaDB has an index that is always readly available to all
+connected handles. =odbh_index= allows you to access that index to
+load entities and, if needed, load the entirety of the index.
+
+=odbh_index= takes in a valid =eid= and then (assuming no error was
+returned) writes the result to =o_entry= in the form of an
+=odb_entstat_t= structure whereas:
+
+ - =type= is the entity type, which will be one of the following:
+   - =ODB_ELMOBJ= - Object entity.
+   - =ODB_ELMDEL= - blank (previously used) entity.
+   - =ODB_ELMINIT= - blank (never-been used) entity. If =odbh_index=
+     ever returns an entry with this, all entities with a higher given
+     =eid= can be assumed to also be =ODB_ELMINIT= sense creating
+     entities are always sequencial with the lowest available eid.
+ - =structureid= is the structure id to which this object entity
+   follows. This is only useful when =type= is =ODB_ELMOBJ=.
+
+* Errors
+
+ - =ODB_ENOENT= - eid exist, but is reserved and not met for use
+   outside the host.
+ - =ODB_EEOF= - eid was out of bounds, so large that it would exceed
+   available storage capacity for the index of this database.
+ - =ODB_ECRIT=
+
+* Voltility
+
+The value written to =o_entry= may be outdated by the time
+=odbh_index= returns. Such as when job had been executed to delete the
+entity with the same =eid=. As usual, you must make use of [[./odbh_poll.org][=odbh_poll=]]
+to detect these changes.
+
+* Remarks
+** Loading the entire index
+=odbh_index= is designed to be used inside of a for-loop so that a
+handle can quickly download the entire contents of the index as follows:
+
+#+BEGIN_SRC c
+  odbh *handle;
+
+  /* ... */
+
+  odb_entstat_t stat;
+  odb_eid eid;
+  odb_err err;
+  for(eid = 0; 1; eid++)
+  {
+	  if((err = odbh_index(handle, eid, &stat))) {
+		  if(err == EDB_ENOENT) {
+			  // We just scanned a reserved entry, we can continue to
+			  // the next one.
+			  continue;
+		  }
+		  printf("odbh_index error: %s (%d)\n"
+				, odb_errstr(err)
+				, err);
+		  break;
+	  }
+
+	  // If a ODB_ELMINIT was returned then we know there's no more useful
+	  // information to be found in the index
+	  if(stat.type == ODB_ELMINIT) {
+		  printf("odbh_index scanned all %d entities from the index\n",
+				eid);
+		  break;
+	  }
+
+	  // Ignore ODB_ELMINIT, ODB_ELM
+	  if(stat.type != ODB_ELMOBJ) continue;
+
+	  // Do something with stat now that we know its a valid object
+	  // entity.
+	  printf("entity type: %d, structureid: %d"
+			, stat.type
+			, stat.structureid);
+  }
+
+  /* ... */
+#+END_SRC
+
+However, note that =odbh_index= is not met to be used in such a way
+unless you're making tools to analyze the database structure
+itself. You should already know what each entity is based on your how
+you choose to engineer your database.
+
+* See Also
+ - [[./odb_elm_entities][Index & Entities]] - Definition and purpose of the index and its entities.

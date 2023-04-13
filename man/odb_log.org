@@ -24,8 +24,8 @@ setting an bitwise OR combination of [[Channels]] in =channelmask=, this
 will have all log messages generated that fall into that mask be
 passed into the callback =cb=. Subsequent calls to =odb_logcb= will
 replace the configuration of the previous call: you can only have 1
-callback method set at single time. Setting
-=channelmask= to -1 will enable all channels.
+callback method set at single time. Setting =channelmask= to -1 will
+enable all channels.
 
 ** Channels
 
