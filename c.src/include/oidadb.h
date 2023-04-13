@@ -181,9 +181,6 @@ export odb_err odb_hostpoll(const char  *path
 export odb_err odb_handle(const char *path, odbh **o_handle);
 export void    odb_handleclose(odbh *handle);
 
-
-
-
 typedef uint8_t odb_type;
 #define ODB_ELMINIT  0
 #define ODB_ELMDEL   1
@@ -195,46 +192,11 @@ typedef uint8_t odb_type;
 #define ODB_ELMLOOKUP 7
 #define ODB_ELMDYN 8
 
-
-////////////////////////////////////////////////////////////////////////////////
-/** \defgroup odbh The OidaDB Handle
- * \brief All functions provided to the database handles while connected.
- *
- * ## THREADING -> VOLATILITY
- * Unlike `odb_*` functions which disclaim, a general definition of threading
- * has been specified in \ref odb_handle "odb_handle's threading" chapter.
- * To restate: all of these functions are to be executed on the same thread
- * that had loaded the handle via \ref odb_handle.
- *
- * So instead, we will be focusing on these functions *Volatility*... that is
- * how this function may interact with other concurrently executing handles.
- * Ie., we will discuss the volatility in the event where Handle A is writing
- * and Handle B is reading: will Handle B's results be effected by Handle A?
- *
- * \see odb_handle
- *
- * \{
- */
-
-/** \brief Get index data
- *
- * Write index information into `o_entry` with the given `eid`.
- *
- * If a certain entry is undergoing an exclusive-lock job, the function call
- * is blocked until that operation is complete.
- *
- * ## VOLATILITY
- *
- * When this function returns, `o_entry` may already be out of date if
- * another operation managed to update the entry's contents.
- *
- * ## ERRORS
- *
- *   ODB_EEOF - eid was too high (out of bounds)
- *
- * \see elements for information on what an entry is.
- */
-export odb_err odbh_index(odbh *handle, odb_eid eid, const void **o_entry);
+typedef struct odb_entstat_t {
+	odb_type type;
+	odb_sid structureid;
+} odb_entstat_t;
+export odb_err odbh_index(odbh *handle, odb_eid eid, odb_entstat_t *o_entry);
 
 /** \brief Get structure data
  *
@@ -486,174 +448,5 @@ export odb_err odbh_job   (odbh *handle, odb_jobtype_t jobtype);
 export odb_err odbh_jwrite(odbh *handle, const void *buf, int bufc);
 export odb_err odbh_jread (odbh *handle, void *o_buf, int bufc);
 export odb_err odbh_jclose(odbh *handle);
-
-
-/**
-\brief Install write-jobs regarding 1 structure
-
-
-
-ODB_CWRITE (edb_struct_t *)
-
- Create, update, or delete structures. Creation takes place when id
- is 0 but binv is not null. Updates take place when id is not 0 and
- if one of the fields is different than the current value: binc,
- fixedc, data_ptrc. Deleteion takes place when id is not 0, fixedc
- is 0, and data_ptrc is 0.
-
- During creation, the new structure's configuration is written
- starting at binoff and writes binc bytes and all other bytes are
- initializes as 0. During updating, only the range from binoff to
- binoff+binc is modified.  binoff and binc are ignored for
- deletion.
-
- Upon successful creation, id is set.
-
- During updates and deletes, the structure is placed under a write
- lock, preventing any read operations from taking place on this
- same id.
-
-
- \see odbh_structs For reading structures
- \see elements to find out what an "structure" is.
-*/
-export odb_err odbh_struct (odbh *handle, odb_cmd cmd, int flags, ... /* arg
- * */);
-
-
-//
-// Thread safe.
-//
-/*odb_err edb_query(odbh *handle, edb_query_t *query);*/
-
-typedef struct edb_select_st {
-} edb_select_t;
-/** \brief select/poll from the database event buffer
-
-Listens for changes in the database by instrunctions set forth in
-params.
-
-This function blocks the calling thread and will return once a new
-change is detected.
-
-Limit 1 call to odbh_select to each handle. If you attempt to call
-odbh_select asyncrounously with the same handle, this will cause an
-error.
-
-If this function is called too infrequently then there's a
-possibility that the caller will miss certain events. But this is a
-very particular edge case that is described elsewhere probably.
- */
-export odb_err odbh_select(odbh *handle, edb_select_t *params);
-
-/** \} */ // odbh
-
-
-
-
-
-
-/********************************************************************
- *
- * Object reading and writting.
- *
- ********************************************************************/
-
-typedef struct _edb_data {
-
-	// note this id consists of the row and structure id.
-	uint64_t id;
-		
-	unsigned int binc;
-	unsigned int binoff;
-	// note to self: while transversing between processes, the pointer
-	// must be somewhere in the shared memory.
-	// note to self: this will always be null inside of edb_job_t
-	//    what must happen is reading from jobdataread.
-	void        *binv;
-
-} edb_data_t;
-
-
-
-
-
-
-
-
-
-
-
-/********************************************************************
- *
- * Data reading and writting.
- *
- ********************************************************************/
-
-// See [[RW Conjugation]]
-//
-// Reads and writes data to the database.
-//
-/*odb_err edb_datcopy (odbh *handle, edb_data_t *data);
-odb_err edb_datwrite(odbh *handle, edb_data_t data);*/
-
-
-
-
-
-/********************************************************************
- *
- * Query functions
- *
- ********************************************************************/
-
-typedef struct edb_event_st {
-	int filler;
-} edb_event_t;
-
-
-typedef struct edb_query_st {
-
-	uint16_t eid;  // entry id (must be edb_new)
-	
-	int pagec;     // The max amount of sequencial pages to look
-				   // through. Leave this to 0 to disable the use of
-				   // pagec and pagestart
-	
-	int pagestart; // The page index to which to start
-	
-	int (*queryfunc)(edb_data_t *row); // query function. the
-										 // pointer to row is not safe
-										 // to save.
-} edb_query_t;
-
-
-
-
-
-
-/********************************************************************
- *
- * Debugging functions.
- *
- ********************************************************************/
-
-typedef struct edb_infohandle_st {
-} edb_infohandle_t;
-
-typedef struct edb_infodatabase_st {
-} edb_infodatabase_t;
-
-
-// all these info- functions just return their relevant structure's
-// data that can be used for debugging reasons.
-export odb_err edb_infohandle(odbh *handle, edb_infohandle_t *info);
-export odb_err edb_infodatabase(odbh *handle, edb_infodatabase_t *info);
-
-// dump- functions just format the stucture and pipe it into fd.
-// these functions provide no more information than the equvilient
-// info- function.
-export int edb_dumphandle(odbh *handle, int fd);
-export int edb_dumpdatabase(odbh *handle, int fd);
 	
 #endif // _EDB_H_
