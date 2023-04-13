@@ -1,0 +1,81 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbh_structs - get structure information
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+typedef struct odb_structstat_t {
+
+    /* ... */
+
+	unsigned int fixedc;   
+	unsigned int dynmc;
+	unsigned int confc;
+	void *confv;
+
+	/* ... */
+
+} odb_structstat_t
+
+odb_err odbh_structs(odbh *handle, odb_sid sid, odb_structstat_t *structstat);
+#+END_SRC
+
+* Description
+All OidaDB database has a special section to which stores information
+on object structures that is made readly available to all
+handles. =odbh_structs= allows you to access this structure
+information to load structure data and, if needed, load all structure
+data.
+
+=odbh_structs= takes a valid =sid= and then (assuming no error was
+returned) will modify the contents pointed to by =structstat=. Note
+that =structstat= is NOT an exclusive output pointer, but infact is
+also used as input with the following behaviour:
+
+
+ - If =confv= is not null, then =odbh_structs= will write up =confc=
+   bytes into =confv=. After of which, =odbh_structs= will set =confc=
+   to be the amount of bytes written. If =confc= was too small as to
+   declare =confv= too small of a buffer to store the entirety of the
+   structure's configuration, then =ODB_EBUFFSIZE= is returned.
+ - =dynmc= - The count of dynamic data sets.
+ - =fixedc= - The fixed-length data of the objects following this
+   structure. If this is 0, this means this structure is
+   uninitialized.
+
+If =o_confv= is not null, =odbh_structs= will write 
+
+* Errors
+
+ - =ODB_EEOF= - sid was out of bounds, so large it cannot possibily be
+   valid in the databases lifetime.
+ - =ODB_EBUFFSIZE= - =confv= is not null and =confc= 
+ - =ODB_ECRIT=
+
+* Volitility
+
+The value written to =structstat= may be outdated by the time
+=odbh_structs= returns. Such as when job had been executed to delete the
+structure with the same =sid=. As usual, you must make use of [[./odbh_poll.org][=odbh_poll=]]
+to detect these changes.
+
+It is not recommended you supply the /exact/ amount of bytes needed by
+passing in =confc= that matches that of what was previously in the
+database if you're operating in an enviroment where the given
+structure is subject to modifications. What can happen is if you call
+=odbh_structs= once to find a given structure's configuration is 5
+bytes in length, and another handle somewhere else happens to up that
+structure's configuration from 5 bytes to 10 bytes, then if you
+attempt to call =odbh_structs= a subsequent time with a non-null
+=confv= with =confc= set to 5, then =ODB_EBUFFSIZE= will be returned
+as you didn't supply a large enough buffer. The two practical
+solutions around this is to use a fixed-length buffer that will always
+be large enough to read in the entire structure, or, have your
+database and software engineer as to already know what the
+configuration (and fluctuaction thereof) accounted for in your
+programming.
+* See Also
+
+ - [[./odbh_index.org][=odbh_index=]]
+ - [[./odb_elm_structs.org][Structures]]

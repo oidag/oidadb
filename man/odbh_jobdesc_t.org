@@ -1,8 +1,9 @@
 #+SETUPFILE: ./0orgsetup.org
 #+TITLE: odbh_jobtype_t: Job types and their protocols
 
-Here we describe the job types. Each job type specifies a framework,
-or *protocol* to which must be followed to execute the job.
+Here we describe all the job types. Each job type specifies a
+framework, or *protocol* to which must be followed to execute the job
+when using the [[./odbh_job.org][=odbh_j*= family]].
 
 * odbh_jobflags_t
 ** =ODB_JF_MUTED=

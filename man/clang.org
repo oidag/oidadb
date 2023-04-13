@@ -1,0 +1,42 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: Naming conventions, clang standards
+
+* Naming conventions
+
+ - all symbols start with "odb".
+ - all constants and macros are in all-capital case.
+ - all functions that do not start with =odb_= (note the underscore)
+   will have their first argument reserved for an object to which that
+   function is defined in contextually. These functions should instead
+   be regarded as /methods/ to the structure of their first
+   argument. (ie: all =odbh_= function's first argument is a =odbh=
+   structure)
+ - multiple functions that serve (roughly) the same duty will have
+   (somewhat arbitrary) 1 to 2 letter suffixes to seperate them. For
+   example: =odb_create= and =odb_createt=.
+ - all symbols that are 3 characters in length after "odb" are
+   typedefs of integers. For example: =odb_err=, =odb_sid=, =odb_eid=,
+   ect. all symbols that end in =_t= are also typedefs of integers.
+ - Pointers are never typedef'd. For example: you'll never see
+   ~typedef const char *odb_string~. But, function prototypes can be
+   typedef'd.
+ - Fields with equal names but ending in =c=, =v=, and =q= /typically/
+   represent an array's size, starting address, and capacity
+   respectively. For example: ~int buffc~, ~void *buffv~, ~int buffq~.
+ - You'll notice an abundant use of /unsigned/ integer types. Nothing
+   too remarkable to be said here, I just don't like using types that
+   support negatives when they don't need too.
+ - Manual pages talking about functions are pretty strait
+   forward. Manual pages talking about structures, however, typically
+   go in much more depth and can be an intensive read.
+
+** TODO refactor all _t structs to just use structs with no typedef.
+
+* Clarifications
+
+ - C structures (ie =struct=) not explained comprehendsively in the
+   sense that all fields are documented. The only fields made visible
+   are those to which have defined behaviour. Some structures may even
+   utilize unions, of which these unions are not documented for the
+   sake of simplicity from defining them as seperate fields. Do not
+   use undocumented fields.
