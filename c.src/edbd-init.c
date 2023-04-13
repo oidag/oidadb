@@ -79,7 +79,7 @@ void edbd_u_initindex_rsvdentries(void *page,
 	// todo: dynamic pages: structures need dynamic info
 
 	// deleted
-	rsvd_deleted->type = ODB_ELMDEL;
+	rsvd_deleted->type = ODB_ELMTRASH;
 
 
 

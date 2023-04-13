@@ -402,7 +402,7 @@ odb_err edbd_del(edbd_t *file, uint8_t straitc, odb_pid id) {
 			head->head.pleft = ent->ref1;
 
 			//head->head.pright = 0; its 0 already sense intiialized to 0
-			head->head.ptype = ODB_ELMDEL;
+			head->head.ptype = ODB_ELMTRASH;
 
 			// if this is the first page of the chapter then we must mark it
 			// in ref0.

@@ -349,11 +349,14 @@ TODO: Need to consolidate the idea that all entries are object pages :)
 ** Entry Type
  - =ODB_ELMINIT 0= - initialized pages (all 0s) as well as initialized
    (but unused) entries.
- - =ODB_ELMDEL   1= - =edbp_deleted=
+ - =ODB_ELMDEL 1= - an entity that was previously used but is now
+   deleted. functially interchangable with =ODB_ELMINIT= except that
+   =ODB_ELMINIT= signifies the given entity has never been used.
  - =ODB_ELMSTRCT 2= - =edbp_struct=
- - =ODB_ELMOBJ   3= - =edbp_object=
- - =ODB_ELMENTS  4= - The index itself
- - =ODB_ELMPEND 5= - Temporary status between ODB_ELMINIT and whatever it
+ - =ODB_ELMTRASH   3= - =edbp_deleted=
+ - =ODB_ELMOBJ   4= - =edbp_object=
+ - =ODB_ELMENTS  5= - The index itself
+ - =ODB_ELMPEND 6= - Temporary status between ODB_ELMINIT and whatever it
    is trying to become. Used only for traffic control. Pages of this
    type should only exist temporarly.  If you happen to start hosting
    and you see ODB_ELMPEND pages/entries, you can assume they are

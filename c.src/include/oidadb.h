@@ -188,14 +188,12 @@ typedef uint8_t odb_type;
 #define ODB_ELMINIT  0
 #define ODB_ELMDEL   1
 #define ODB_ELMSTRCT 2
-#define ODB_ELMOBJ   3
-#define ODB_ELMENTS  4
-#define ODB_ELMPEND  5
-#define ODB_ELMLOOKUP 6
-#define ODB_ELMDYN 7
-
-
-
+#define ODB_ELMTRASH 3
+#define ODB_ELMOBJ   4
+#define ODB_ELMENTS  5
+#define ODB_ELMPEND  6
+#define ODB_ELMLOOKUP 7
+#define ODB_ELMDYN 8
 
 
 ////////////////////////////////////////////////////////////////////////////////
