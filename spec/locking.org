@@ -185,7 +185,8 @@ a deadlock:
 * Entry
 ** Entry-Creating
   1. Aquire [[LENTCREAT]]
-  2. Surf the index for an ODB_ELMINIT entry.
+  2. Surf the index for an ODB_ELMINIT /or/ ODB_ELMDEL (which ever
+     comes first) entry.
   3. Aquire an [[LENTRY]](xl) for that entry.
   4. Set the type to ODB_ELMPEND to deter other creation attemps.
   5. Release [[LENTCREAT]].
@@ -199,7 +200,7 @@ a deadlock:
      sniff out corruptions.
   3. Make whatever edits are needed to the entry and chapter.
   4. Aquire [[LENTCREAT]].
-  5. Set the type to ODB_ELMINIT
+  5. Set the type to ODB_ELMDEL
   7. Release [[LENTRY]]
   8. Release [[LENTCREAT]]
 ** Entry-Updating

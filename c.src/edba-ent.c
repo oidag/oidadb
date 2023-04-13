@@ -39,7 +39,8 @@ odb_err edba_entryopenc(edba_handle_t *h, odb_eid *o_eid, edbf_flags flags) {
 	// find the first ODB_ELMINIT
 	for (h->clutchedentryeid = EDBD_EIDSTART; !err; h->clutchedentryeid++) {
 		err = edbd_index(descriptor, h->clutchedentryeid, &h->clutchedentry);
-		if(h->clutchedentry->type == ODB_ELMINIT) {
+		if(h->clutchedentry->type == ODB_ELMINIT
+				|| h->clutchedentry->type == ODB_ELMDEL) {
 			break;
 		}
 	}
@@ -264,7 +265,7 @@ odb_err edba_entrydelete(edba_handle_t *h, odb_eid eid) {
 	edbl_set(lockh, EDBL_AXL, (edbl_lock){
 		.type = EDBL_LENTCREAT,
 	});
-	h->clutchedentry->type  = ODB_ELMINIT;
+	h->clutchedentry->type  = ODB_ELMDEL;
 	edba_u_clutchentry_release(h);
 	edbl_set(lockh, EDBL_ARELEASE, (edbl_lock){
 			.type = EDBL_LENTCREAT,

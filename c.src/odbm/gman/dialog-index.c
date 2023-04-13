@@ -19,7 +19,7 @@ dialog_index_t settings = (dialog_index_t){
 static const char *type2str(odb_type t) {
 	switch (t) {
 		case(ODB_ELMINIT): return "ODB_ELMINIT";
-		case(ODB_ELMDEL):  return "ODB_ELMDEL";
+		case(ODB_ELMTRASH):  return "ODB_ELMTRASH";
 		case(ODB_ELMSTRCT):return "ODB_ELMSTRCT";
 		case(ODB_ELMOBJ):  return "ODB_ELMOBJ";
 		case(ODB_ELMENTS): return "ODB_ELMENTS";
