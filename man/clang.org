@@ -17,6 +17,8 @@
  - all symbols that are 3 characters in length after "odb" are
    typedefs of integers. For example: =odb_err=, =odb_sid=, =odb_eid=,
    ect. all symbols that end in =_t= are also typedefs of integers.
+ - Structures are not typedef'd with the exception of
+   private/incomplete structures. For example: =odbh=.
  - Pointers are never typedef'd. For example: you'll never see
    ~typedef const char *odb_string~. But, function prototypes can be
    typedef'd.
@@ -27,8 +29,8 @@
    too remarkable to be said here, I just don't like using types that
    support negatives when they don't need too.
  - Manual pages talking about functions are pretty strait
-   forward. Manual pages talking about structures, however, typically
-   go in much more depth and can be an intensive read.
+   forward. Manual pages talking about structures or types, however,
+   typically go in much more depth and can be an intensive read.
 
 ** TODO refactor all _t structs to just use structs with no typedef.
 
