@@ -1,20 +1,20 @@
 #+SETUPFILE: ./0orgsetup.org
-#+TITLE: odb_createparams_t - Database creation/initialization parameters
+#+TITLE: odb_createparams - Database creation/initialization parameters
 
 * Synopsis
 
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-typedef struct odb_createparams_t {
+typedef struct odb_createparams {
 
 	uint16_t page_multiplier;
 	uint16_t structurepages;
 	uint16_t indexpages;
 
-} odb_createparams_t;
+} odb_createparams;
 
-const odb_createparams_t odb_createparams_defaults;
+const odb_createparams odb_createparams_defaults;
 #+END_SRC
 
 * Description

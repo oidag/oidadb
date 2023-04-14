@@ -390,7 +390,7 @@ odb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 			o_job->jobpos = head->jobacpt_next;
 			job = &jobv[head->jobacpt_next];
 			head->jobacpt_next = (head->jobacpt_next + 1) % jobc;
-			if (job->owner == 0 && job->jobdesc != 0)  {
+			if (job->owner == 0 && job->jobtype != 0)  {
 				// if we're here then we know this job is not owned
 				// and has a job. We'll break out of the for loop.
 				break;
@@ -428,13 +428,13 @@ odb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 }
 
 // returns ODB_EJOBDESC if the jobclass is invalid
-static odb_err checkvalid(odb_jobdesc jobclass) {
+static odb_err checkvalid(odb_jobtype_t jobclass) {
 	// todo
 	return ODB_EJOBDESC;
 }
 
 odb_err edbs_jobinstall(const edbs_handle_t *h,
-                        odb_jobdesc jobclass,
+                        odb_jobtype_t jobclass,
                         edbs_job_t *o_job) {
 	// easy ptrs
 	odb_err err;
@@ -480,7 +480,7 @@ odb_err edbs_jobinstall(const edbs_handle_t *h,
 		o_job->jobpos = head->jobinst_next;
 		job = &jobv[head->jobinst_next];
 		head->jobinst_next = (head->jobinst_next + 1) % jobc;
-		if (job->owner == 0 && job->jobdesc == 0) {
+		if (job->owner == 0 && job->jobtype == 0) {
 			// here we have an empty job with no owner, we can install it here.
 			break;
 		}
@@ -498,7 +498,7 @@ odb_err edbs_jobinstall(const edbs_handle_t *h,
 #endif
 
 	// install the job
-	job->jobdesc = jobclass;
+	job->jobtype = jobclass;
 	job->jobid = h->head->nextjobid++;
 
 	// futex signals
@@ -590,7 +590,7 @@ void  edbs_jobclose(edbs_job_t job) {
 #endif
 
 	// set this job slot to be empty and unowned
-	jobv->jobdesc = 0;
+	jobv->jobtype = 0;
 	jobv->owner = 0;
 	head->emptyjobs++;
 
@@ -612,6 +612,6 @@ void  edbs_jobclose(edbs_job_t job) {
 	pthread_mutex_unlock(&head->jobmutex);
 }
 
-int edbs_jobdesc(edbs_job_t j) {
-	return j.shm->jobv[j.jobpos].jobdesc;
+odb_jobtype_t edbs_jobtype(edbs_job_t j) {
+	return j.shm->jobv[j.jobpos].jobtype;
 }

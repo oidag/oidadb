@@ -24,7 +24,7 @@
 // it is assumed that path does not exist.
 //
 // can return ODB_EERRNO from open(2)
-static odb_err createfile(int fd, odb_createparams_t params) {
+static odb_err createfile(int fd, struct odb_createparams params) {
 	int err;
 	int syspagesize = (int)sysconf(_SC_PAGE_SIZE);
 	unsigned int pagemul = params.page_multiplier;
@@ -220,29 +220,29 @@ void edbd_close(edbd_t *file) {
 
 }
 
-static int paramsvalid(odb_createparams_t params) {
+static int paramsvalid(struct odb_createparams params) {
 	if(params.page_multiplier != 1 &&
 	   params.page_multiplier != 2 &&
 	   params.page_multiplier != 4 &&
 	   params.page_multiplier != 8)
 	{
-		log_errorf("odb_createparams_t.page_multiplier must be 1,2,4, or 8, got "
+		log_errorf("odb_createparams.page_multiplier must be 1,2,4, or 8, got "
 				   "%d", params
 		.page_multiplier);
 		return 0;
 	}
 	if(params.indexpages <= 0) {
-		log_errorf("odb_createparams_t.indexpages must be at least 1");
+		log_errorf("odb_createparams.indexpages must be at least 1");
 		return 0;
 	}
 	if(params.structurepages <= 0) {
-		log_errorf("odb_createparams_t.structurepages must be at least 1");
+		log_errorf("odb_createparams.structurepages must be at least 1");
 		return 0;
 	}
 	return 1;
 }
 
-odb_err odb_create(const char *path, odb_createparams_t params) {
+odb_err odb_create(const char *path, struct odb_createparams params) {
 	if(!paramsvalid(params)) return ODB_EINVAL;
 
 	// create the file itself.
@@ -258,7 +258,7 @@ odb_err odb_create(const char *path, odb_createparams_t params) {
 	return err;
 }
 
-odb_err odb_createt(const char *path, odb_createparams_t params) {
+odb_err odb_createt(const char *path, struct odb_createparams params) {
 	if(!paramsvalid(params)) return ODB_EINVAL;
 
 	// create the file itself.

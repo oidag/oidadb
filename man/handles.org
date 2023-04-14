@@ -20,6 +20,6 @@ everything else. Host/handle is a server/client relationship.
 * Contents
 
  1. [[./odb_host.org][=odb_host=]] - Hosting OidaDB Files
- 2. [[./odb_hostconfig_t.org][=odb_hostconfig_t=]] - Host Configuration
+ 2. [[./odb_hostconfig.org][=odb_hostconfig=]] - Host Configuration
  3. [[./odb_hostpoll.org][=odb_hostpoll=]] - Listening for database status changes
  4. [[./odb_handle.org][=odb_handle=]] - Getting handles for a hosted database

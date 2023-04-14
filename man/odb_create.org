@@ -5,8 +5,8 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-edb_err 	odb_create (const char *path, odb_createparams_t params);
-edb_err 	odb_createt(const char *path, odb_createparams_t params);
+edb_err 	odb_create (const char *path, odb_createparams params);
+edb_err 	odb_createt(const char *path, odb_createparams params);
 #+END_SRC
 
 * Description
@@ -18,13 +18,13 @@ the file itself be created, but will truncate its contents.
 Upon successful execution, the file can then be opened in [[./odb_host.org][=odb_host=]] and
 [[./odb_handle.org][=odb_handle=]].
 
-When using =odb_create=, you must study [[./odb_creatparams_t.org][=odb_createparams_t=]]. As there are
+When using =odb_create=, you must study [[./odb_creatparams_t.org][=odb_createparams=]]. As there are
 many aspects of the database that cannot be changed after creation
 without a ton of hassle.
 
 * Errors
 
- - =EDB_EINVAL= - params is invalid (see odb_createparams_t)
+ - =EDB_EINVAL= - params is invalid (see odb_createparams)
  - =EDB_EERRNO= - errno set, by either open(2) or stat(2).
  - =EDB_EEXIST= (=odb_create=) - file already exists
  - =EDB_ENOENT= (=odb_createt=) - file does not exist

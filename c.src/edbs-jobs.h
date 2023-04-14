@@ -60,10 +60,10 @@ void edbs_jobclose(edbs_job_t job);
 // ERRORS
 //  - ODB_ECLOSED - The host is closed, or is in the process of closing. So
 //                  no new jobs are being accepted.
-//  - ODB_EJOBDESC - odb_jobdesc is not valid
+//  - ODB_EJOBDESC - odb_jobtype_t is not valid
 //  - ODB_ECRIT
 odb_err edbs_jobinstall(const edbs_handle_t *shm,
-                        odb_jobdesc jobclass,
+                        odb_jobtype_t jobclass,
                         edbs_job_t *o_job);
 
 // A transfer buffer is structured as a pipe, though bi-directional. If both
@@ -124,6 +124,6 @@ odb_err edbs_jobterm(edbs_job_t j);
 
 
 // returns the job description (see odbh_job)
-int edbs_jobdesc(edbs_job_t j);
+odb_jobtype_t edbs_jobtype(edbs_job_t j);
 
 #endif
