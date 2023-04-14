@@ -36,7 +36,7 @@ typedef struct edb_host_st {
 	edbd_t       file;
 
 	// configuration it has when starting up
-	odb_hostconfig_t config;
+	struct odb_hostconfig config;
 
 	// shared memory with handles
 	edbs_handle_t *shm;
@@ -55,7 +55,8 @@ static edb_host_t host = {0};
 
 
 // helper function for edb_host to Check for EDB_EINVALs
-static odb_err validatehostops(const char *path, odb_hostconfig_t hostops) {
+static odb_err validatehostops(const char *path
+							   , struct odb_hostconfig hostops) {
 	if(path == 0) {
 		log_errorf("path is null");
 		return ODB_EINVAL;
@@ -133,7 +134,7 @@ void static unlockfile() {
 	}
 }
 
-odb_err odb_host(const char *path, odb_hostconfig_t hostops) {
+odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 
 	// check for EINVAL
 	odb_err eerr;

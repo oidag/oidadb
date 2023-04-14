@@ -39,7 +39,7 @@ typedef struct edbs_handle_t edbs_handle_t;
 // THREADING:
 // None of these functions are MT safe for a given shm. Call only in explicit
 // order.
-odb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config);
+odb_err edbs_host_init(edbs_handle_t **o_shm, struct odb_hostconfig config);
 void    edbs_host_close(edbs_handle_t *shm);
 void    edbs_host_free(edbs_handle_t *shm);
 

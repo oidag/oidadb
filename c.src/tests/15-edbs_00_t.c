@@ -19,7 +19,7 @@ int main(int argc, const char **argv) {
 	// create an empty file
 	test_mkdir();
 	test_mkfile(argv[0]);
-	odb_createparams_t createparams = odb_createparams_defaults;
+	odb_createparams createparams = odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
 	if (err) {
 		test_error("failed to create file");
@@ -28,7 +28,7 @@ int main(int argc, const char **argv) {
 
 	// host the shm
 	edbs_handle_t *shm_host;
-	odb_hostconfig_t config = odb_hostconfig_default;
+	odb_hostconfig config = odb_hostconfig_default;
 	config.job_buffq = job_buffq;
 	if((err = edbs_host_init(&shm_host, config))) {
 		test_error("host_init");

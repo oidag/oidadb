@@ -1,10 +1,10 @@
 #+SETUPFILE: ./0orgsetup.org
-#+TITLE: odb_hostconfig_t - Hosting Configuration
+#+TITLE: odb_hostconfig - Hosting Configuration
 
 * Synopsis
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
-typedef struct odb_hostconfig_t {
+typedef struct odb_hostconfig {
 
 
 	unsigned int job_buffq;
@@ -15,9 +15,9 @@ typedef struct odb_hostconfig_t {
 
 	/* ... */
 
-} odb_hostconfig_t;
+} odb_hostconfig;
 
-const odb_hostconfig_t odb_hostconfig_default
+const odb_hostconfig odb_hostconfig_default
 #+END_SRC
 
 * Description

@@ -15,7 +15,7 @@ And to delete a database... well you can just delete the file.
 * Contents
 
  1. [[./odb_create.org][=odb_create=]] - Generating new OidaDB Files
- 2. [[./odb_createparams_t.org][=odb_createparams_t=]] - Configuring new OidaDB Files
+ 2. [[./odb_createparams.org][=odb_createparams=]] - Configuring new OidaDB Files
 
 * The OidaDB File
 ** Specification

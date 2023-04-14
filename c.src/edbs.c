@@ -63,7 +63,7 @@ void edbs_host_free(edbs_handle_t *shm) {
 // builds, allocates, and initializes the static shared memory region.
 //
 //
-odb_err edbs_host_init(edbs_handle_t **o_shm, odb_hostconfig_t config) {
+odb_err edbs_host_init(edbs_handle_t **o_shm, struct odb_hostconfig config) {
 
 	odb_err eerr;
 

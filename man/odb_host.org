@@ -5,11 +5,11 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-odb_err odb_host    (const char *path, odb_hostconfig_t hostops);
+odb_err odb_host    (const char *path, odb_hostconfig hostops);
 odb_err odb_hoststop();
 
 // comming soon...
-// odb_hostns6(const char *path, struct in6_addr bind, odb_hostconfig_t hostops);
+// odb_hostns6(const char *path, struct in6_addr bind, odb_hostconfig hostops);
 // odb_relayns6(struct in6_addr host, struct in6_addr bind);
 #+END_SRC
 
@@ -25,7 +25,7 @@ return once =odb_hoststop= is called on a separate thread. Any time a
 host has been shut down in this manner will return non-errornous.
 
 There is a boat load of configuration available, these are discussed
-inside of [[./odb_hostconfig_t.org][=odb_hostconifg_t=]]. Use =odb_hostconfig_default= if this
+inside of [[./odb_hostconfig.org][=odb_hostconifg_t=]]. Use =odb_hostconfig_default= if this
 sounds scary though.
 
 * Threading
@@ -63,4 +63,4 @@ departmentalizing crashes).
 * See Also
 
  - [[./odb_create.org][=odb_create=]]
- - [[./odb_hostconfig_t.org][=odb_hostconfig_t=]]
+ - [[./odb_hostconfig.org][=odb_hostconfig=]]

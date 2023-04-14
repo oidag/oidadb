@@ -11,7 +11,7 @@ int main(int argc, const char **argv) {
 	// create an empty file
 	test_mkdir();
 	test_mkfile(argv[0]);
-	odb_createparams_t createparams = odb_createparams_defaults;
+	odb_createparams createparams = odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
 	if (err) {
 		test_error("failed to create file");

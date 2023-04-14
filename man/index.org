@@ -58,10 +58,10 @@ you're ready to begin.
  3. [[./database.org][Database Creation/Deletion]] - All the info about creating and
     deleting database files. Then the subsequent opening and closing.
     1. [[./odb_create.org][=odb_create=]] - Generating new OidaDB Files
-    2. [[./odb_createparams_t.org][=struct odb_createparams=]]- Configuring new OidaDB Files
+    2. [[./odb_createparams.org][=struct odb_createparams=]]- Configuring new OidaDB Files
  4. [[./handles.org][Database Hosts/Handles]]
     1. [[./odb_host.org][=odb_host=]] - Hosting OidaDB Files
-    2. [[./odb_hostconfig_t.org][=struct odb_hostconfig=]] - Host Configuration
+    2. [[./odb_hostconfig.org][=struct odb_hostconfig=]] - Host Configuration
     3. [[./odb_hostpoll.org][=odb_hostpoll=]] - Listening for database status changes
     4. [[./odb_handle.org][=odb_handle=]] - Getting handles for a hosted database
  5. [[./elements.org][OidaDB Elements]] - The fundemental building blocks of every database

@@ -23,7 +23,7 @@ static odb_err execjob(edb_worker_t *self) {
 
 	// easy pointers
 	edbs_job_t *job = &self->curjob;
-	int jobdesc = edbs_jobdesc(*job);
+	int jobdesc = edbs_jobtype(*job);
 	odb_err err = 0;
 	edba_handle_t *handle = self->edbahandle;
 
