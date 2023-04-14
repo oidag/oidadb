@@ -37,6 +37,7 @@ typedef uint64_t odb_rid;
 typedef uint64_t odb_pid;
 ///\}
 
+// odbh is incomplete and a private structure.
 typedef struct odbh odbh;
 
 typedef enum odb_err {
@@ -137,22 +138,22 @@ typedef enum odb_logchannel_t {
 typedef void(odb_logcb_t)(odb_logchannel_t channel, const char *log);
 export odb_err odb_logcb(odb_logchannel_t channelmask, odb_logcb_t cb);
 
-typedef struct odb_createparams_t {
+struct odb_createparams {
 	uint16_t page_multiplier;
 	uint16_t structurepages;
 	uint16_t indexpages;
-} odb_createparams_t;
+};
 
-static const odb_createparams_t odb_createparams_defaults = (odb_createparams_t){
+static const struct odb_createparams odb_createparams_defaults = {
 		.page_multiplier = 2,
 		.indexpages = 32,
 		.structurepages = 32,
 };
-export odb_err odb_create(const char *path, odb_createparams_t params);
-export odb_err odb_createt(const char *path, odb_createparams_t params);
+export odb_err odb_create(const char *path, struct odb_createparams params);
+export odb_err odb_createt(const char *path, struct odb_createparams params);
 
 
-typedef struct odb_hostconfig_t {
+struct odb_hostconfig {
 	unsigned int job_buffq;
 	unsigned int job_transfersize;
 	unsigned int event_bufferq;
@@ -162,8 +163,8 @@ typedef struct odb_hostconfig_t {
 	// Reserved.
 	int flags;
 
-} odb_hostconfig_t;
-static const odb_hostconfig_t odb_hostconfig_default = {
+};
+static const struct odb_hostconfig odb_hostconfig_default = {
 		.job_buffq = 16,
 		.job_transfersize = PAGE_SIZE,
 		.event_bufferq = 32,
@@ -171,7 +172,7 @@ static const odb_hostconfig_t odb_hostconfig_default = {
 		.slot_count = 16,
 		.flags = 0,
 };
-export odb_err odb_host(const char *path, odb_hostconfig_t hostops);
+export odb_err odb_host(const char *path, struct odb_hostconfig hostops);
 export odb_err odb_hoststop();
 
 typedef unsigned int odb_hostevent_t;
@@ -195,21 +196,22 @@ typedef uint8_t odb_type;
 #define ODB_ELMLOOKUP 7
 #define ODB_ELMDYN 8
 
-typedef struct odb_entstat_t {
+struct odb_entstat {
 	odb_type type;
 	odb_sid structureid;
-} odb_entstat_t;
-export odb_err odbh_index(odbh *handle, odb_eid eid, odb_entstat_t *o_entry);
+};
+export odb_err odbh_index(odbh *handle, odb_eid eid
+						  , struct odb_entstat *o_entry);
 
-typedef struct odb_structstat_t {
+struct odb_structstat {
 	unsigned int fixedc;
 	unsigned int dynmc;
 	unsigned int confc;
 	void *confv;
-} odb_structstat_t;
+};
 export odb_err odbh_structs(odbh *handle
 							, odb_sid structureid
-							, odb_structstat_t *o_struct);
+							, struct odb_structstat *o_struct);
 
 typedef enum odb_option_t {
 	ODB_OFILTER,
@@ -246,10 +248,10 @@ typedef enum odb_eventtype_t {
 	ODB_VCREATE,
 	ODB_VDELETE,
 } odb_eventtype_t;
-typedef struct odb_event_t {
+struct odb_event {
 
-} odb_event_t;
-export odb_err odbh_poll(odbh *handle, odb_event_t *o_evt);
+};
+export odb_err odbh_poll(odbh *handle, struct odb_event *o_evt);
 
 /**
  * \brief User lock bit constants
