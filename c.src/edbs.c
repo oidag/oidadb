@@ -81,7 +81,7 @@ odb_err edbs_host_init(edbs_handle_t **o_shm, struct odb_hostconfig config) {
 		// so lets start by getting the size of the first page(s) and round up.
 		uint64_t p1 = sizeof (edbs_shmhead_t)
 		              + config.job_buffq * sizeof (edbs_shmjob_t);
-		              + config.event_bufferq * sizeof (edb_event_t);
+		              + config.event_bufferq * sizeof (struct odb_event);
 		unsigned int p1padding = p1 % sysconf(_SC_PAGE_SIZE);
 		stackhead.shmc = p1 + p1padding + stackhead.jobtransc;
 

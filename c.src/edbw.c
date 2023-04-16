@@ -28,14 +28,20 @@ static odb_err execjob(edb_worker_t *self) {
 	edba_handle_t *handle = self->edbahandle;
 
 	// route the job to the relevant sub-namespace
-	switch (jobdesc & 0x00FF) {
-		case EDB_OBJ:
+	switch (jobdesc) {
+		case ODB_JCREATE:
+		case ODB_JDELETE:
+		case ODB_JSELECT:
+		case ODB_JUPDATE:
+		case ODB_JWRITE:
 			err = edbw_u_objjob(self);
 			break;
-		case EDB_ENT:
+		case ODB_JENTCREATE:
+		case ODB_JENTDELETE:
 			err = edbw_u_entjob(self);
 			break;
-		case EDB_STRUCT:
+		case ODB_JSTRCTCREATE:
+		case ODB_JSTRCTDELETE:
 			err = edbw_u_structjob(self);
 			break;
 		default:
