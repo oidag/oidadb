@@ -274,7 +274,7 @@ typedef struct edbs_handle_t {
 
 	// helper pointers
 	edbs_shmjob_t   *jobv;    // job buffer.
-	edb_event_t *eventv;  // events buffer.
+	struct edb_event *eventv;  // events buffer.
 	void        *transbuffer; // start of transfer buffer
 
 	// shared memory file name. not stored in the shm itself.

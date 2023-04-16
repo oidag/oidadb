@@ -52,7 +52,9 @@ odb_err edbw_u_objjob(edb_worker_t *self) {
 
 	// if err is non-0 after this then it will close
 	// **defer: edba_objectclose
-	switch (jobdesc & 0xFF00) {
+	implementme(); // todo: the comment block below has been commented out
+	// sense the change of the job types.
+	/*switch (jobdesc & 0xFF00) {
 		case ODB_CDEL:
 		case ODB_CUSRLKW:
 		case ODB_CWRITE:
@@ -219,7 +221,7 @@ odb_err edbw_u_objjob(edb_worker_t *self) {
 			edba_objectlocks_set(handle, usrlocks & _EDB_FUSRLALL);
 			break;
 		default:break;
-	}
+	}*/
 	edba_objectclose(handle);
 	return 0;
 }
