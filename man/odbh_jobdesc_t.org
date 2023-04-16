@@ -231,6 +231,6 @@ Delete an existing entity
  - [[./odbh.org][OidaDB Handles]]
  - [[./odb_elm_jobs.org][Jobs]] - A high-level overview of OdbaDB jobs and their life
    cycle. As well as discussion and advise for increasing performance.
- - [[odbh_job.org][=odbh_job=]] - Functions to install jobs and to read, write, and
+ - [[./odbh_job.org][=odbh_job=]] - Functions to install jobs and to read, write, and
    close the transfer buffer.
  - [[./odb_elm_structs.org][odb_struct_t]]

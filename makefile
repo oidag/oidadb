@@ -1,29 +1,54 @@
+# Library source code
+lib_src := $(wildcard find c.src/*.c)
 
-publish: build/manual.html build/publish-index.html
-	@mkdir -p build
-	cd build && timeout 30 ../scripts/ftp-publish.sh publish-index.html
-	cd build && timeout 30 ../scripts/ftp-publish.sh manual.html
+# TESTING
+test_src := $(wildcard c.src/tests/*_t.c)
+test_exec := $(patsubst c.src/tests/%_t.c,build/tests/%_t,$(test_src))
+lib_obj_test := $(patsubst c.src/%.c,build/tests/%.o,$(lib_src))
 
-build/publish-index.html:  spec/publish-index.m4.html build/metrics.m4
-	@mkdir -p build
-	m4 build/metrics.m4 $< > $@
+build/tests/%.o: c.src/%.c
+	@mkdir -p `dirname $@`
+	gcc $(gcc_compile_args) -c $^ -o $@
+
+build/tests/%: gcc_compile_args = -g
+build/tests/%_t: c.src/tests/%_t.c $(lib_obj_test)
+	@mkdir -p `dirname $@`
+	gcc $(gcc_compile_args) -o $@ $^
+	$@
+
+test: $(test_exec)
 
 
+# MANUAL
 manual_src := $(wildcard man/*.org)
 manual_html:= $(patsubst man/%.org,build/man/%.html,$(manual_src))
-
 build/man/%.html: man/%.org
 	@mkdir -p `dirname $@`
 	emacs $< -Q --batch --kill --eval '(org-html-export-to-html)'
 	mv $(patsubst %.org,%.html,$<) $@
 
-doc: $(manual_html)
+manual: $(manual_html)
 
-build/release/liboidadb.so: .force
-	cmake --build build/cmakerel --target oidadb -v
+
+# RELEASE BUILDS
+# note: debug/test builds are done with cmake, not this makefile
+lib_obj_release := $(patsubst c.src/%.c,build/release/%.o,$(lib_src))
+
+build/release/%.o: gcc_compile_args = -fvisibility=hidden -fPIC -O3 -D_ODB_CD_RELEASE
+build/release/%.o: c.src/%.c
+	@mkdir -p `dirname $@`
+	gcc $(gcc_compile_args) -c $^ -o $@
+
+build/release/liboidadb.so: gcc_link_args=-fPIC -O3 -s -shared
+build/release/liboidadb.so: $(lib_obj_release)
+	@mkdir -p `dirname $@`
+	gcc $(gcc_link_args) -o $@ $^
+
+# PACKAGING
+# (builds + manual)
 
 includesrc = $(wildcard c.src/include/*.h)
-oidadb-release.tar.gz: $(manual_src) $(manual_html) build/release/liboidadb.so $(includesrc)
+build/oidadb-package.tar.gz: $(manual_src) $(manual_html) build/release/liboidadb.so $(includesrc)
 	@mkdir -p build/packaged/include
 	@mkdir -p build/packaged/manual-html
 	@mkdir -p build/packaged/manual-org
@@ -31,9 +56,19 @@ oidadb-release.tar.gz: $(manual_src) $(manual_html) build/release/liboidadb.so $
 	cp $(includesrc) build/packaged/include
 	cp $(manual_html) build/packaged/manual-html
 	cp $(manual_src) build/packaged/manual-org
-	cd build/ && tar -czf oidadb-release.tar.gz -C packaged .
+	cd build/ && tar -czf oidadb-package.tar.gz -C packaged .
 
-release: oidadb-release.tar.gz
+release: $(test_exec) build/oidadb-package.tar.gz
+	@echo "OidaDB successfully tested, built, and packaged into 'build/oidadb-package.tar.gz'"
+
+
+# PUBLISHING
+# TODO: remove publishing scripts from here. I'd like to have all publishing handled by external scripts.
+
+publish: build/manual.html build/publish-index.html
+	@mkdir -p build
+	cd build && timeout 30 ../scripts/ftp-publish.sh publish-index.html
+	cd build && timeout 30 ../scripts/ftp-publish.sh manual.html
 
 PUBLISHDATE=$(shell date '+%F')
 BUILDVERSION := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
@@ -53,8 +88,12 @@ build/metrics.m4: .force
 	echo 'define(LINECOUNT, $(LINECOUNT))dnl' >> $@
 	echo 'define(TODOCOUNT, $(TODOCOUNT))dnl' >> $@
 
+build/publish-index.html:  spec/publish-index.m4.html build/metrics.m4
+	@mkdir -p build
+	m4 build/metrics.m4 $< > $@
+
 
 clean:
 	-rm -r build
 
-.PHONY: publish .force clean doc release
+.PHONY: .force clean manual test release
