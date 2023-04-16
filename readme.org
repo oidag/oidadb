@@ -13,14 +13,15 @@
  - A Domain inside of another Domain (a directory inside of a
    parent directory) is known as a /Child Domain/.
  - At no point should a =.c= file include another =.c= file.
- - Files that end with =_u.h= are known as utility headers. These
-   files cannot be included in any file outside of the namespace.
+ - Files that end with =_u.h= are known as utility headers, or private
+   headers. These files cannot be included in any file outside of the
+   namespace.
  - All symbols in non-utility headers must begin with the same prefix
    as the rest of the Subnamespace. (Ie: =edbd_*= =edba_*=)
  - Each namespace may have its own rules as to what other namespaces
    its allowed to include so keep your eyes open.
 
-* Build Targets
+** Build Targets
 
 A given domain is a build target if it has one of the speical files:
 
@@ -33,26 +34,31 @@ A given domain is a build target if it has one of the speical files:
  - =include/= - this is a library build target. Inside this folder are
    header files to be distributed.
 
-** liboidadb
-The big fucking library I'm making. The whole project.
-
-** odbm
+** TODO odbm - remove this chapter
 The (o)ida(db) (m)onitor. OpenGL graphical interface for monitoring
 oidadb files.
 
  - apt install libgl1-mesa-dev xorg-dev
  - what ever deps are in go.src/go.module
 
-** tests targets
-Tests files for when you run `make test`. Also contains
-benchmarks. Each test is a different =main()=. See [[Tests]].
+* =make test=
 
+To test OidaDB, you must only need to run =make test=. This will do the following:
 
-* Tests
-
-All tests are expected to be executed with the current working
-directory set to the project root. Tests will offload all test files
-in =build/test=.
+ 1. It will compile all C code in the OidaDB as if it were building
+    the library, however it will not link the object files. These
+    object files will be piled into =build/tests=.
+ 2. It will then glob all files using the =c.src/tests/*_t.c=
+    syntax. Each one of these files is expected to be a build
+    target. For each one of these files, it will then compile it and
+    link it against the object files that were generated in
+    step 1. The resulting build for each =*_t.c= file will be built
+    into an executable found in =build/tests=, these files are known
+    as testexecs.
+ 3. For each testexec that is built, it will then run that
+    testexec. If the testexec does not return a 0 error code, its
+    considered a pass. If a testexec returns non-0, or fails to build,
+    the test is considered a failure.
 
 All test files in =c.src/tests= that have the scheme
 =##-(namespace)_##_t.c= will have a ~main~ defined in them and ready
@@ -75,6 +81,14 @@ equal. The purpose is to prove that the same jobs will always provide
 the same changes to the file. And the databases' only difference is
 their unique db id.
 
+* Development/Debug builds
+Right now all development and debug builds are handled through
+CMake. This is because the tool I use to develop and test is the clion
+IDE, and clion is retarded with makefiles so I'm forced to use cmake.
+* =make release= - Release Builds
+Non-debug, release, live, whatever builds are handled through
+makefile. Run =make release= to attempt to build, test, and package a
+release.
 * Links
   - Kanban: https://oidadb.youtrack.cloud/
 

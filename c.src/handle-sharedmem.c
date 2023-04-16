@@ -1,5 +1,5 @@
 #include "edbs.h"
-#include "oidadb.h"
+#include "include/oidadb.h"
 #include "errors.h"
 #include "edbs-jobs.h"
 

@@ -2,7 +2,7 @@
 #define teststuff
 #define EDB_FUCKUPS
 
-#include "oidadb.h"
+#include "../include/oidadb.h"
 
 #include <stdio.h>
 #include <stdarg.h>
