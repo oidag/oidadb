@@ -81,6 +81,11 @@ you're ready to begin.
 	6. [[./odbh_poll.org][=odbh_poll=]]
 	7. =odbh_eventtype_t=
  7. Routines - coming soon
+ 8. [[./telemetry.org][Telementry]]
+    1. [[./odbtelem.org][=odbtelem.org=]]
+	2. [[./odbtelem_attach.org][=odbtelem_attach=]]
+	3. [[./odbtelem_poll.org][=odbtelem_poll=]]
+	4. =odbtelem_image= - coming soon
 
 * Appendix
 ** See Also

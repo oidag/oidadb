@@ -1,0 +1,30 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: An overview of Telemetry
+
+OidaDB allows for you to monitor the deep inter-workings of the database
+library. Such inter-workings are trivial and impracticable for the use of
+developing applications that uses the database: the only purpose of
+`odbtelem` is for debugging, diagnosing, and monitoring the *reactivity* the
+database has to your application.
+
+Accessing `odbtelem` comes in either intra-process or inner-process forms.
+Intra-process telemetry is faster than inner-process telemetry for obvious
+reasons.
+
+The sentiments of odbtelem:
+ - odbtelem is strictly read/observe-only.
+ - odbtelem (when active) will greatly slow down the database performance
+   due to extra instructions and slow call-backs. So if you don't know what
+   you're doing, nor why, don't use odbtelem (keep it disabled).
+ - Not all libraries have odbtelem fully available, if at all. You'll see
+   ODB_EVERSION returned a lot in those cases.
+ - Telemetry is "lossless": this also means that all telemetry data is
+   analyzed in a chronological order.
+ - Telemetry is only available to processes on the same machine as the
+   host. Telemetry is not met to go through the network: you must
+   build your own solution for that.
+ - Telemetry is not met for the detection of errors.
+
+* TODO Telemetry is for advanced users
+
+* TODO Contents

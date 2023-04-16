@@ -1,0 +1,45 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbtelem - enabled/disable telementry
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/telemetry.h>
+
+struct odbtelem_params {
+
+	/* ... */
+
+	int buffersize_exp;
+
+	/* ... */
+
+};
+
+odb_err odbtelem(int enabled, struct odbtelem_params params);
+#+END_SRC
+
+* Description
+=odbtelem= allows you to enable/disable telemetry for a host that is
+currently running on the same process.
+
+By default, hosts will always have telemetry disabled. This function
+will set it as active/deactive depending =enabled=.
+
+When the telemetry is changing state from disabled to enabled, the
+structure =odbtelem_params= is used to configure various the aspects of
+the telemetry. Otherwise, this argument is ignored.
+
+ - =buffersize_exp=: The size of the telemetry poll buffer in form of
+   an exponent of 2. A smaller buffer will increase the likely hood
+   that [[./odbtelem_poll.org][=odbtelem_poll=]] will return =ODB_EMISSED=. This must be
+   greater than 0 and less than 15. The recommended value is 5.
+
+When turning off telemetry, all telemetry classes and their bindings are
+destroyed. It will revert everything back to as if odbtelem was never
+called in the first place.
+
+* Errors
+ - =ODB_EVERSION= - telementry not possible because this library was
+   not built to have it.
+ - =ODB_EINVAL=   - =buffersize_exp= is invalid
+ - =ODB_ECRIT=
