@@ -1,0 +1,84 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbtelem_poll - Read from telemetry stream
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/telemetry.h>
+
+typedef int odbtelem_class_t;
+
+struct odbtelem_data {
+
+     odbtelem_class_t class;
+
+     /* ... */
+
+};
+
+odb_err odbtelem_poll(struct odbtelem_data *o_data);
+#+END_SRC
+
+* Description
+
+=odbtelem_poll= works a lot like =odbh_poll= in its design. Both of
+these functions read from the stream and have the same =ODB_EMISSED=
+phenomenon.
+
+On successful operation, =odbtelem_poll= will block the calling thread
+if there is nothing in the stream. Once the stream provides data, it
+will be written to =o_data=, and depending on =.class= additional
+fields of the structure can be analyized. See [[=odbtelem_class_t=]].
+
+** =odbtelem_class_t=
+*** =ODBTELEM_PAGES_NEWOBJ= - New object pages were just created
+
+ - =.entityid= - Entity id where the object page was created.
+ - =.pageid= - The pid of the first page that was created.
+ - =.pagec= - The amount of pages that were created.
+
+*** =ODBTELEM_PAGES_NEWDEL= - Trash pages were just created/assigned
+
+ - =.pageid= - The pageid of the new trash page
+
+*** =ODBTELEM_PAGES_CACHED=, =ODBTELEM_PAGES_DECACHED= - A page was just added/removed to/from the cache.
+
+ - =.pageid=
+
+*** =ODBTELEM_WORKR_ACCEPTED= - Worker accepted a new job
+
+ - =.workerid=
+ - =.jobslot=
+
+*** =ODBTELEM_WORKR_PLOAD=, =ODBTELEM_WORKR_PUNLOAD= - Worker loaded/unloaded a page
+
+*** =ODBTELEM_JOBS_ADDED=
+
+ - =.jobslot=
+
+*** =ODBTELEM_JOBS_COMPLETED=
+
+ - =.jobslot=
+
+
+* Errors
+
+ - =ODB_EPIPE= - Not attached to host process, this can also include
+   the fact that the host has turned off telemetry.
+ - =ODB_EMISSED= - =dbtelem_poll= was called too infrequently and
+   wasn't able to capture all events in the buffer before elements of
+   the buffer had to be replaced. This happens because you were not
+   polling fast enough.
+ - =ODB_EVERSION=
+ - =ODB_ECRIT=
+
+* Treading
+
+You may notice that unlike =odbh_poll= this function does not take in
+a handle-type argument. But infact that =odbtelem_poll= uses
+process-wide memory. Thus, this function is not safe to be called from
+multiple threads concurrently.
+
+* See Also
+
+ - [[./odbtelem.org][=odbtelem=]]
+ - [[./odbtelem_attach.org][=odbtelem_attach=]]

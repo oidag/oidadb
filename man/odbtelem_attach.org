@@ -1,0 +1,36 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbtelem_attach - Attach to a hosted database's telemetry stream
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/telemetry.h>
+
+odb_err odbtelem_attach(const char *path);
+void    odbtelem_detach();
+#+END_SRC
+
+* Description
+
+Attach to a hosted database's telemetry stream.
+
+Attach the calling process to whatever process has =path= open and
+hosted and access the telemetry data. Note the calling process and
+host process can be the same.
+
+Once attached, =odbtelem_poll= can be used to read the stream of
+analytics.
+
+If the host process decides to disable telemetry or shutsdown after
+=odbtelem_attach=, then it is as if odbtelem_detach was called
+implicitly.
+
+* Errors
+ - =ODB_EVERSION= - Library version does not provide telemetry attachments
+ - =ODB_EERRNO= - An error was returned by open(2)... see errno.
+ - =ODB_ENOTDB= - =odbtelem_attach= opened =path= and found not to be
+   a oidadb file.
+ - =ODB_ENOHOST= - The file is a oidadb file, but is not being hosted.
+ - =ODB_EPIPE= - The host exists and is running, but analytics are not
+   enabled. (See [[./odbtelem.org][=odbtelem=]])
+ - =ODB_EOPEN= - Already attached successfully.
+ - =ODB_ECRIT=
