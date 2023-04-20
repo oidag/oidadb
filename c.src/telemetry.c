@@ -17,6 +17,8 @@
 
 static int telemenabled = 0;
 struct odbtelem_params startedparams;
+static odbtelem_cb cbs[_ODBTELEM_LAST] = {0};
+static void odbtelem_install(struct odbtelem_data data);
 
 #ifdef EDBTELEM_DEBUG
 static const char *class2str(odbtelem_class c) {
@@ -51,7 +53,11 @@ static void odb_data_process(odbtelem_data d) {
 	odbtelem_install(d);
 }
 #else
-#define odb_data_process(d) odbtelem_install(d)
+static inline void odb_data_process(struct odbtelem_data d) {
+	if(!telemenabled) return; // redundant. but oh well.
+	if(cbs[d.class]) cbs[d.class](d);
+	odbtelem_install(d);
+}
 #endif
 
 #define telemetry_shm_magicnum 0x7373FDFD
@@ -373,6 +379,14 @@ inline static odb_err setshmbuffer() {
 	};
 	memcpy(telemtry_shared.shm, &head,
 	       sizeof(telemetry_shm)); // by-pass constants
+	return 0;
+}
+
+odb_err odbtelem_bind(odbtelem_class_t class, odbtelem_cb cb) {
+	if (class >= _ODBTELEM_LAST) {
+		return ODB_EINVAL;
+	}
+	cbs[class] = cb;
 	return 0;
 }
 
