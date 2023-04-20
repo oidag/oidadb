@@ -29,6 +29,12 @@ if there is nothing in the stream. Once the stream provides data, it
 will be written to =o_data=, and depending on =.class= additional
 fields of the structure can be analyized. See [[=odbtelem_class_t=]].
 
+=odbtelem_poll= will always return =o_data= so long that there is
+still telemetry data in the buffer. So in the event that the host has
+shut down, =odbtelem_poll= will continue to function as normal until
+the buffer is cleared, at that point subsequent calls will return
+=ODB_EPIPE=.
+
 ** =odbtelem_class_t=
 *** =ODBTELEM_PAGES_NEWOBJ= - New object pages were just created
 

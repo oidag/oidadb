@@ -1,38 +1,32 @@
 
 #include "../edbd.h"
-#include "../include/telemetry.h"
 #include "../include/oidadb.h"
 #include "teststuff.h"
 
 
 #include <stdio.h>
 int newdeletedpages = 0;
-
-void newdel(odbtelem_data d) {
-	newdeletedpages++;
-};
-
-int main(int argc, const char **argv) {
-
-	// create an empty file
-	test_mkdir();
-	test_mkfile(argv[0]);
-	odb_createparams createparams  =odb_createparams_defaults;
+odb_err _pid_odbtelem_attach(pid_t hostpid);
+void test_main() {
+	struct odb_createparams createparams  =odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
 	if(err) {
 		test_error("failed to create file");
-		return 1;
+		return;
 	}
 
 	// open the file
 	int fd = open(test_filenmae, O_RDWR);
 	if(fd == -1) {
 		test_error("bad fd");
-		return 1;
+		return;
 	}
 
-	odbtelem(1);
-	odbtelem_bind(ODBTELEM_PAGES_NEWDEL, newdel);
+	if(err) {
+		test_error("odbtelem");
+		return;
+	}
+	//odbtelem_bind(ODBTELEM_PAGES_NEWDEL, newdel);
 
 	edbd_t dfile;
 	edbd_config config;
@@ -40,7 +34,13 @@ int main(int argc, const char **argv) {
 	err = edbd_open(&dfile, fd, config);
 	if(err) {
 		test_error("edbd_open failed");
-		return 1;
+		return;
+	}
+
+	//err = _pid_odbtelem_attach(getpid());
+	if(err) {
+		test_error("odbtelem_attach");
+		return;
 	}
 
 	// testing configs
@@ -93,6 +93,7 @@ int main(int argc, const char **argv) {
 	{
 		odb_spec_index_entry *oid_deleted;
 		edbd_index(&dfile, EDBD_EIDDELTED, &oid_deleted);
+		newdeletedpages = oid_deleted->ref0c;
 		if (lseek(fd, edbd_pid2off(&dfile, oid_deleted->ref0), SEEK_SET) ==
 		    -1) {
 			test_error("lseek");
@@ -147,5 +148,5 @@ int main(int argc, const char **argv) {
 	}
 
 	ret:
-	return test_waserror;
+	return;
 }

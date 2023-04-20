@@ -188,32 +188,26 @@ void *routine_randread(void *pl) {
 uint64_t totalmysqlinsert = 0;
 uint64_t totalmysqlupdate = 0;
 
-void newdel(odbtelem_data d) {
-	newdeletedpages++;
-};
 edbpcache_t *globalcache;
 
 edbd_t globaledbd_file;
 
-int main(int argc, const char **argv) {
+void test_main() {
 	srand(47237427);
 
-	// create an empty file
-	test_mkdir();
-	test_mkfile(argv[0]);
-	odb_createparams createparams = odb_createparams_defaults;
-	createparams.page_multiplier = page_multiplier;
+	// create an odb file
+	struct odb_createparams createparams  =odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
-	if (err) {
+	if(err) {
 		test_error("failed to create file");
-		return 1;
+		return;
 	}
 
 	// open the file
-	int fd = open(test_filenmae, O_RDWR | O_DIRECT);
+	int fd = open(test_filenmae, O_RDWR);
 	if (fd == -1) {
 		test_error("bad fd");
-		return 1;
+		return;
 	}
 	// edbd
 	edbd_config config;
@@ -221,24 +215,24 @@ int main(int argc, const char **argv) {
 	err = edbd_open(&globaledbd_file, fd, config);
 	if (err) {
 		test_error("edbd_open failed");
-		return 1;
+		return;
 	}
 	// edbp
 	err = edbp_cache_init(&globaledbd_file, &globalcache);
 	if (err) {
 		test_error("edbp_cache_init");
-		return 1;
+		return;
 	}
 	err = edbp_cache_config(globalcache, EDBP_CONFIG_CACHESIZE, cachesize);
 	if (err) {
 		test_error("edbp_cache_config");
-		return 1;
+		return;
 	}
 	// edba host.
 	edba_host_t *edbahost;
 	if ((err = edba_host_init(&edbahost, globalcache, &globaledbd_file))) {
 		test_error("host");
-		return 1;
+		return;
 	}
 
 	struct threadpayload payloads[extrathreads+1];
@@ -249,7 +243,7 @@ int main(int argc, const char **argv) {
 		if ((err = edba_handle_init(edbahost, 69000+i, &payloads[i]
 		.edbahandle))) {
 			test_error("handle");
-			return 1;
+			return;
 		}
 		payloads[i].totalthreads = extrathreads+1;
 		if(!exclusiveeids) {
@@ -277,7 +271,7 @@ int main(int argc, const char **argv) {
 		pthread_join(payloads[i].pthread, 0);
 	}
 	if(test_waserror) {
-		return 1;
+		return;
 	}
 
 	// inserts
@@ -295,7 +289,7 @@ int main(int argc, const char **argv) {
 	}
 	time_total_insert = timerend(t);
 	if(test_waserror) {
-		return 1;
+		return;
 	}
 
 	// random reads
@@ -327,7 +321,7 @@ int main(int argc, const char **argv) {
 	}
 	time_total_random_read = timerend(t);
 	if(test_waserror) {
-		return 1;
+		return;
 	}
 
 	test_log("decoming threads...");

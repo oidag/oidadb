@@ -16,7 +16,7 @@
 #include <malloc.h>
 
 static int telemenabled = 0;
-odbtelem_params_t startedparams;
+struct odbtelem_params startedparams;
 
 #ifdef EDBTELEM_DEBUG
 static const char *class2str(odbtelem_class c) {
@@ -124,30 +124,36 @@ struct {
 struct {
 	char           shm_name[32];
 	telemetry_shm *shm;
-	odbtelem_data *shm_datav;
+	struct odbtelem_data *shm_datav;
 } telemtry_shared = {0};
 
 void static inline shmname(pid_t pid, char *buff) {
 	sprintf(buff, "/odb_host_telem-%d", pid);
 }
 
+static void setattached() {
+	telemetry_listener.raster = telemtry_shared.shm->futex_raster;
+	telemetry_listener.index  = telemetry_listener.raster
+	                            % telemtry_shared.shm->dataq;
+	telemetry_listener.attached = 1;
+}
 
 odb_err odbtelem_attach(const char *path) {
 #ifndef EDBTELEM
 	return ODB_EVERSION;
 #endif
-	if(telemetry_listener.attached) {
+	if (telemetry_listener.attached) {
 		return ODB_EOPEN;
 	}
 	odb_err err;
 	pid_t hostpid;
-	if((err = edb_host_getpid(path, &hostpid))) {
+	if ((err = edb_host_getpid(path, &hostpid))) {
 		return err;
 	}
 	shmname(hostpid, telemtry_shared.shm_name);
 	int fd = shm_open(telemtry_shared.shm_name,
-			 O_RDONLY,
-			 0666);
+	                  O_RDONLY,
+	                  0666);
 	if(fd == -1) {
 		switch (errno) {
 			case ENOENT: return ODB_EPIPE;
@@ -184,13 +190,13 @@ odb_err odbtelem_attach(const char *path) {
 		return ODB_ECRIT;
 	}
 	telemtry_shared.shm_datav = (void *)telemtry_shared.shm
-			+ sizeof(telemetry_shm);
-	telemetry_listener.raster = telemtry_shared.shm->futex_raster;
-	telemetry_listener.index  = telemetry_listener.raster
-			% telemtry_shared.shm->dataq;
-	telemetry_listener.attached = 1;
+	                            + sizeof(telemetry_shm);
+
+	// set this process as attached.
+	setattached();
 	return 0;
 }
+
 void odbtelem_detach() {
 	if(!telemtry_shared.shm) return;
 	munmap(telemtry_shared.shm, telemtry_shared.shm->shmc);
@@ -199,12 +205,12 @@ void odbtelem_detach() {
 	telemetry_listener.attached = 0;
 }
 
-odb_err odbtelem_poll(odbtelem_data *o_data) {
+odb_err odbtelem_poll(struct odbtelem_data *o_data) {
 	if(!telemetry_listener.attached) {
 		return ODB_EPIPE;
 	}
 	telemetry_shm *shm = telemtry_shared.shm;
-	odbtelem_data *shm_datav = telemtry_shared.shm_datav;
+	struct odbtelem_data *shm_datav = telemtry_shared.shm_datav;
 
 	// if we're caught up we'll wait until the host broadcast an updated
 	// raster position.
@@ -281,9 +287,9 @@ odb_err odbtelem_image(odbtelem_image_t *o_image) {
 }
 
 // installs the data into the buffer. Will override old data.
-static void odbtelem_install(odbtelem_data data) {
+static void odbtelem_install(struct odbtelem_data data) {
 	telemetry_shm *shm = telemtry_shared.shm;
-	odbtelem_data *shm_datav = telemtry_shared.shm_datav;
+	struct odbtelem_data *shm_datav = telemtry_shared.shm_datav;
 	pthread_mutex_t *mutex = &telemetry_host.mutex;
 	pthread_mutex_lock(mutex);
 	shm->index = (shm->index + 1) % shm->dataq;
@@ -301,22 +307,13 @@ static void odbtelem_install(odbtelem_data data) {
 }
 
 inline static void destroyshmbuffer() {
-#ifdef EDBTELEM_INNERPROC
-	int innerprocess = startedparams.innerprocess;
-#else
-	int innerprocess = 0;
-#endif
 	telemtry_shared.shm->hosted = 0;
 
 	// increment to let listeners know we're shutting down.
 	telemtry_shared.shm->futex_raster++;
 	futex_wake(&telemtry_shared.shm->futex_raster, INT32_MAX);
-	if(innerprocess) {
-		munmap(telemtry_shared.shm, telemtry_shared.shm->shmc);
-		shm_unlink(telemtry_shared.shm_name);
-	} else {
-		free(telemtry_shared.shm);
-	}
+	munmap(telemtry_shared.shm, telemtry_shared.shm->shmc);
+	shm_unlink(telemtry_shared.shm_name);
 	pthread_mutex_destroy(&telemetry_host.mutex);
 	telemtry_shared.shm = 0;
 }
@@ -324,47 +321,38 @@ inline static void destroyshmbuffer() {
 // assumes buffer has not already been set.
 // Assumes started params has been set.
 inline static odb_err setshmbuffer() {
-
-#ifdef EDBTELEM_INNERPROC
-	int innerprocess = startedparams.innerprocess;
-#else
-	int innerprocess = 0;
-#endif
 	int buffersize   = (1 << startedparams.buffersize_exp);
 	int size = (int)sizeof(telemetry_shm) +
-	           buffersize * (int)sizeof(odbtelem_data);
+	           buffersize * (int)sizeof(struct odbtelem_data);
 
 	// allocate telemtry_shared.shm
-	if(innerprocess) {
-		shmname(getpid(), telemtry_shared.shm_name);
-		int shmfd = shm_open(telemtry_shared.shm_name,
-		                     O_RDWR | O_CREAT | O_EXCL,
-		                     0666);
-		if (shmfd == -1) {
-			log_critf("shm_open");
-			return ODB_ECRIT;
-		}
-
-		// mmap the shm
-		if(ftruncate(shmfd, size) == -1) {
-			log_critf("ftruncate");
-			return ODB_ECRIT;
-		}
-
-		telemtry_shared.shm = mmap(0, size,
-		                           PROT_READ,
-		                           MAP_SHARED,
-		                           shmfd, 0);
-		close(shmfd);
-		if (telemtry_shared.shm == MAP_FAILED) {
-			log_critf("mmap");
-			telemtry_shared.shm = 0;
-			shm_unlink(telemtry_shared.shm_name);
-			return ODB_ECRIT;
-		}
-	}else{
-		telemtry_shared.shm = malloc(size);
+	shmname(getpid(), telemtry_shared.shm_name);
+	int shmfd = shm_open(telemtry_shared.shm_name,
+	                     O_RDWR | O_CREAT | O_EXCL,
+	                     0666);
+	if (shmfd == -1) {
+		log_critf("shm_open");
+		return ODB_ECRIT;
 	}
+
+	// mmap the shm
+	if(ftruncate(shmfd, size) == -1) {
+		log_critf("ftruncate");
+		return ODB_ECRIT;
+	}
+
+	telemtry_shared.shm = mmap(0, size,
+	                           PROT_READ | PROT_WRITE,
+	                           MAP_SHARED,
+	                           shmfd, 0);
+	close(shmfd);
+	if (telemtry_shared.shm == MAP_FAILED) {
+		log_critf("mmap");
+		telemtry_shared.shm = 0;
+		shm_unlink(telemtry_shared.shm_name);
+		return ODB_ECRIT;
+	}
+
 	telemtry_shared.shm_datav = (void *)telemtry_shared.shm
 	                            + sizeof(telemetry_shm);
 
@@ -388,14 +376,14 @@ inline static odb_err setshmbuffer() {
 	return 0;
 }
 
-odb_err odbtelem(int enabled, odbtelem_params_t params) {
+odb_err odbtelem(int enabled, struct odbtelem_params params) {
 #ifndef EDBTELEM
 	return ODB_EVERSION;
 #endif
 	odb_err err;
 	if(telemenabled && enabled) return 0;
 	if(!telemenabled && !enabled) return 0;
-	if(enabled) {
+	if(!enabled) {
 		// We are going from enabled to disabled.
 		destroyshmbuffer();
 	} else {
@@ -417,9 +405,9 @@ odb_err odbtelem(int enabled, odbtelem_params_t params) {
 void telemetry_pages_newobj(unsigned int entryid,
                             odb_pid startpid, unsigned int straitc) {
 	if(!telemenabled) return;
-	odbtelem_data d = {
+	struct odbtelem_data d = {
 			.class = ODBTELEM_PAGES_NEWOBJ,
-			.entryid = entryid,
+			.entityid = entryid,
 			.pageid = startpid,
 			.pagec = straitc,
 	};
@@ -427,7 +415,7 @@ void telemetry_pages_newobj(unsigned int entryid,
 }
 void telemetry_pages_newdel(odb_pid startpid) {
 	if(!telemenabled) return;
-	odbtelem_data d = {
+	struct odbtelem_data d = {
 			.class = ODBTELEM_PAGES_NEWDEL,
 			.pageid = startpid,
 	};
@@ -435,7 +423,7 @@ void telemetry_pages_newdel(odb_pid startpid) {
 }
 void telemetry_pages_cached(odb_pid pid) {
 	if(!telemenabled) return;
-	odbtelem_data d = {
+	struct odbtelem_data d = {
 			.class = ODBTELEM_PAGES_CACHED,
 			.pageid = pid,
 	};
@@ -443,7 +431,7 @@ void telemetry_pages_cached(odb_pid pid) {
 }
 void telemetry_pages_decached(odb_pid pid) {
 	if(!telemenabled) return;
-	odbtelem_data d = {
+	struct odbtelem_data d = {
 			.class = ODBTELEM_PAGES_DECACHED,
 			.pageid = pid,
 	};
@@ -451,7 +439,7 @@ void telemetry_pages_decached(odb_pid pid) {
 }
 void telemetry_workr_accepted(unsigned int workerid, unsigned int jobslot) {
 	if(!telemenabled) return;
-	odbtelem_data d = {
+	struct odbtelem_data d = {
 			.class = ODBTELEM_WORKR_ACCEPTED,
 			.workerid = workerid,
 			.jobslot = jobslot,
@@ -460,7 +448,7 @@ void telemetry_workr_accepted(unsigned int workerid, unsigned int jobslot) {
 }
 void telemetry_workr_pload(unsigned int workerid, odb_pid pageid) {
 	if(!telemenabled) return;
-	odbtelem_data d = {
+	struct odbtelem_data d = {
 			.class = ODBTELEM_WORKR_PLOAD,
 			.workerid = workerid,
 			.pageid = pageid
@@ -469,7 +457,7 @@ void telemetry_workr_pload(unsigned int workerid, odb_pid pageid) {
 }
 void telemetry_workr_punload(unsigned int workerid, odb_pid pageid) {
 	if(!telemenabled) return;
-	odbtelem_data d = {
+	struct odbtelem_data d = {
 			.class = ODBTELEM_WORKR_PUNLOAD,
 			.workerid = workerid,
 			.pageid = pageid
