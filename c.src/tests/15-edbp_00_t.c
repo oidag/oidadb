@@ -1,3 +1,5 @@
+#define _GNU_SROUCE
+
 #include "../options.h"
 #include "../include/oidadb.h"
 #include "../include/telemetry.h"
@@ -18,8 +20,6 @@ atomic_int *page_cached_amount;
 
 // total time inside of edbp_start (microseconds)
 unsigned long totalspent = 0;
-pthread_mutex_t what;
-
 
 typedef struct {
 	edbphandle_t *h;
@@ -28,7 +28,7 @@ typedef struct {
 	int tests;
 }threadstruct;
 
-void pload(odbtelem_data d) {
+void pload(struct odbtelem_data d) {
 	switch(d.class) {
 		case ODBTELEM_WORKR_PLOAD:
 			page_loaded_amount[d.pageid-65]++;
@@ -68,28 +68,23 @@ void *gothread(void *args) {
 	return (void *)test_waserror;
 }
 
-int main(int argc, const char **argv) {
-	pthread_mutex_init(&what, 0);
+void test_main() {
 	// create an empty file
-	test_mkdir();
-	test_mkfile(argv[0]);
-	odb_createparams createparams  =odb_createparams_defaults;
+	struct odb_createparams createparams  =odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
 	if(err) {
 		test_error("failed to create file");
-		return 1;
+		return;
 	}
 	// open the file
 	int fd = open(test_filenmae, O_RDWR
-	                             | O_DIRECT
 								 | O_SYNC
-								 | O_LARGEFILE
 								 | O_NONBLOCK);
 	if(fd == -1) {
 		test_error("bad fd");
-		return 1;
+		return;
 	}
-	odbtelem(1);
+	odbtelem(1, (struct odbtelem_params){.buffersize_exp=5});
 	odbtelem_bind(ODBTELEM_WORKR_PLOAD, pload);
 	odbtelem_bind(ODBTELEM_PAGES_CACHED, pload);
 	edbd_t dfile;
@@ -98,7 +93,7 @@ int main(int argc, const char **argv) {
 	err = edbd_open(&dfile, fd, config);
 	if(err) {
 		test_error("edbd_open failed");
-		return 1;
+		return;
 	}
 
 	////////////////////////////////////////////////////////////////////////////
@@ -235,5 +230,5 @@ int main(int argc, const char **argv) {
 	edbd_close(&dfile);
 
 	ret:
-	return test_waserror;
+	return;
 }

@@ -1,8 +1,11 @@
+#define _GNU_SOURCE
+
 #include "../edbd.h"
 #include "../edbs_u.h"
 #include "../include/telemetry.h"
 #include "../include/oidadb.h"
 #include "teststuff.h"
+#include "../wrappers.h"
 
 #include "../edbs-jobs.h"
 #include "../edbs.h"
@@ -32,7 +35,7 @@ struct shmobj {
 };
 struct shmobj *shmobj;
 
-const char *shmname = "/10EDBS_00_01_c";
+const char *shmname_test = "/10EDBS_00_01_c";
 
 void *gothread(void *v) {
 	struct threadpayload *payload = v;
@@ -105,12 +108,12 @@ void *gothread(void *v) {
 	return 0;
 }
 
-int main(int argc, const char **argv) {
+void test_main() {
 
 	////////////////////////////////////////////////////////////////////////////
-	const int handles = 1; // if and only if 0 the current process will be
+	const int handles = 3; // if and only if 0 the current process will be
 	                       // the handle.
-	const int hostthreads = 12; // must be at least 1.
+	const int hostthreads = 4; // must be at least 1.
 	const int job_buffq = 1000;
 	const int jobs_to_install_per_handle = 1000;
 	const int bytes_to_write_to_buff_per = 4096;
@@ -129,13 +132,11 @@ int main(int argc, const char **argv) {
 
 
 	// create an empty file
-	test_mkdir();
-	test_mkfile(argv[0]);
-	odb_createparams createparams = odb_createparams_defaults;
+	struct odb_createparams createparams = odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
 	if (err) {
 		test_error("failed to create file");
-		return 1;
+		return;
 	}
 
 	uint32_t shouldclose;
@@ -143,10 +144,10 @@ int main(int argc, const char **argv) {
 
 	{
 		// initialize shm object FOR THE PARENT PROC
-		int shmfd = shm_open(shmname, O_RDWR | O_CREAT | O_TRUNC, 0666);
+		int shmfd = shm_open(shmname_test, O_RDWR | O_CREAT | O_TRUNC, 0666);
 		if (shmfd == -1) {
 			test_error("shm open");
-			return 1;
+			return;
 		}
 		ftruncate64(shmfd, 4096);
 		shmobj = mmap(0, sizeof(struct shmobj),
@@ -154,7 +155,7 @@ int main(int argc, const char **argv) {
 		              MAP_SHARED, shmfd, 0);
 		if (shmobj == MAP_FAILED) {
 			test_error("mmap");
-			return 1;
+			return;
 		}
 		close(shmfd);
 		madvise(shmobj, 4096, MADV_DONTFORK);
@@ -174,14 +175,14 @@ int main(int argc, const char **argv) {
 	edbs_handle_t *host;
 	uint64_t totaltimereading = 0, totaltimewritting = 0;
 	if(isparent) {
-		odb_hostconfig config = odb_hostconfig_default;
+		struct odb_hostconfig config = odb_hostconfig_default;
 		config.job_buffq = job_buffq;
 		err = edbs_host_init(&host, config);
 		shmobj->futex_ready = 1;
 		futex_wake(&shmobj->futex_ready, INT32_MAX);
 		if(err) {
 			test_error("edbs_host_init");
-			return 1;
+			return;
 		}
 
 		// start threads
@@ -197,17 +198,17 @@ int main(int argc, const char **argv) {
 		}
 	} else {
 		// child proc initialize shmobject
-		int shmfd = shm_open(shmname, O_RDWR, 0666);
+		int shmfd = shm_open(shmname_test, O_RDWR, 0666);
 		if(shmfd == -1) {
 			test_error("shm open 2");
-			return 1;
+			return;
 		}
 		shmobj = mmap(0, sizeof(struct shmobj),
 		              PROT_READ | PROT_WRITE,
 		              MAP_SHARED, shmfd, 0);
 		if(shmobj == MAP_FAILED) {
 			test_error("mmap 2");
-			return 1;
+			return;
 		}
 		close(shmfd);
 	}
@@ -221,7 +222,7 @@ int main(int argc, const char **argv) {
 		edbs_handle_t *hndl;
 		if((err = edbs_handle_init(&hndl, parentpid))) {
 			test_error("edbs_handle_init");
-			return 1;
+			return;
 		}
 
 		// install a bunch of jobs
@@ -231,7 +232,7 @@ int main(int argc, const char **argv) {
 			int oneway = i % 7 == 0;
 
 			edbs_job_t job;
-			edbs_jobinstall(hndl, 69, getpid(), &job);
+			edbs_jobinstall(hndl, ODB_JWRITE, &job);
 			if(oneway) {
 				edbs_jobterm(job);
 			}
@@ -273,7 +274,7 @@ int main(int argc, const char **argv) {
 		edbs_handle_free(hndl);
 		if(!isparent) {
 			printf("proc %d finished \n", mypid);
-			return test_waserror;
+			return;
 		}
 	}
 
@@ -318,7 +319,5 @@ int main(int argc, const char **argv) {
 
 
 	// atp: only parent
-	return test_waserror;
-
-
+	return;
 }

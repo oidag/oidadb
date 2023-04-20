@@ -1,3 +1,6 @@
+#define _GNU_SOURCE
+//#define _LARGEFILE64_SOURCE
+
 #include "../edbl.h"
 #include "../include/telemetry.h"
 #include "../include/oidadb.h"
@@ -128,11 +131,9 @@ static void *gothread(void *a) {
 	// and switch to mutli-process and give normal locks a try.
 }
 
-int main(int argc, const char **argv) {
+void test_main() {
 
-	test_mkdir();
-	test_mkfile(argv[0]);
-
+	// create a dummy file.
 	creat64(test_filenmae, 0666);
 
 	////////////////////////////////////////////////////////////////////////////
@@ -191,7 +192,7 @@ int main(int argc, const char **argv) {
 			int shmfd = shm_open(shmname, O_RDWR, 0666);
 			if(shmfd == -1) {
 				test_error("shm open 2");
-				return 1;
+				return;
 			}
 			shmobj = mmap(0, sizeof(struct shmobj),
 			              PROT_READ | PROT_WRITE,
@@ -217,7 +218,7 @@ int main(int argc, const char **argv) {
 	f.descriptor = open(test_filenmae, O_RDWR);
 	if(f.descriptor == -1) {
 		test_error("open(2)");
-		return -1;
+		return;
 	}
 	err = edbl_host_init(&handle, &f);
 	if(err) {
@@ -265,7 +266,7 @@ int main(int argc, const char **argv) {
 	edbl_host_free(handle);
 	if(ischild) {
 		shm_unlink(shmname);
-		return test_waserror;
+		return ;
 	}
 
 	// join processes
@@ -285,5 +286,5 @@ int main(int argc, const char **argv) {
 	shm_unlink(shmname);
 
 	ret:
-	return test_waserror;
+	return ;
 }
