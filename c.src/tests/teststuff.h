@@ -28,19 +28,23 @@ if(err) {                            \
 fprintf(stream, "had odb_err: %d\n", err);\
 }\
 if(terr) { \
-errno = terr; \
-perror(prefix "had errno"); \
+errno = terr;                        \
+fprintf(stream, "had err: %d\n", terr);perror(prefix " had errno"); \
 } \
 va_end(args);\
 errno = terr;}
 
+// if test_error is called, main() will return 1.
 __attribute__ ((format (printf, 1, 2)))
 static void test_error(const char *fmt, ...)  {
-	stdlogthing(stderr, "test")
+	stdlogthing(stderr, "test-stderr")
 	test_waserror = 1;
 }
+
+
+__attribute__ ((format (printf, 1, 2)))
 static void test_log(const char *fmt, ...)  {
-	stdlogthing(stdout, "test")
+	stdlogthing(stdout, "test-stdout")
 }
 
 
@@ -96,6 +100,23 @@ char test_filenmae[100];
 static int test_mkfile(const char *argv0) {
 	sprintf(test_filenmae, "%s.oidadb", argv0);
 	unlink(test_filenmae);
+}
+
+// we define main out here.
+void test_main();
+int main(int argc, const char **argv) {
+	const char *arg0 = argv[0];
+	// create an empty file
+	test_mkdir();
+	test_mkfile(argv[0]);
+	test_main();
+	if(test_waserror) {
+		test_error("\n%s: test failed", arg0);
+		return 1;
+	} else {
+		test_log("\n%s: test passed", arg0);
+		return 0;
+	}
 }
 
 #endif

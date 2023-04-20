@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 
-int main(int argc, const char **argv) {
+void test_main() {
 
 	////////////////////////////////////////////////////////////////////////////
 	const int job_buffq = 16;
@@ -17,18 +17,16 @@ int main(int argc, const char **argv) {
 	edbs_job_t jobbuff[job_buffq];
 
 	// create an empty file
-	test_mkdir();
-	test_mkfile(argv[0]);
-	odb_createparams createparams = odb_createparams_defaults;
+	struct odb_createparams createparams = odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
 	if (err) {
 		test_error("failed to create file");
-		return 1;
+		return;
 	}
 
 	// host the shm
 	edbs_handle_t *shm_host;
-	odb_hostconfig config = odb_hostconfig_default;
+	struct odb_hostconfig config = odb_hostconfig_default;
 	config.job_buffq = job_buffq;
 	if((err = edbs_host_init(&shm_host, config))) {
 		test_error("host_init");
@@ -36,6 +34,7 @@ int main(int argc, const char **argv) {
 	}
 
 	// get a handle on the shm
+	test_log("opening shm...");
 	edbs_handle_t *shm_handle;
 	if((err = edbs_handle_init(&shm_handle, getpid()))) {
 		test_error("handle_init");
@@ -50,9 +49,10 @@ int main(int argc, const char **argv) {
 		}
 	}
 
+	test_log("installing jobs...");
 	for(int i = 0; i < job_buffq; i ++) {
 		edbs_job_t j;
-		err = edbs_jobinstall(shm_host, 69, 420, &j);
+		err = edbs_jobinstall(shm_host, ODB_JWRITE, &j);
 		if(err) {
 			test_error("job install");
 			goto ret;
@@ -69,6 +69,7 @@ int main(int argc, const char **argv) {
 	}
 
 	// now accept all the jobs
+	test_log("accepting jobs...");
 	for(int i = 0; i < job_buffq; i++) {
 		err = edbs_jobselect(shm_handle, &jobbuff[i], i+100);
 		if(err) {
@@ -77,16 +78,19 @@ int main(int argc, const char **argv) {
 		}
 	}
 	// check the shm for expected values
+	test_log("checking expected values...");
 	if(shm_host->head->newjobs != 0) {
 		test_error("newjobs not as expected after accepting all jobs");
 		goto ret;
 	}
 
 	// finally, close them.
+	test_log("closing values...");
 	for(int i = 0; i < job_buffq; i++) {
 		edbs_jobclose(jobbuff[i]);
 	}
 	// check the shm for expected values
+	test_log("expected values...");
 	if(shm_host->head->emptyjobs != job_buffq) {
 		test_error("newjobs not as expected after accepting all jobs");
 		goto ret;
@@ -95,9 +99,12 @@ int main(int argc, const char **argv) {
 
 	// free the handle
 	ret:
+	test_log("freeing handles...");
 	edbs_handle_free(shm_handle);
+	test_log("closing host...");
 	edbs_host_close(shm_host);
+	test_log("freeing host...");
 	edbs_host_free(shm_host);
 
-	return test_waserror;
+	test_log("done.");
 }

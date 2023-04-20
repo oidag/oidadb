@@ -429,8 +429,21 @@ odb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 
 // returns ODB_EJOBDESC if the jobclass is invalid
 static odb_err checkvalid(odb_jobtype_t jobclass) {
-	// todo
-	return ODB_EJOBDESC;
+	switch (jobclass) {
+		case ODB_JCREATE:
+		case ODB_JDELETE:
+		case ODB_JWRITE:
+		case ODB_JREAD:
+		case ODB_JSELECT:
+		case ODB_JUPDATE:
+		case ODB_JSTRCTCREATE:
+		case ODB_JSTRCTDELETE:
+		case ODB_JENTCREATE:
+		case ODB_JENTDELETE:
+			return 0;
+		default:
+			return ODB_EJOBDESC;
+	}
 }
 
 odb_err edbs_jobinstall(const edbs_handle_t *h,
