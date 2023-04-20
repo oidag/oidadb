@@ -6,23 +6,21 @@
 
 #include <stdio.h>
 
-int main(int argc, const char **argv) {
+void test_main() {
 
 	// create an empty file
-	test_mkdir();
-	test_mkfile(argv[0]);
-	odb_createparams createparams = odb_createparams_defaults;
+	struct odb_createparams createparams = odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
 	if (err) {
 		test_error("failed to create file");
-		return 1;
+		return ;
 	}
 
 	// open the file
 	int fd = open(test_filenmae, O_RDWR);
 	if(fd == -1) {
 		test_error("bad fd");
-		return 1;
+		return ;
 	}
 
 	// edbd open
@@ -33,25 +31,25 @@ int main(int argc, const char **argv) {
 	err = edbd_open(&dfile, fd, config);
 	if(err) {
 		test_error("edbd_open failed");
-		return 1;
+		return;
 	}
 
 	// edbl init
 	edbl_host_t *host;
 	if((err = edbl_host_init(&host, p_dfile))) {
 		test_error("edbl_host_init");
-		return 1;
+		return ;
 	}
 
 	// open 2 handles.
 	edbl_handle_t *h1, *h2;
 	if((err = edbl_handle_init(host, &h1))) {
 		test_error("edbl_handle_init");
-		return 1;
+		return ;
 	}
 	if((err = edbl_handle_init(host, &h2))) {
 		test_error("edbl_handle_init");
-		return 1;
+		return ;
 	}
 
 	// test EDBL_LREF0C
@@ -61,19 +59,19 @@ int main(int argc, const char **argv) {
 	};
 	if((err = edbl_set(h1, EDBL_ASH, lock))) {
 		test_error("edbl_set");
-		return 1;
+		return ;
 	}
 	if(edbl_test(h2, EDBL_AXL, lock) != ODB_EAGAIN) {
 		test_error("EDBL_LREF0C did not conflict with existing.");
-		return 1;
+		return ;
 	}
 	if((err = edbl_set(h1, EDBL_ARELEASE, lock))) {
 		test_error("edbl_set");
-		return 1;
+		return ;
 	}
 	if((err = edbl_test(h2, EDBL_AXL, lock))) {
 		test_error("EDBL_LREF0C conflicted with a supposed non-existing lock");
-		return 1;
+		return ;
 	}
 
 	// test EDBL_LREF0C
@@ -84,19 +82,19 @@ int main(int argc, const char **argv) {
 	};
 	if((err = edbl_set(h1, EDBL_ASH, lock))) {
 		test_error("edbl_set 2 ");
-		return 1;
+		return ;
 	}
 	if(edbl_test(h2, EDBL_AXL, lock) != ODB_EAGAIN) {
 		test_error("EDBL_LROW did not conflict with existing 2");
-		return 1;
+		return ;
 	}
 	if((err = edbl_set(h1, EDBL_ARELEASE, lock))) {
 		test_error("edbl_set 2");
-		return 1;
+		return ;
 	}
 	if((err = edbl_test(h2, EDBL_AXL, lock))) {
 		test_error("EDBL_LROW conflicted with a supposed non-existing lock 2");
-		return 1;
+		return ;
 	}
 
 	// close handles

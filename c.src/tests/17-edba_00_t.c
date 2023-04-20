@@ -28,7 +28,7 @@ uint64_t time_individual_insert = 0
 
 void mysql();
 
-void newdel(odbtelem_data d) {
+void newdel(struct odbtelem_data d) {
 	newdeletedpages++;
 };
 edbpcache_t *globalcache;
@@ -46,24 +46,22 @@ void scramble(odb_oid *oids, odb_oid *o_random, int records) {
 	}
 }
 
-int main(int argc, const char **argv) {
+void test_main() {
 	srand(47237427);
 
 	// create an empty file
-	test_mkdir();
-	test_mkfile(argv[0]);
-	odb_createparams createparams = odb_createparams_defaults;
+	struct odb_createparams createparams = odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
 	if (err) {
 		test_error("failed to create file");
-		return 1;
+		return ;
 	}
 
 	// open the file
-	int fd = open(test_filenmae, O_RDWR | O_DIRECT);
+	int fd = open(test_filenmae, O_RDWR);
 	if (fd == -1) {
 		test_error("bad fd");
-		return 1;
+		return ;
 	}
 
 	// edbd
@@ -73,31 +71,31 @@ int main(int argc, const char **argv) {
 	err = edbd_open(&dfile, fd, config);
 	if (err) {
 		test_error("edbd_open failed");
-		return 1;
+		return ;
 	}
 
 	// edbp
 	err = edbp_cache_init(&dfile, &globalcache);
 	if (err) {
 		test_error("edbp_cache_init");
-		return 1;
+		return ;
 	}
 	err = edbp_cache_config(globalcache, EDBP_CONFIG_CACHESIZE, cachesize);
 	if (err) {
 		test_error("edbp_cache_config");
-		return 1;
+		return ;
 	}
 
 	// edba
 	edba_host_t *edbahost;
 	if ((err = edba_host_init(&edbahost, globalcache, &dfile))) {
 		test_error("host");
-		return 1;
+		return ;
 	}
 	edba_handle_t *edbahandle;
 	if ((err = edba_handle_init(edbahost, 69, &edbahandle))) {
 		test_error("handle");
-		return 1;
+		return ;
 	}
 
 
@@ -114,7 +112,7 @@ int main(int argc, const char **argv) {
 		err = edba_structopenc(edbahandle, &structid, strct);
 		if (err) {
 			test_error("struct create");
-			return 1;
+			return ;
 		}
 		edba_structclose(edbahandle);
 	}
@@ -133,12 +131,12 @@ int main(int argc, const char **argv) {
 		err = edba_entryopenc(edbahandle, &eid, EDBA_FCREATE | EDBA_FWRITE);
 		if (err) {
 			test_error("openc");
-			return 1;
+			return ;
 		}
 		err = edba_entryset(edbahandle, entryparams);
 		if (err) {
 			test_error("entryset");
-			return 1;
+			return ;
 		}
 		edba_entryclose(edbahandle);
 	}
@@ -174,30 +172,30 @@ int main(int argc, const char **argv) {
 		fd = open(test_filenmae, O_RDWR);
 		if (fd == -1) {
 			test_error("bad fd");
-			return 1;
+			return ;
 		}
 		err = edbd_open(&dfile, fd, config);
 		if (err) {
 			test_error("edbd_open failed");
-			return 1;
+			return ;
 		}
 		err = edbp_cache_init(&dfile, &globalcache);
 		if (err) {
 			test_error("edbp_cache_init");
-			return 1;
+			return ;
 		}
 		err = edbp_cache_config(globalcache, EDBP_CONFIG_CACHESIZE, cachesize);
 		if (err) {
 			test_error("edbp_cache_config");
-			return 1;
+			return ;
 		}
 		if ((err = edba_host_init(&edbahost, globalcache, &dfile))) {
 			test_error("host");
-			return 1;
+			return ;
 		}
 		if ((err = edba_handle_init(edbahost, 69, &edbahandle))) {
 			test_error("handle");
-			return 1;
+			return ;
 		}
 	}
 
@@ -212,18 +210,18 @@ int main(int argc, const char **argv) {
 		for(int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
 			if(data[j] != (uint8_t)j) {
 				test_error("invalid value");
-				return 1;
+				return ;
 			}
 		}
 		// make sure struct works.
 		const odb_spec_struct_struct *strc = edba_objectstruct(edbahandle);
 		if(strc->fixedc != 100) {
 			test_error("failed to get structure");
-			return 1;
+			return ;
 		}
 		if(edba_objectdeleted(edbahandle)) {
 			test_error("non-deleted object is deleted");
-			return 1;
+			return ;
 		}
 		// also if their oid is % 11 then give them a flag. We'll test this
 		// below.
@@ -244,15 +242,15 @@ int main(int argc, const char **argv) {
 		timer t = timerstart();
 		if((err = edba_objectopen(edbahandle, oids_random[i], EDBA_FWRITE))) {
 			test_error("open-delete %d", i);
-			return 1;
+			return ;
 		}
 		if((err = edba_objectdelete(edbahandle))) {
 			test_error("delete");
-			return 1;
+			return ;
 		}
 		if(!edba_objectdeleted(edbahandle)) {
 			test_error("deleted onbject not deleted");
-			return 1;
+			return ;
 		}
 		edba_objectclose(edbahandle);
 		totaltimerandomdelete += timerend(t);
@@ -273,13 +271,13 @@ int main(int argc, const char **argv) {
 		// space sense we've previously made room.
 		if((err = edba_objectopen(edbahandle, oids[i], EDBA_FWRITE))) {
 			test_error("open-post-delete %d", i);
-			return 1;
+			return ;
 		}
 		// we know that everything in oids[] is deleted
 		if(!edba_objectdeleted(edbahandle)) {
 			test_error("opening a record not marked as deleted that should "
 					   "have been deleted");
-			return 1;
+			return ;
 		}
 		/*test_log("undeleteding rowid %lx (p%d row %d)...", oids[i],
 		         (oids[i]&0x0000FFFFFFFFFFFF)/81,
@@ -297,7 +295,7 @@ int main(int argc, const char **argv) {
 			if(locks != EDB_FUSRLWR) {
 				test_error("locks failed to install on oid with mod 11 "
 						   "condition");
-				return 1;
+				return ;
 			}
 		}
 		edba_objectclose(edbahandle);
@@ -311,7 +309,7 @@ int main(int argc, const char **argv) {
 		// space sense we've previously made room.
 		if((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE))) {
 			test_error("creating-post-delete %d", i);
-			return 1;
+			return ;
 		}
 		uint8_t *data = edba_objectfixed(edbahandle);
 		for(int j = 0; j < (fixedc - sizeof(odb_spec_object_flags)); j++) {
