@@ -53,6 +53,10 @@ struct odbtelem_data {
 };
 odb_err odbtelem_poll(struct odbtelem_data *o_data);
 
+
+typedef void(*odbtelem_cb)(struct odbtelem_data);
+odb_err odbtelem_bind(odbtelem_class_t class, odbtelem_cb cb);
+
 /**
  * \brief Get a full in-memory snapshot of the attached host.
  *

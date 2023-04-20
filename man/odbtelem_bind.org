@@ -1,0 +1,45 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbtelem_bind - intra-process callback-based telemetry reading
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/telemetry.h>
+
+typedef void(*odbtelem_cb)(struct odbtelem_data);
+
+odb_err odbtelem_bind(odbtelem_class_t class, odbtelem_cb cb);
+#+END_SRC
+
+* Description
+=odbtelem_bind= will cause all telemetry data written by the host (of
+whom shares the process as the caller) with a given =class= to invoke
+the callback pointed by =cb=.
+
+Only 1 callback can be assigned to a given =class=. To unbind a class,
+call this function with that class but with a null =cb=. The bindings
+will persist regardless if [[./odbtelem.org][=odbtelem=]] is enabled, however so long that
+=odbtelem= is disabled the bindings will not invoke any callbacks.
+
+=odbtelem_bind= is an alternative of the more robust [[./odbtelem_poll.org][=odbtelem_poll=]]
+in the fact that both functions will give you access to the feed of
+telemtry data from a host. However, unlike =odbtelem_poll=,
+=odbtelem_bind= comes with the disclaimers:
+
+ - =odbtelem_bind='s functionaility will only listen to the host that
+   is from the same calling process.
+ - =odbtelem_bind='s callback architecture is, more often then not, a
+   henderence on the host. =odbtelem_poll= is substantially more
+   passive and less impactful on performance.
+ - Bindings set by =odbtelem_bind= will always invoke before the same
+   event can be polled by =odbtelem_poll=.
+
+* Errors
+ - =ODB_EINVAL= - =class= was not valid
+
+* Threading
+
+The callback you supply (=cb=) must be completely thread safe. As this
+callback will be called from any thread at any time.
+
+=odbtelem_bind= itself can be called from any thread so long that each
+call is atomically in order.

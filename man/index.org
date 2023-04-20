@@ -86,6 +86,7 @@ you're ready to begin.
 	2. [[./odbtelem_attach.org][=odbtelem_attach=]]
 	3. [[./odbtelem_poll.org][=odbtelem_poll=]]
 	4. =odbtelem_image= - coming soon
+	5. [[./odbtelem_bind.org][=odbtelem_bind=]]
 
 * Appendix
 ** See Also
