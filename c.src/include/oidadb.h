@@ -159,6 +159,7 @@ struct odb_hostconfig {
 	unsigned int event_bufferq;
 	unsigned int worker_poolsize;
 	unsigned int slot_count;
+	uint32_t    *stat_futex;
 
 	// Reserved.
 	int flags;
@@ -170,6 +171,7 @@ static const struct odb_hostconfig odb_hostconfig_default = {
 		.event_bufferq = 32,
 		.worker_poolsize = 4,
 		.slot_count = 16,
+		.stat_futex = 0,
 		.flags = 0,
 };
 export odb_err odb_host(const char *path, struct odb_hostconfig hostops);
@@ -178,6 +180,7 @@ export odb_err odb_hoststop();
 typedef unsigned int odb_hostevent_t;
 #define ODB_EVENT_HOSTED 1
 #define ODB_EVENT_CLOSED 2
+#define ODB_O
 #define ODB_EVENT_ANY (odb_event)(-1)
 export odb_err odb_hostpoll(const char  *path
 		, odb_hostevent_t  event
@@ -244,6 +247,10 @@ export odb_err odbh_jread (odbh *handle, void *o_buf, int bufc);
 export odb_err odbh_jclose(odbh *handle);
 
 typedef enum odb_eventtype_t {
+	ODB_VVOID = 0,
+	ODB_VERROR,
+	ODB_VACTIVE,
+	ODB_VCLOSE,
 	ODB_VWRITE,
 	ODB_VCREATE,
 	ODB_VDELETE,

@@ -109,6 +109,7 @@ int main(int argc, const char **argv) {
 	// create an empty file
 	test_mkdir();
 	test_mkfile(argv[0]);
+	errno = 0;
 	test_main();
 	if(test_waserror) {
 		test_error("\n%s: test failed", arg0);

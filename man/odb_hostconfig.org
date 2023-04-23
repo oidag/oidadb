@@ -12,6 +12,7 @@ typedef struct odb_hostconfig {
 	unsigned int event_bufferq;
 	unsigned int worker_poolsize;
 	unsigned int slot_count;
+	uint32_t    *stat_futex;
 
 	/* ... */
 
@@ -104,3 +105,15 @@ are moved into what are known as slots.
 At the time of writting this, I really have no idea what would be the
 optimal page buffer. More research needed. Lets just say it'll be 4x
 the worker size.... why not.
+** =stat_futex=
+Unlike all other fields, this one does not actually effect the host of
+the database but instead is used by the caller of =odb_host= to
+implement degrees of traffic control. When this value is changed, a
+futex will be broadcasted on that address.
+
+ - odb_host never called = ODB_VVOID = 0
+ - shut down or shutting down with error = ODB_VERROR
+ - currently hosting  = ODB_VACTIVE
+ - shut down or shutting down without error = ODB_VCLOSE
+
+Can be set to 0 to just not use this feature.
