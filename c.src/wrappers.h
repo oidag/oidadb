@@ -1,5 +1,6 @@
 #ifndef ODB_WRAPPERS_H_
 #define ODB_WRAPPERS_H_
+#include "errors.h"
 
 #include <unistd.h>
 #include <syscall.h>

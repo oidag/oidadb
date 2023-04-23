@@ -7,6 +7,7 @@
 #include "include/oidadb.h"
 #include "edba.h"
 #include "edbs.h"
+#include "wrappers.h"
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -136,13 +137,28 @@ void static unlockfile() {
 
 odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 
+	// deal with the futex stat here sense its not that hard.
+	uint32_t *stat_futex = hostops.stat_futex;
+	uint32_t dummy; // see if statement below.
+	if(stat_futex == 0)  {
+		// the caller doesn't care about the status futex, so we can just
+		// point it to a dummy var.
+		stat_futex = &dummy;
+	}
+
 	// check for EINVAL
 	odb_err eerr;
 	eerr = validatehostops(path, hostops);
-	if(eerr) return eerr;
+	if(eerr) {
+		*stat_futex = ODB_VERROR;
+		futex_wake(stat_futex, INT32_MAX);
+		return eerr;
+	}
 
 	// make sure host isn't already running
 	if(host.state != HOST_NONE) {
+		*stat_futex = ODB_VERROR;
+		futex_wake(stat_futex, INT32_MAX);
 		return ODB_EAGAIN;
 	}
 
@@ -166,6 +182,8 @@ odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 	                                  | O_LARGEFILE
 	                                  | O_NONBLOCK);
 	if(host.fdescriptor == -1) {
+		*stat_futex = ODB_VERROR;
+		futex_wake(stat_futex, INT32_MAX);
 		switch (errno) {
 			case ENOENT:
 				log_errorf("failed to open file %s: path of file does not "
@@ -273,19 +291,22 @@ odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 	host.state = HOST_OPEN;
 
 	// broadcast to any curious listeners that we're up and running.
-	syscall(SYS_futex, (uint32_t *)&host.state,
-	        FUTEX_WAKE, INT32_MAX, 0, 0, 0);
+	// todo: is this actually needed anywhere?
+	futex_wake((uint32_t *)&host.state, INT32_MAX);
 
+	// set our stat futex as active.
+	*stat_futex = ODB_VACTIVE;
+	futex_wake(stat_futex, INT32_MAX);
 
 	// now we can freeze this thread until we get the futex signal to close.
-	syscall(SYS_futex, (uint32_t *)&host.state,
-	        FUTEX_WAIT, (uint32_t)HOST_OPEN, 0,
-	        0, 0);
+	futex_wait((uint32_t *)&host.state, HOST_OPEN);
 
-	// these two lines are only hit if it was a graceful shutdown.
+	// these lines are only hit if it was a graceful shutdown.
 	eerr = 0;
 	errno = 0;
 	host.state = HOST_CLOSING;
+	*stat_futex = ODB_VCLOSE; // (sense we know we are without error)
+	futex_wake(stat_futex, INT32_MAX);
 
 	// not we could have been brought here for any reason. That reason
 	// depends on host.state, which will dicate what needs to be cleaned up.
@@ -344,8 +365,8 @@ odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 	}
 
 	// broadcast that we're closed.
-	syscall(SYS_futex, (uint32_t *)&host.state,
-	        FUTEX_WAKE, INT32_MAX, 0, 0, 0);
+	// todo: see above... do we need to broadcast this?
+	futex_wake(&host.state, INT32_MAX);
 	return eerr;
 }
 
@@ -360,8 +381,6 @@ odb_err odb_hoststop() {
 
 	// we must set this before the FUTEX_WAKE to prevent lost wakes.
 	host.state = HOST_CLOSING;
-	syscall(SYS_futex, (uint32_t *)&host.state,
-	        FUTEX_WAKE, 1, 0,
-	        0, 0);
+	futex_wake(&host.state, 1);
 	return 0;
 }
