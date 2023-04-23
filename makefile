@@ -65,10 +65,10 @@ release: $(test_exec) build/oidadb-package.tar.gz
 # PUBLISHING
 # TODO: remove publishing scripts from here. I'd like to have all publishing handled by external scripts.
 
-publish: build/manual.html build/publish-index.html
+publish: build/publish-index.html
 	@mkdir -p build
 	cd build && timeout 30 ../scripts/ftp-publish.sh publish-index.html
-	cd build && timeout 30 ../scripts/ftp-publish.sh manual.html
+
 
 PUBLISHDATE=$(shell date '+%F')
 BUILDVERSION := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
