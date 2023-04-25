@@ -227,7 +227,7 @@ odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 	if(eerr) {
 		goto ret;
 	}
-	// **defer: edbs_dehost(host.shm);
+	// **defer: edbs_host_close ; edbs_host_free
 	host.state = HOST_OPENING_PAGEBUFF;
 
 	// page buffers & edba
@@ -283,7 +283,6 @@ odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 		}
 	}
 	// **defer: edb_workerjoin(&(host.workerv[0->host.workerc]));
-	// **defer: edb_workerstop(&(host.workerv[0->host.workerc]));
 
 	// at this point we have an open transferstate.
 	// this by definition means clients can start filling up the job buffer even
@@ -318,9 +317,7 @@ odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 			// fallthrough
 		case HOST_OPEN:
 			log_infof("stopping %d workers...", host.workerc);
-			for(int i = 0; i < host.workerc; i++) {
-				edbw_stop(&(host.workerv[i]));
-			}
+			edbs_host_close(host.shm);
 			for(int i = 0; i < host.workerc; i++) {
 				edbw_join(&(host.workerv[i]));
 				log_infof("  ...worker %d joined", i);

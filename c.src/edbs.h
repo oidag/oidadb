@@ -23,6 +23,9 @@ typedef struct edbs_handle_t edbs_handle_t;
 // If any job transfer buffers are in use, edbs_host_close will block until
 // they are closed naturally (see edbs_jobterm via executor).
 //
+// Immediately calling edbs_host_close will have edbs_host_closed returning
+// true.
+//
 // Once your confident that all threads will no longer attempt to call
 // edbs_job* functions, you can call edbs_host_free to free out resources.
 //
@@ -38,9 +41,10 @@ typedef struct edbs_handle_t edbs_handle_t;
 //
 // THREADING:
 // None of these functions are MT safe for a given shm. Call only in explicit
-// order.
+// order: init -> close -> free
 odb_err edbs_host_init(edbs_handle_t **o_shm, struct odb_hostconfig config);
 void    edbs_host_close(edbs_handle_t *shm);
+int     edbs_host_closed(const edbs_handle_t *shm);
 void    edbs_host_free(edbs_handle_t *shm);
 
 // edbs_handle loads the shared memory of a host based

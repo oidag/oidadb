@@ -10,7 +10,6 @@
 typedef enum _edb_workerstate {
 	EDB_WWORKNONE = 0,
 	EDB_WWORKASYNC,
-	EDB_WWORKSTOP,
 } edb_workerstate;
 
 typedef struct edb_worker_st {
@@ -47,6 +46,10 @@ void edbw_decom(edb_worker_t *worker);
 // in either case, an error will only be returned if something wrong happened at
 // startup.
 //
+// Before edbw_join can be called, the edbs_handle_t *shm that was used in
+// edbw_init must have its edbs_close called. Otherwise edbw_join will hang
+// forever.
+//
 // regardless of how they started, workers set to shutdown mode by calling
 // edb_workerstop. edb_workerstop will return only when the worker has been
 // successfully marked as shutdown mode, it won't wait for the worker to
@@ -60,7 +63,6 @@ void edbw_decom(edb_worker_t *worker);
 // thread safe on the same worker. Limit edb_workerjoin to 1 call per thread
 // per worker.
 odb_err edbw_async(edb_worker_t *worker);
-void edbw_stop(edb_worker_t *worker);
 odb_err edbw_join(edb_worker_t *worker);
 
 

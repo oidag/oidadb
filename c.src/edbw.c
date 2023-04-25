@@ -61,10 +61,18 @@ void static *workermain(void *_selfv) {
 	edb_worker_t *self = _selfv;
 	odb_err err;
 	log_infof("worker %lx starting...", self->pthread);
-	while(self->state == EDB_WWORKASYNC) {
+
+	while(1) {
 		err = edbs_jobselect(self->shm, &self->curjob, self->workerid);
 		if(err) {
-			log_critf("worker %d: failed to select job: %d", self->workerid, err);
+			if(err != ODB_ECLOSED) {
+				log_critf("worker %d: failed to select job for uhandled reason:"
+						  " %d"
+						  , self->workerid
+						  , err);
+			} else {
+				break;
+			}
 		} else {
 			execjob(self);
 			edbs_jobclose(self->curjob);
@@ -91,7 +99,7 @@ odb_err edbw_init(edb_worker_t *o_worker, edba_host_t *edbahost, const edbs_hand
 }
 
 void edbw_decom(edb_worker_t *worker) {
-	edbw_stop(worker);
+	edbw_join(worker);
 	edba_handle_decom(worker->edbahandle);
 }
 
@@ -110,23 +118,13 @@ odb_err edbw_async(edb_worker_t *worker) {
 	return 0;
 }
 
-
-
-void edbw_stop(edb_worker_t *worker) {
-	if(worker->state != EDB_WWORKASYNC) {
-		log_noticef("attempted to stop worker when not in working transferstate");
-		return;
-	}
-	worker->state = EDB_WWORKSTOP;
-}
-
 odb_err edbw_join(edb_worker_t *worker) {
 	if (worker->state == EDB_WWORKNONE) {
 		return 0; // already stopped and joined.
 	}
-	if(worker->state != EDB_WWORKSTOP) {
-		log_critf("attempted to join on a worker without stopping it first");
-		return ODB_ECRIT;
+	if (!edbs_host_closed(worker->shm)) {
+		log_critf("edbw_join called before edbs host has been closed, "
+				  "possibility that thread will not join.");
 	}
 	int err = pthread_join(worker->pthread, 0);
 	if(err) {

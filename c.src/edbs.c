@@ -263,6 +263,10 @@ void    edbs_host_close(edbs_handle_t *h) {
 	futex_wait(&h->head->futex_hasjobs, 1);
 }
 
+int edbs_host_closed(const edbs_handle_t *h) {
+	return h->head->futex_status == EDBS_SSTOPPED;
+}
+
 void edbs_handle_free(edbs_handle_t *shm) {
 	return deleteshm(shm, 0);
 }
