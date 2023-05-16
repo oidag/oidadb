@@ -1,6 +1,42 @@
 #+SETUPFILE: ./0orgsetup.org
 #+TITLE: odbh - The OidaDB Handle
 * TODO Intro, Lifecycle
+* Job Functions
+
+To install a job with a handle, you should use a *job function*. Job
+functions are any function symbol following the =odb_j*= scheme. It is
+to be known the that:
+
+ - All job functions return a =struct odb_jobret= structure in leu of
+   the typical =odb_err=
+ - All job functions follow the
+   =odbh_j$(CONTEXT)_$(METHOD)$(OVERLOADS)= schematic, whereas:
+   - =CONTEXT= can be =obj= for objects, =stk= for structures, =ent=
+     for entities, and =dyn= for dynamic object data.
+   - =METHOD= will denote the action to be performed.
+   - =OVERLOADS= (optionally) will provide overloads or alternative
+     routes to acheiving the same goal as other functions with
+     seperate overloads.
+ - All job functions can be effected by various attributes set by
+   [[./odbh_tune.org][=odbh_tune=]], all of such attributes are documented on each
+   individual job function page.
+
+The comprehendsive list of these job functions are as follows:
+
+ - =odbh_jobj_alloc=
+ - =odbh_jobj_free=
+ - =odbh_jobj_write=
+ - =odbh_jobj_read=
+ - =odbh_jobj_selectcb=
+ - =odbh_jobj_updatecb=
+ - =odbh_jstk_create=
+ - =odbh_jstk_free=
+ - =odbh_jent_create=
+ - =odbh_jent_free=
+ - =odbh_jdyn_read=
+ - =odbh_jdyn_write=
+ - =odbh_jdyn_free=
+
 * Threading -> Volatility
 Unlike odb_* functions which disclaim, a general definition of
 threading has been specified in odb_handle's threading chapter. To

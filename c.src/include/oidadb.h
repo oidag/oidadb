@@ -241,10 +241,67 @@ typedef enum odb_jobtype_t {
 
 	// Dynamics
 } odb_jobtype_t;
-export odb_err odbh_job   (odbh *handle, odb_jobtype_t jobtype);
-export odb_err odbh_jwrite(odbh *handle, const void *buf, int bufc);
-export odb_err odbh_jread (odbh *handle, void *o_buf, int bufc);
-export odb_err odbh_jclose(odbh *handle);
+export odb_err odbh_job   (odbh *handle, odb_jobtype_t jobtype, ...);
+
+
+struct odbh_jobret {
+	odb_err err;
+	odb_oid oid;
+	union {
+		odb_sid sid;
+		odb_eid eid;
+	};
+};
+typedef int (odb_select_cb)(void *cookie, int usrobjc, const void *usrobjv);
+typedef int (odb_update_cb)(void *cookie, int usrobjc, void *usrobjv);
+
+struct odbh_jobret odbh_jobj_alloc(odbh *handle
+		, odb_eid eid
+		, const void *usrobj);
+//
+// usrobj
+// can be
+// void
+struct odbh_jobret odbh_jobj_free(odbh *handle
+		, odb_oid oid);
+struct odbh_jobret odbh_jobj_write(odbh *handle
+		, odb_oid oid, const void
+		*usrobj);
+struct odbh_jobret odbh_jobj_read(odbh *handle
+		, odb_oid oid
+		, void *usrobj);
+// jobs - if 0 then auto
+//        if > 0, then ???
+//        if < 0, then "use maximum amount of jobs"
+struct odbh_jobret odbh_jobj_selectcb(odbh *handle
+		, odb_eid eid
+		, odb_select_cb cb
+		, int jobs);
+struct odbh_jobret odbh_jobj_updatecb(odbh *handle
+		, odb_eid eid
+		, odb_update_cb cb,
+		int jobs);
+struct odbh_jobret odbh_jstk_create(odbh *handle
+		, struct odb_structstat);
+struct odbh_jobret odbh_jstk_free(odbh *handle
+		, odb_sid sid);
+struct odbh_jobret odbh_jent_create(odbh *handle
+		, struct odb_entstat);
+struct odbh_jobret odbh_jent_free(odbh *handle
+		, odb_eid eid);
+struct odbh_jobret odbh_jdyn_read(odbh *handle
+		, odb_oid oid
+		, int idx
+		, void *datv
+		, int datc);
+struct odbh_jobret odbh_jdyn_write(odbh *handle
+		, odb_oid oid
+		, int idx
+		, const void *datv
+		, int datc);
+struct odbh_jobret odbh_jdyn_free(odbh *handle
+		, odb_oid oid
+		, int idx);
 
 typedef enum odb_eventtype_t {
 	ODB_VVOID = 0,
