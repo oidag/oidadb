@@ -3,20 +3,22 @@
 
 * Naming conventions
 
- - all symbols start with "odb".
- - all constants and macros are in all-capital case.
+ - all symbols start with =odb=.
  - all functions that do not start with =odb_= (note the underscore)
    will have their first argument reserved for an object to which that
    function is defined in contextually. These functions should instead
    be regarded as /methods/ to the structure of their first
    argument. (ie: all =odbh_= function's first argument is a =odbh=
    structure)
+ - all by-definition constants are in all-capital case.
  - multiple functions that serve (roughly) the same duty will have
    (somewhat arbitrary) 1 to 2 letter suffixes to seperate them. For
    example: =odb_create= and =odb_createt=.
  - all symbols that are 3 characters in length after "odb" are
    typedefs of integers. For example: =odb_err=, =odb_sid=, =odb_eid=,
    ect. all symbols that end in =_t= are also typedefs of integers.
+ - All function prottypes that are typedef'd will end in =_cb= for
+   callbacks.
  - Structures are not typedef'd with the exception of
    private/incomplete structures. For example: =odbh=.
  - Pointers are never typedef'd. For example: you'll never see
