@@ -63,6 +63,7 @@ odb_err odb_handle(const char *path, odbh **o_handle) {
 	return err;
 }
 void odb_handleclose(odbh *handle) {
+	// todo: should handle close implictly call odb_jclose just incase?
 	edbs_handle_free(handle->shm);
 	free(handle);
 	atomic_fetch_sub(&safety_threadwarn, 1);

@@ -5,7 +5,7 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-typedef struct odb_structstat_t {
+typedef struct odb_structstat {
 
     /* ... */
 
@@ -16,9 +16,9 @@ typedef struct odb_structstat_t {
 
 	/* ... */
 
-} odb_structstat_t
+};
 
-odb_err odbh_structs(odbh *handle, odb_sid sid, odb_structstat_t *structstat);
+odb_err odbh_structs(odbh *handle, odb_sid sid, struct odb_structstat *structstat);
 #+END_SRC
 
 * Description
