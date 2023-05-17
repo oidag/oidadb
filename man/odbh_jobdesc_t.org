@@ -178,11 +178,11 @@ Create a new structure
 
 *** Protocol
 
-| Direction   | Name      | Datatype     | Notes                       |
-|-------------+-----------+--------------+-----------------------------|
-| odbh_jwrite | odbstruct | [[See Also][odb_struct_t]] | See above                   |
-| odbh_jread  | error     | odb_err      | See Errors                  |
-| odbh_jread  | sid        | odb_sid      | The newly created structure id |
+| Direction   | Name      | Datatype       | Notes                                                         |
+|-------------+-----------+----------------+---------------------------------------------------------------|
+| odbh_jwrite | odbstruct | [[./odbh_structs.org][odb_structstat]] | Structure details to be created. TODO: what to do with confv? |
+| odbh_jread  | error     | odb_err        | See Errors                                                    |
+| odbh_jread  | sid       | odb_sid        | The newly created structure id                                |
 
 *** TODO Errors
 
