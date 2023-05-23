@@ -20,7 +20,7 @@ to either failure or completion. The job in question is determained by
 
 ** Common Args
 
-** =ODB_JCREATE (odb_eid, odb_err, odb_oid *, usrobj)= - Create a object
+** =ODB_JALLOC (odb_eid, odb_err, odb_oid *, usrobj)= - Create a object
 This will create a new object for a given entity. If OidaDB can, it
 will reuse something that has previously been deleted. Thus, the
 returned oid may be one that has been returned before.

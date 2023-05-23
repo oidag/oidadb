@@ -6,6 +6,7 @@
 #include <stdatomic.h>
 #include "edbh_u.h"
 #include "include/oidadb.h"
+#include "edbh_u.h"
 #include "edbh.h"
 #include "errors.h"
 #include "edbs.h"
@@ -62,6 +63,7 @@ odb_err odb_handle(const char *path, odbh **o_handle) {
 	free(ret);
 	return err;
 }
+
 void odb_handleclose(odbh *handle) {
 	// todo: should handle close implictly call odb_jclose just incase?
 	edbs_handle_free(handle->shm);
@@ -69,43 +71,96 @@ void odb_handleclose(odbh *handle) {
 	atomic_fetch_sub(&safety_threadwarn, 1);
 }
 
-odb_err odbh_job(odbh *handle, odb_jobtype_t jobclass) {
+struct odbh_jobret odbh_jobj_alloc(odbh *handle
+		, odb_eid eid
+		, const void *usrobj) {
+
+	struct odbh_jobret ret;
+	edbs_job_t job;
 
 	// invals
-	if (!handle) {
-		return ODB_EINVAL;
+	if(handle == 0) {ret.err=ODB_EINVAL; goto ret;};
+	if(usrobj == 0) {ret.err=ODB_EINVAL; goto ret;};
+
+	// easy vars
+	edbs_handle_t *shm = handle->shm;
+
+	// get the metadata of this object.
+	struct odb_entstat entstat;
+	if((ret.err = odbh_index(handle, eid, &entstat))) {
+		if(ret.err != ODB_ECRIT) {
+			// we will conclude any errors outside of a critical error can be
+			// assumed to be used as this function's definition of ODB_ENOENT.
+			ret.err = ODB_ENOENT;
+		}
+		goto ret;
+	}
+	struct odb_structstat structstat;
+	if((ret.err = odbh_structs(handle, entstat.structureid, &structstat))) {
+		// yeah there should be no reason this returns an error.
+		log_critf("unhandled error %d", ret.err);
+		ret.err = ODB_ECRIT;
+		goto ret;
 	}
 
-	// install the job
-	odb_err err;
-	edbs_job_t job;
-	if ((err = edbs_jobinstall(handle->shm, jobclass, &job))) {
-		return err;
+	// install the job and check for ODB_EVERSION
+	if((ret.err = edbs_jobinstall(handle->shm, ODB_JALLOC, &job))) {
+		if(ret.err == ODB_EJOBDESC) {
+			ret.err = ODB_EVERSION;
+		}
+		goto ret;
 	}
-	// todo;
-	implementme();
+
+	// write the eid
+	if((ret.err = edbs_jobwrite(job, &eid, sizeof(eid)))) {
+		goto streamerr;
+	}
+
+	// check for dieerrors
+	odb_err dieerr;
+	if((ret.err = edbs_jobread(job, &dieerr, sizeof(dieerr)))) {
+		goto streamerr;
+	}
+	if(dieerr) {
+		ret.err = dieerr;
+		goto streamclose;
+	}
+
+	// atp: we've successfully allocated space. So lets get the return data
+	// ready.
+
+	// get the created object id.
+	if((ret.err = edbs_jobread(job, &ret.oid, sizeof(ret.oid)))) {
+		goto streamerr;
+	}
+
+	// set the usr object data
+	// get the length of the object.
+	if((ret.err = edbs_jobwrite(job, usrobj, structstat.fixedc))) {
+		goto streamerr;
+	}
+
+	// job fully executed successfully.
+	return ret;
+
+	// stream error condition (must only be goto'd by
+	// edbs_jobwrite/edbs_jobread)
+	streamerr:
+	switch (ret.err) {
+		case ODB_EPIPE:
+		case ODB_ECLOSED:
+			break;
+		default:
+			log_critf("unhandled error code %d", ret.err);
+			ret.err = ODB_ECRIT;
+			break;
+	}
+
+	streamclose:
+	edbs_jobterm(job);
+
+	// normal return condition
+	ret:
+	return ret;
+
 }
-
-/*
-
-odb_err edb_open(edbh *handle, edb_open_t params) {
-
-	// check for easy ODB_EINVAL
-	if(handle == 0 || params.path == 0)
-		return ODB_EINVAL;
-
-	// get the hostpid.
-	odb_err hosterr = edb_host_getpid(params.path, &(handle->hostpid));
-	if(hosterr) {
-		return hosterr;
-	}
-
-	// at this point, the file exist and has a host attached to it.
-	// said host's pid is stored in handle->hostpid
-
-	// todo: figure out how the handle will call other things from the host...
-
-}
-
-
-odb_err edb_close(edbh *handle);*/

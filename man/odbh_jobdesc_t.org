@@ -1,6 +1,8 @@
 #+SETUPFILE: ./0orgsetup.org
 #+TITLE: odbh_jobtype_t: Job types and their protocols
 
+* TODO - move this content to internal
+
 Here we describe all the job types. Each job type specifies a
 framework, or *protocol* to which must be followed to execute the job
 when using the [[./odbh_job.org][=odbh_j*= family]].
@@ -48,24 +50,25 @@ even be referencing data strait out of the database file... whichever
 the handle find more appropriate.
 
 * Objects
-** =ODB_JCREATE= - Create a object
+** =ODB_JALLOC= - Create a object
 This will create a new object for a given entity. If OidaDB can, it
 will reuse something that has previously been deleted. Thus, the
 returned oid may be one that has been returned before.
 
 *** Protocol
 
-| Direction  | Name   | Datatype | Notes                                |
-|------------+--------+----------+--------------------------------------|
-| odbj_write | eid    | odb_eid  | The entity id to create a new object |
-| odbj_read  | err    | odb_err  | [[Die-Error]]: See Errors                |
-| odbj_read  | oid    | odb_oid  | The OID of the newly created item    |
-| odbj_write | object | [[usrobj]]   | The object data itself               |
+| Direction   | Name   | Datatype | Notes                                |
+|-------------+--------+----------+--------------------------------------|
+| odbj_write  | eid    | odb_eid  | The entity id to create a new object |
+| odbj_read   | err    | odb_err  | [[Die-Error]]: See Errors                |
+| odbj_read   | oid    | odb_oid  | The OID of the newly created item    |
+| odbj_write  | object | [[usrobj]]   | The object data itself               |
 
 *** Errors
 
  - =ODB_ENOENT= - Entity not valid.
  - =ODB_ENOSPACE= - No more space could be allocated for this entity.
+
 ** =ODB_JDELETE= - Delete an object
 
 Not much to talk about here. This will delete a given object.
