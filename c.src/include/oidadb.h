@@ -222,28 +222,6 @@ typedef enum odb_option_t {
 } odb_option_t;
 export odb_err odbh_tune(odbh *handle, odb_option_t option, ... /* args */);
 
-typedef enum odb_jobtype_t {
-	// Objects
-	ODB_JCREATE
-	, ODB_JDELETE
-	, ODB_JWRITE
-	, ODB_JREAD
-	, ODB_JSELECT
-	, ODB_JUPDATE
-
-	// Structure
-	, ODB_JSTRCTCREATE
-	, ODB_JSTRCTDELETE
-
-	// Entities
-	, ODB_JENTCREATE
-	, ODB_JENTDELETE
-
-	// Dynamics
-} odb_jobtype_t;
-export odb_err odbh_job   (odbh *handle, odb_jobtype_t jobtype, ...);
-
-
 struct odbh_jobret {
 	odb_err err;
 	odb_oid oid;

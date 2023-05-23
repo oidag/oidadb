@@ -430,7 +430,7 @@ odb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 // returns ODB_EJOBDESC if the jobclass is invalid
 static odb_err checkvalid(odb_jobtype_t jobclass) {
 	switch (jobclass) {
-		case ODB_JCREATE:
+		case ODB_JALLOC:
 		case ODB_JDELETE:
 		case ODB_JWRITE:
 		case ODB_JREAD:

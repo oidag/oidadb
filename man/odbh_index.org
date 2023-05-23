@@ -5,7 +5,7 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-typedef struct odb_entstat_t {
+typedef struct odb_entstat {
 
     /* ... */
 

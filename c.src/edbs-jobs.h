@@ -11,6 +11,26 @@
 // EDB_OID_AUTOID - find the best deleted OID that can still be used.
 #define EDB_OID_AUTOID EDB_OID_OP1
 
+typedef enum odb_jobtype_t {
+	// Objects
+	ODB_JALLOC
+	, ODB_JDELETE
+	, ODB_JWRITE
+	, ODB_JREAD
+	, ODB_JSELECT
+	, ODB_JUPDATE
+
+	// Structure
+	, ODB_JSTRCTCREATE
+	, ODB_JSTRCTDELETE
+
+	// Entities
+	, ODB_JENTCREATE
+	, ODB_JENTDELETE
+
+	// Dynamics
+} odb_jobtype_t;
+
 // unlike many of the other namespaces, we actually expose some structures
 // for self-allocation.
 typedef struct edbs_job_t {
