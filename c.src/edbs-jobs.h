@@ -116,6 +116,12 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 // buffer as "closed" prematurely that would otherwise cause other jobs being
 // installed over it. This edge case is not withstanding critical errors.
 //
+// todo: need to specify flushing mechanics... I must be able to use edbs_write
+//  byte-by-byte while its definition makes sure to only flush into the
+//  stream. I did just add the variable args so that the caller can use
+//  jobwrite with multiple structures: ie: edbs_jobread(j, buff1, count1,
+//  buff2, count2, ect...)
+//
 // RETURNS (all of them are logged)
 //  - ODB_EINVAL - buff is 0 and count is not 0.
 //  - ODB_EBADE - The executor tried to write first (before the installer), or,
@@ -138,8 +144,8 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 //   For a given job, exclusively 1 thread must hold the installer role and
 //   exclusively 1 thread must hold the executor role.
 //
-odb_err edbs_jobread(edbs_job_t j, void *buff, int count);
-odb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count);
+odb_err edbs_jobread(edbs_job_t j, void *buff, int count, ... /* additional */);
+odb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count, ...);
 odb_err edbs_jobterm(edbs_job_t j);
 
 

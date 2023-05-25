@@ -111,14 +111,18 @@ struct odbh_jobret odbh_jobj_alloc(odbh *handle
 		goto ret;
 	}
 
-	// write the eid
-	if((ret.err = edbs_jobwrite(job, &eid, sizeof(eid)))) {
+	// write the eid+objectdata
+	if((ret.err = edbs_jobwrite(job
+			, &eid, sizeof(eid)
+			, usrobj, structstat.fixedc))) {
 		goto streamerr;
 	}
 
-	// check for dieerrors
+	// read err+oid
 	odb_err dieerr;
-	if((ret.err = edbs_jobread(job, &dieerr, sizeof(dieerr)))) {
+	if((ret.err = edbs_jobread(job
+			, &dieerr, sizeof(dieerr)
+			, &ret.oid, sizeof(ret.oid)))) {
 		goto streamerr;
 	}
 	if(dieerr) {
@@ -126,19 +130,7 @@ struct odbh_jobret odbh_jobj_alloc(odbh *handle
 		goto streamclose;
 	}
 
-	// atp: we've successfully allocated space. So lets get the return data
-	// ready.
 
-	// get the created object id.
-	if((ret.err = edbs_jobread(job, &ret.oid, sizeof(ret.oid)))) {
-		goto streamerr;
-	}
-
-	// set the usr object data
-	// get the length of the object.
-	if((ret.err = edbs_jobwrite(job, usrobj, structstat.fixedc))) {
-		goto streamerr;
-	}
 
 	// job fully executed successfully.
 	return ret;
