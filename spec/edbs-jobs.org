@@ -113,30 +113,28 @@ heavily-engineered enviroments, these jobs probably won't be the most
 optimial choice sense they only provide methods of updating 1 object
 at a time. But nonetheless, they're very easy to use.
 
-*** Protocol
+** Protocol
 
-| Direction  | Name   | Datatype | Notes                                  |
-|------------+--------+----------+----------------------------------------|
-| odbj_write | oid    | odb_oid  | The object id you wish to read         |
-| odbj_read  | err    | odb_err  | [[Die-Error]]: See Errors                  |
+For *READING*:
 
-Then, for =ODB_CREAD=:
+| Direction  | Name       | Datatype       | Notes                                       |
+|------------+------------+----------------+---------------------------------------------|
+| odbj_write | oid        | odb_oid        | The object id you wish to read              |
+| odbj_read  | err+usrobj | odb_err+usrobj | [[Die-Error]]: See Errors, and if 0, the usrobj |
+|            |            |                |                                             |
 
-| Direction | Name   | Datatype | Notes                  |
-|-----------+--------+----------+------------------------|
-| odbj_read | object | [[usrobj]]   | The object data itself |
+For *WRITING*:
 
-/Or/, for =ODB_CWRITE=: 
+| Direction  | Name       | Datatype       | Notes                          |
+|------------+------------+----------------+--------------------------------|
+| odbj_write | oid+usrobj | odb_oid+usrobj | The object id you wish to read |
+| odbj_read  | err        | odb_err        | [[Die-Error]]: See Errors          |
 
-| Direction  | Name   | Datatype | Notes                  |
-|------------+--------+----------+------------------------|
-| odbj_write | object | [[usrobj]]   | The object data itself |
 
-*** Errors
+** Errors
 
- - =ODB_ENOENT= - Entity not valid
+ - =ODB_ENOENT= - OID not valid
  - =ODB_EDELETED= - Object is marked as deleted
- - =ODB_EEOF= - oid's object offset is beyond
 
 * =ODB_JSELECT=, =ODB_JUPDATE= - reading/writing of all objects in an entity
 
