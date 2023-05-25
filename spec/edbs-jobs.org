@@ -76,19 +76,19 @@ This will create a new object for a given entity. If OidaDB can, it
 will reuse something that has previously been deleted. Thus, the
 returned oid may be one that has been returned before.
 
-*** Protocol
+** Protocol
 
 | Direction  | Name       | Datatype        | Notes                                                                    |
 |------------+------------+-----------------+--------------------------------------------------------------------------|
 | odbj_write | eid+object | odb_eid+usrobj  | The entity id to create a new object and said new object                 |
 | odbj_read  | err+oid    | odb_err+odb_oid | [[Die-Error]]: See Errors, and if thats 0, The OID of the newly created item |
 
-*** Errors
+** Errors
 
  - =ODB_ENOENT= - Entity not valid.
  - =ODB_ENOSPACE= - No more space could be allocated for this entity.
 
-* =ODB_JDELETE= - Delete an object
+* =ODB_JFREE= - Delete an object
 
 Not much to talk about here. This will delete a given object.
 
@@ -102,7 +102,6 @@ Not much to talk about here. This will delete a given object.
 *** Errors
 
  - =ODB_ENOENT= - Entity not valid
- - =ODB_EEOF= - oid's object offset is so large that it is beyond a possible valid OID
  - =ODB_EDELETED= - oid was found and valid, but has already been
    deleted, so no action was performed. This error can be ignored in
    most cases for obvious reasons.
