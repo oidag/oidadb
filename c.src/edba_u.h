@@ -109,7 +109,7 @@ odb_err  edba_u_lookupoid(edba_handle_t *handle, odb_spec_index_entry *entry,
 
 static void inline edba_u_oidextract(odb_oid oid, odb_eid *o_eid, odb_rid
 *o_rid) {
-	*o_eid = oid >> 0x30;
+	*o_eid = odb_oid_get_eid(oid);
 	*o_rid = oid & 0x0000FFFFFFFFFFFF;
 }
 

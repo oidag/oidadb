@@ -31,6 +31,7 @@ typedef uint64_t odb_oid;
 typedef uint16_t odb_sid;
 /// (e)ntity (id)
 typedef uint16_t odb_eid;
+static odb_eid odb_oid_get_eid(odb_oid oid) {return (odb_eid)(oid >> 0x30);}
 /// (r)ow (id)
 typedef uint64_t odb_rid;
 /// (p)age (id)
