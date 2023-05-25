@@ -1,14 +1,36 @@
 #+SETUPFILE: ./0orgsetup.org
 #+TITLE: odbh_jobtype_t: Job types and their protocols
 
-* TODO - move this content to internal
+* Job Streams
+Here I shall define for you job streams. Job streams is the common way
+to which handles communicates to hosts. We use streams because we can
+put a stream through anything: shared memory, networks, charater
+devices, fiber optic drivers, ect.
 
-Here we describe all the job types. Each job type specifies a
-framework, or *protocol* to which must be followed to execute the job
-when using the [[./odbh_job.org][=odbh_j*= family]].
+Job input and output are put through job streams. All job streams are
+a 2-way communication. The end goal of the job stream is to write the
+job into the job transfer buffer of the host's machine.
 
-* odbh_jobflags_t
-** =ODB_JF_MUTED=
+There's a few engineering desicions we employ here:
+
+ 1. Sense we know these streams are likely going to be sent through a
+    network, we want to try to use as few "back and forths" as
+    possible sense packets can take time to transfer over the
+    network. This is despite the fact that some input will be
+    ignored/redundant if the host chooses not to require it from other
+    input: such as if an error occours part-way through a job and thus
+    no more input needs to be read.
+ 2. The /minimum/ size for a udp packet is 8 bytes. Thus, if we try to
+    send packets smaller than that, we're wasting good
+    infrastructure. The maximum size is 64KiB... so any larger will
+    result in the same inefficiency. So its best to not worry /too/ much
+    about size-efficiency.
+ 3. The handle can choose to reduce the stream to a 1-way / write-only
+    stream. So have that in mind. The default 2-way communication is
+    only a convience for the handle but not nessacary for the host.
+
+* Notation
+ - /abc+xyz/ - structure abc imedietly followed by xyz without padding
 
 * Common Protocol
 ** Die-Error
@@ -49,27 +71,24 @@ referencing data thats being temporarly held in the handle, or, may
 even be referencing data strait out of the database file... whichever
 the handle find more appropriate.
 
-* Objects
-** =ODB_JALLOC= - Create a object
+* =ODB_JALLOC= - Create a object
 This will create a new object for a given entity. If OidaDB can, it
 will reuse something that has previously been deleted. Thus, the
 returned oid may be one that has been returned before.
 
 *** Protocol
 
-| Direction   | Name   | Datatype | Notes                                |
-|-------------+--------+----------+--------------------------------------|
-| odbj_write  | eid    | odb_eid  | The entity id to create a new object |
-| odbj_read   | err    | odb_err  | [[Die-Error]]: See Errors                |
-| odbj_read   | oid    | odb_oid  | The OID of the newly created item    |
-| odbj_write  | object | [[usrobj]]   | The object data itself               |
+| Direction  | Name       | Datatype        | Notes                                                                    |
+|------------+------------+-----------------+--------------------------------------------------------------------------|
+| odbj_write | eid+object | odb_eid+usrobj  | The entity id to create a new object and said new object                 |
+| odbj_read  | err+oid    | odb_err+odb_oid | [[Die-Error]]: See Errors, and if thats 0, The OID of the newly created item |
 
 *** Errors
 
  - =ODB_ENOENT= - Entity not valid.
  - =ODB_ENOSPACE= - No more space could be allocated for this entity.
 
-** =ODB_JDELETE= - Delete an object
+* =ODB_JDELETE= - Delete an object
 
 Not much to talk about here. This will delete a given object.
 
@@ -88,7 +107,7 @@ Not much to talk about here. This will delete a given object.
    deleted, so no action was performed. This error can be ignored in
    most cases for obvious reasons.
    
-** =ODB_JWRITE=, =ODB_JREAD= - Read/Write an object's fixed-length data based off of its oid
+* =ODB_JWRITE=, =ODB_JREAD= - Read/Write an object's fixed-length data based off of its oid
 
 This is the basic read/write options by-oid. In most
 heavily-engineered enviroments, these jobs probably won't be the most
@@ -120,7 +139,7 @@ Then, for =ODB_CREAD=:
  - =ODB_EDELETED= - Object is marked as deleted
  - =ODB_EEOF= - oid's object offset is beyond
 
-** =ODB_JSELECT=, =ODB_JUPDATE= - reading/writing of all objects in an entity
+* =ODB_JSELECT=, =ODB_JUPDATE= - reading/writing of all objects in an entity
 
 When you need to read the an entire Object Entity's contents,
 =ODB_CSELECT= stream all objects in a given page range through to
