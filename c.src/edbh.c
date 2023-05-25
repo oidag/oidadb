@@ -93,14 +93,14 @@ struct odbh_jobret odbh_jobj_alloc(odbh *handle
 			// assumed to be used as this function's definition of ODB_ENOENT.
 			ret.err = ODB_ENOENT;
 		}
-		goto ret;
+		return ret;
 	}
 	struct odb_structstat structstat;
 	if((ret.err = odbh_structs(handle, entstat.structureid, &structstat))) {
 		// yeah there should be no reason this returns an error.
 		log_critf("unhandled error %d", ret.err);
 		ret.err = ODB_ECRIT;
-		goto ret;
+		return ret;
 	}
 
 	// install the job and check for ODB_EVERSION
@@ -108,14 +108,15 @@ struct odbh_jobret odbh_jobj_alloc(odbh *handle
 		if(ret.err == ODB_EJOBDESC) {
 			ret.err = ODB_EVERSION;
 		}
-		goto ret;
+		return ret;
 	}
 
 	// write the eid+objectdata
 	if((ret.err = edbs_jobwrite(job
 			, &eid, sizeof(eid)
 			, usrobj, structstat.fixedc))) {
-		goto streamerr;
+		ret.err = edbs_joberr_trunc(ret.err);
+		return ret;
 	}
 
 	// read err+oid
@@ -123,36 +124,57 @@ struct odbh_jobret odbh_jobj_alloc(odbh *handle
 	if((ret.err = edbs_jobread(job
 			, &dieerr, sizeof(dieerr)
 			, &ret.oid, sizeof(ret.oid)))) {
-		goto streamerr;
+		ret.err = edbs_joberr_trunc(ret.err);
+		return ret;
 	}
 	if(dieerr) {
 		ret.err = dieerr;
-		goto streamclose;
+		return ret;
 	}
 
-
-
-	// job fully executed successfully.
+	// successful execution
 	return ret;
+}
 
-	// stream error condition (must only be goto'd by
-	// edbs_jobwrite/edbs_jobread)
-	streamerr:
-	switch (ret.err) {
-		case ODB_EPIPE:
-		case ODB_ECLOSED:
-			break;
-		default:
-			log_critf("unhandled error code %d", ret.err);
-			ret.err = ODB_ECRIT;
-			break;
+
+struct odbh_jobret odbh_jobj_free(odbh *handle
+		, odb_oid oid) {
+	struct odbh_jobret ret;
+	edbs_job_t job;
+
+	// invals
+	if(handle == 0) {ret.err=ODB_EINVAL; goto ret;};
+
+	// easy vars
+	edbs_handle_t *shm = handle->shm;
+
+	// install the job and check for ODB_EVERSION
+	if((ret.err = edbs_jobinstall(handle->shm, ODB_JFREE, &job))) {
+		if(ret.err == ODB_EJOBDESC) {
+			ret.err = ODB_EVERSION;
+		}
+		return ret;
 	}
 
-	streamclose:
-	edbs_jobterm(job);
+	// write the oid
+	if((ret.err = edbs_jobwrite(job
+			, &oid, sizeof(oid)))) {
+		ret.err = edbs_joberr_trunc(ret.err);
+		return ret;
+	}
 
-	// normal return condition
-	ret:
+	// read err
+	odb_err dieerr;
+	if((ret.err = edbs_jobread(job
+			, &dieerr, sizeof(dieerr)))) {
+		ret.err = edbs_joberr_trunc(ret.err);
+		return ret;
+	}
+	if(dieerr) {
+		ret.err = dieerr;
+		return ret;
+	}
+
+	// successful execution
 	return ret;
-
 }

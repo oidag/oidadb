@@ -11,10 +11,12 @@
 // EDB_OID_AUTOID - find the best deleted OID that can still be used.
 #define EDB_OID_AUTOID EDB_OID_OP1
 
+
+// See spec/edbs-jobs.org
 typedef enum odb_jobtype_t {
 	// Objects
 	ODB_JALLOC
-	, ODB_JDELETE
+	, ODB_JFREE
 	, ODB_JWRITE
 	, ODB_JREAD
 	, ODB_JSELECT
@@ -139,6 +141,11 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 //  - ODB_ECRIT - the pipe was broken for unexpected reasons (ie: other side
 //                no longer responding/bad network) and thus can no longer
 //                read/write and there's no recovering.
+//  - edbs_joberr_trunc - this symbol mearly makes it so that all of the
+//                above errors exclusing ODB_EPIPE be converted to ODB_ECRIT.
+//                The purpose of this is to mask all "programmer fault"
+//                errors. This will also output into log_crit if a new
+//                ODB_ECRIT is generated.
 //
 // TREADING
 //   For a given job, exclusively 1 thread must hold the installer role and
@@ -147,6 +154,16 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 odb_err edbs_jobread(edbs_job_t j, void *buff, int count, ... /* additional */);
 odb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count, ...);
 odb_err edbs_jobterm(edbs_job_t j);
+static odb_err edbs_joberr_trunc(odb_err err) {
+	switch (err) {
+		case ODB_EPIPE:
+		case ODB_ECRIT:
+			return err;
+		default:
+			log_critf("unhandled stream error: %d", err);
+			return ODB_ECRIT;
+	}
+};
 
 
 // returns the job description (see odbh_job)

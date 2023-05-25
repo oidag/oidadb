@@ -431,7 +431,7 @@ odb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 static odb_err checkvalid(odb_jobtype_t jobclass) {
 	switch (jobclass) {
 		case ODB_JALLOC:
-		case ODB_JDELETE:
+		case ODB_JFREE:
 		case ODB_JWRITE:
 		case ODB_JREAD:
 		case ODB_JSELECT:
