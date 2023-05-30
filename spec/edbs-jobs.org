@@ -223,33 +223,37 @@ Delete an existing structure
  - =ODB_NOENT= - sid is not valid
  - =ODB_EDELETED= - already deleted.
 
-* Entities
-** =ODB_JENTCREATE= - Create an entity
+* =ODB_JENTCREATE= - Create an entity
 
 Create a new entity
 
-*** Protocol
+** Protocol
 
-| Direction   | Name      | Datatype     | Notes                       |
-|-------------+-----------+--------------+-----------------------------|
-| odbh_jwrite | odbstruct | [[See Also][odb_entity_t]]  | See above                   |
-| odbh_jread  | error     | odb_err      | See Errors                  |
-| odbh_jread  | eid       | odb_eid      | The newly created entity id  |
+| Direction   | Name      | Datatype        | Notes                            |
+|-------------+-----------+-----------------+----------------------------------|
+| odbh_jwrite | odbstruct | [[See Also][odb_entity_t]]    |                                  |
+| odbh_jread  | error+eid | odb_err+odb_eid | See Errors, the newly created id |
 
-*** TODO Errors
+** Errors
 
-** =ODB_JENTDELETE= - Delete an entity
+ - =ODB_ENOENT= - =entstat.sid= is not a valid structure id
+
+* =ODB_JENTDELETE= - Delete an entity
 
 Delete an existing entity
 
-*** Protocol
+** Protocol
 
 | Direction   | Name  | Datatype | Notes                         |
 |-------------+-------+----------+-------------------------------|
-| odbh_jwrite | eid   | odb_eid  | The entiiy you wish to delete  |
+| odbh_jwrite | eid   | odb_eid  | The entiiy you wish to delete |
 | odbh_jread  | error | odb_err  | See Errors                    |
 
-*** TODO Errors
+** Errors
+
+ - =ODB_ENOENT= - =eid= is not a valid entity id
+ - =ODB_EDELETED= - =eid= is already deleted.
+
 * Dynamics
 * See Also
  - [[./odbh.org][OidaDB Handles]]
