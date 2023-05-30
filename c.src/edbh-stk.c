@@ -1,9 +1,5 @@
 #define _GNU_SOURCE
 
-#include <malloc.h>
-#include <errno.h>
-#include <strings.h>
-#include <stdatomic.h>
 #include "edbh_u.h"
 #include "include/oidadb.h"
 #include "edbh_u.h"

@@ -237,10 +237,6 @@ typedef int (odb_update_cb)(void *cookie, int usrobjc, void *usrobjv);
 struct odbh_jobret odbh_jobj_alloc(odbh *handle
 		, odb_eid eid
 		, const void *usrobj);
-//
-// usrobj
-// can be
-// void
 struct odbh_jobret odbh_jobj_free(odbh *handle
 		, odb_oid oid);
 struct odbh_jobret odbh_jobj_write(odbh *handle
