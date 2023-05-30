@@ -1,0 +1,61 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbh_jobj_alloc - Create/free space for objects
+
+* Synopsis
+
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+struct odbh_jobret odbh_jobj_alloc(odbh *handle, odb_eid eid, const void *usrobj);
+struct odbh_jobret odbh_jobj_free(odbh *handle, odb_oid oid);
+struct odbh_jobret odbh_jobj_write(odbh *handle, odb_oid oid, const void *usrobj);
+struct odbh_jobret odbh_jobj_read(odbh *handle, odb_oid oid, void *usrobj);
+#+END_SRC
+
+* Description
+
+=odbh_jobj_alloc= allocates space for an object for entity denoted by
+=eid= and then fills that space with the binary pointed by
+=usrobj=. =usrobj= must be point to memory the size no smaller than
+then entity's fixed length structure (see =odbh_structs=).
+
+=odbh_jobj_free= is the opposite. With the provided oid, this function
+will destroy the object. Making it unusable.
+
+=odbh_jobj_write= will override oid with the binary specified by
+=usrobj=. =odbh_obj_read= will retrieve the contents of the object
+pointed by =oid= and load the binary into the address of usrobj.
+
+It is important to note here that object id's created via the alloc
+function are not guarneteed to be endlessly unique. In otherwords,
+objects that have been freed will eventually see their oids reused by
+alloc.
+
+** Returns
+
+The returning structure will have =oid= is set to the object id to
+which was successfully created by the alloc function.
+
+* Errors
+
+ - =ODB_EINVAL= - =handle= was null, =usrobj= was null.
+ - =ODB_EPIPE= - The stream was unexpectedly - but deliberately -
+   broken by the host.
+ - =ODB_EVERSION= - The host does not support this command and uses a
+   different library version.
+ - =ODB_ENOENT= - Entity (=eid=) or oid (=oid=) not valid/doesn't
+   exist.
+ - =ODB_ENOSPACE= - Cannot allocate: not enough space in entitiy.
+ - =ODB_EDELETED= - (odbh_jobj_free) already deleted.
+ - =ODB_EDELETED= - (odbh_jobj_read, odbh_jobj_write) oid does not
+   exists/not valid
+ - =ODB_ECRIT=
+
+* See Also
+
+ - [[./odbh.org][OidaDB Handles]]
+ - [[./odb_elm_entities.org][Entities]] - An overview of entities.
+ - [[./odb_elm_jobs.org][Jobs]] - A high-level overview of OdbaDB jobs and their life
+   cycle. As well as discussion and advise for increasing performance.
+ - [[./odbh_jobj_write.org][=odbh_jobj_write=]]
+ - [[./odbh_jobj_read.org][=odbh_jobj_read=]]
