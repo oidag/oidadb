@@ -1,0 +1,48 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbh_jent - create/destroy entities
+
+* Synopsis
+
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+struct odbh_jobret odbh_jent_create(odbh *handle, struct odb_entstat entstat);
+struct odbh_jobret odbh_jent_free(odbh *handle, odb_eid eid);
+#+END_SRC
+
+* Description
+
+=odbh_jent_create= creates a new entity with the provided details in
+=entstat=. =odbh_jent_free= will destroy an entity and its contents.
+
+ - =entstat.type= must be set to =ODB_ELMOBJ=
+ - =entstat.structureid= will be the structure id to which the objects
+   will be described by.
+
+
+** Returns
+
+=entstat.eid= is set to the newly created entity's ID.
+
+* Errors
+
+ - =ODB_EINVAL= - =handle= was null
+ - =ODB_EINVAL= - didn't like =entstat.type=
+ - =ODB_EPIPE= - The stream was unexpectedly - but deliberately -
+   broken by the host.
+ - =ODB_EVERSION= - The host does not support this command and uses a
+   different library version.
+ - =ODB_ENOSPACE= - Cannot allocate: not enough space in database.
+ - =ODB_EDELETED= - (=odbh_jent_free=) already deleted.
+ - =ODB_ENOENT= - (=odbh_jent_create=) =entstat.structureid= is not valid / existing
+ - =ODB_ENOENT= - (=odbh_jent_free=) =eid= is not a valid entity id
+ - =ODB_ECRIT=
+
+* See Also
+
+ - [[./odbh.org][OidaDB Handles]]
+ - [[./odb_elm_entities.org][Entities]] - An overview of entities.
+ - [[./odb_elm_jobs.org][Jobs]] - A high-level overview of OdbaDB jobs and their life
+   cycle. As well as discussion and advise for increasing performance.
+ - [[./odbh_jobj_write.org][=odbh_jobj_write=]]
+ - [[./odbh_jobj_read.org][=odbh_jobj_read=]]
