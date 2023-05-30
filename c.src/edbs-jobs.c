@@ -436,8 +436,8 @@ static odb_err checkvalid(odb_jobtype_t jobclass) {
 		case ODB_JREAD:
 		case ODB_JSELECT:
 		case ODB_JUPDATE:
-		case ODB_JSTRCTCREATE:
-		case ODB_JSTRCTDELETE:
+		case ODB_JSTKCREATE:
+		case ODB_JSTKDELETE:
 		case ODB_JENTCREATE:
 		case ODB_JENTDELETE:
 			return 0;
