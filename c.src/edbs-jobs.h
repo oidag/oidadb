@@ -23,8 +23,8 @@ typedef enum odb_jobtype_t {
 	, ODB_JUPDATE
 
 	// Structure
-	, ODB_JSTRCTCREATE
-	, ODB_JSTRCTDELETE
+	, ODB_JSTKCREATE
+	, ODB_JSTKDELETE
 
 	// Entities
 	, ODB_JENTCREATE

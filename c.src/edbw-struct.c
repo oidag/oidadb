@@ -15,7 +15,7 @@ odb_err edbw_u_structjob(edb_worker_t *self) {
 
 	// per-description
 	switch(jobdesc) {
-		case ODB_JSTRCTCREATE:
+		case ODB_JSTKCREATE:
 			edbs_jobread(job, &s, sizeof(s));
 			err = edba_structopenc(handle, &structid, s);
 			if(err) {
@@ -28,7 +28,7 @@ odb_err edbw_u_structjob(edb_worker_t *self) {
 			edba_structclose(handle);
 			edbs_jobwrite(job, &structid, sizeof(structid));
 			return 0;
-		case ODB_JSTRCTDELETE:
+		case ODB_JSTKDELETE:
 			edbs_jobread(job, &structid, sizeof(structid));
 			err = edba_structopen(handle, structid);
 			if(err) {

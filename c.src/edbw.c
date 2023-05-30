@@ -40,8 +40,8 @@ static odb_err execjob(edb_worker_t *self) {
 		case ODB_JENTDELETE:
 			err = edbw_u_entjob(self);
 			break;
-		case ODB_JSTRCTCREATE:
-		case ODB_JSTRCTDELETE:
+		case ODB_JSTKCREATE:
+		case ODB_JSTKDELETE:
 			err = edbw_u_structjob(self);
 			break;
 		default:

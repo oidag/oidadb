@@ -190,33 +190,38 @@ the entire pages to the handles to process (instead of streaming
 row-by-row). The design of this causes absurd efficieny between the
 CPU, memory, and network.
 
-* Structures
-** =ODB_JSTRCTCREATE= - Create an structure
+* =ODB_JSTKCREATE= - Create an structure
 
 Create a new structure
 
-*** Protocol
+** Protocol
 
-| Direction   | Name      | Datatype       | Notes                                                         |
-|-------------+-----------+----------------+---------------------------------------------------------------|
-| odbh_jwrite | odbstruct | [[./odbh_structs.org][odb_structstat]] | Structure details to be created. TODO: what to do with confv? |
-| odbh_jread  | error     | odb_err        | See Errors                                                    |
-| odbh_jread  | sid       | odb_sid        | The newly created structure id                                |
+| Direction   | Name      | Datatype                    | Notes                                                                              |
+|-------------+-----------+-----------------------------+------------------------------------------------------------------------------------|
+| odbh_jwrite | odbstruct | [[./odbh_structs.org][odb_structstat]]              | Structure details to be created. The confv field can be disregarded, see next row. |
+| odbh_jwrite | confv     | configuration for structure | The configureation, the length will be equal to confc of the structstat            |
+| odbh_jread  | error+sid | odb_err+odb_sid             | See Errors,The newly created structure id                                          |
 
-*** TODO Errors
+** Errors
 
-** =ODB_JSTRCTDELETE= - Delete an structure
+ - =ODB_ENOSPACE= - No more space could be allocated for this entity.
+
+* =ODB_JSTKDELETE= - Delete an structure
 
 Delete an existing structure
 
-*** Protocol
+** Protocol
 
-| Direction   | Name  | Datatype | Notes                         |
-|-------------+-------+----------+-------------------------------|
-| odbh_jwrite | sid    | odb_sid  | The structure you wish to delete |
-| odbh_jread  | error | odb_err  | See Errors                    |
+| Direction   | Name  | Datatype | Notes                            |
+|-------------+-------+----------+----------------------------------|
+| odbh_jwrite | sid   | odb_sid  | The structure you wish to delete |
+| odbh_jread  | error | odb_err  | See Errors                       |
 
-*** TODO Errors
+** Errors
+
+ - =ODB_EEXIST= - structure currently in use.
+ - =ODB_NOENT= - sid is not valid
+ - =ODB_EDELETED= - already deleted.
 
 * Entities
 ** =ODB_JENTCREATE= - Create an entity
