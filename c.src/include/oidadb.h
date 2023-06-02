@@ -203,12 +203,15 @@ typedef uint8_t odb_type;
 struct odb_entstat {
 	odb_type type;
 	odb_sid structureid;
+	odb_pid pagec;
 };
 export odb_err odbh_index(odbh *handle, odb_eid eid
 						  , struct odb_entstat *o_entry);
 
 struct odb_structstat {
-	unsigned int fixedc;
+	unsigned int fixedc; // the entire structre, including dynamic list and
+	// flags
+	unsigned int start; // the starting byte
 	unsigned int dynmc;
 	unsigned int confc;
 	void *confv;
@@ -250,12 +253,10 @@ struct odbh_jobret odbh_jobj_read(odbh *handle
 //        if < 0, then "use maximum amount of jobs"
 struct odbh_jobret odbh_jobj_selectcb(odbh *handle
 		, odb_eid eid
-		, odb_select_cb cb
-		, int jobs);
+		, odb_select_cb cb);
 struct odbh_jobret odbh_jobj_updatecb(odbh *handle
 		, odb_eid eid
-		, odb_update_cb cb,
-		int jobs);
+		, odb_update_cb cb);
 struct odbh_jobret odbh_jstk_create(odbh *handle
 		, struct odb_structstat);
 struct odbh_jobret odbh_jstk_free(odbh *handle
