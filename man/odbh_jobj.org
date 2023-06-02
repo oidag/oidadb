@@ -59,3 +59,5 @@ which was successfully created by the alloc function.
    cycle. As well as discussion and advise for increasing performance.
  - [[./odbh_jobj_write.org][=odbh_jobj_write=]]
  - [[./odbh_jobj_read.org][=odbh_jobj_read=]]
+ - [[./odbh_jobj_select.org][=odbh_jobj_select=]]
+ - [[./odbh_jobj_select.org][=odbh_jobj_update=]]

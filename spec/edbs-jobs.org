@@ -149,7 +149,7 @@ example, if you needed to update an entire Entity that is 500 pages
 long while the host had 5 workers, then you can start 5 jobs with each
 having its exclusive 100 pages to update.
 
-*** Protocol
+** Protocol
 
 The protocol is as follows in both =ODB_CSELECT= and =ODB_CUPDATE=:
 
@@ -159,25 +159,27 @@ The protocol is as follows in both =ODB_CSELECT= and =ODB_CUPDATE=:
 | odbj_write | page_start | odb_pid  | The starting page offset (0 for entity start)    |
 | odbj_write | page_cap   | odb_pid  | The maximum amount of pages to select (-1 for all pages) |
 | odbj_read  | err        | odb_err  | [[Die-Error]]: See Errors                            |
-| odbj_read  | objc       | uint64_t | The number of objects that will follow           |
 
-In the case of =ODB_JSELECT=, the following will reapeat =objc= times:
+In the case of =ODB_JSELECT=, the following will reapeat (until =objc= is 0)
 
-| Direction | Name   | Datatype | Notes                                  |
-|-----------+--------+----------+----------------------------------------|
-| odbj_read | object | [[usrobj]]   | user defined object structure of =eid= |
+| Direction | Name   | Datatype | Notes                                                                           |
+|-----------+--------+----------+---------------------------------------------------------------------------------|
+| odbj_read | objc   | uint64_t | The number of objects that will follow. This will be 0 if there's no more left. |
+| odbj_read | object | [[usrobj]]   | user defined object structure of =eid=                                          |
 
-/Or/, in the case of =ODB_JUPDATE=, the following will reapeat =objc= times:
+If the job is a =ODB_JUPDATE=, the the above section is dispatched,
+but before the handle can get the next set of objects, it must respond
+with its changes:
 
-| Direction | Name   | Datatype | Notes                                                     |
-|-----------+--------+----------+-----------------------------------------------------------|
-| odbj_read | object | [[usrobj]] * | A [[stream-pointer]] to a usrobj that you can read/write too. |
+| Direction  | Name   | Datatype | Notes                                                              |
+|------------+--------+----------+--------------------------------------------------------------------|
+| odbj_write | object | [[usrobj]]   | This is an array that is the same size as =odbjc= in the read part |
 
-*** Errors
+** Errors
 
  - =ODB_ENOENT= - Entity (eid) not valid
 
-*** Remarks :tradesecret:
+** Remarks
 
 In most enviroments, these commands are increadibly efficient compared
 to the technical competition. Most databases use record-level locking

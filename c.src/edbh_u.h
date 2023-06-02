@@ -8,6 +8,8 @@
 typedef struct odbh {
 	pid_t hostpid;
 	edbs_handle_t *shm;
+
+	void *user_cookie;
 } odbh;
 
 #endif

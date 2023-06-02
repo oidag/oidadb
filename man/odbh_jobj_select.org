@@ -1,0 +1,48 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbh_jobj_alloc - Create/free space for objects
+
+* Synopsis
+
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+typedef int (odb_select_cb)(void *cookie, int usrobjc, const void *usrobjv);
+typedef int (odb_update_cb)(void *cookie, int usrobjc, void *usrobjv);
+
+struct odbh_jobret odbh_jobj_selectcb(odbh *handle, odb_eid eid, odb_select_cb cb);
+struct odbh_jobret odbh_jobj_updatecb(odbh *handle, odb_eid eid, odb_update_cb cb);
+
+// coming soon
+//struct odbh_jobret odbh_jobj_selectx(odbh *, odb_eid eid, odb_xid routineid);
+//struct odbh_jobret odbh_jobj_updatex(odbh *, odb_eid eid, odb_xid routineid);
+#+END_SRC
+
+* Description
+
+The =odbh_jobj_select= and =odbh_jobj_update= function families
+performs large-scale and efficient read and write operations on the
+entirety of object entities.
+
+NOTE THAT OBJECTS WILL HAVE DYNAMICS AND FLAG DATA ATTACHED. THIS IS
+WRONG. TODO! NEED TO DEFINE IF FIXEDC INCLUDES DYANMICS AND FLAGS.
+
+** Callbacks
+
+The callback variants of this family are probably the most simple but
+provide the least amount of performance compared to the function
+varients that require more setup.
+
+The callbacks (=cb=) will dictate what will be done with the data on a
+object-by-object basis. The functions these callbacks point too can
+and will be executed asyncrounously, these functions must be
+thread-safe. The objects will be provided to these callbacks in no
+predictable order.
+
+Notice that the callback can execute with more than 1 object
+(=usrodbjc=). This can happen when the stream is more efficient at
+reading many objects at once rather than going object-by-object.
+
+* Errors
+
+ - =ODB_EINVAL= - =cb= is null
+ - =ODB_ENOENT= - Entity (eid) not valid
