@@ -43,18 +43,20 @@ struct odbh_jobret odbh_jstk_create(odbh *handle
 	statcpy.confv = 0;
 
 	// write the eid+objectdata
-	if((ret.err = edbs_jobwrite(job
+	if((ret.err = edbs_jobwritev(job
 			, &statcpy, sizeof(struct odb_structstat)
-			, structstat.confv, structstat.confc))) {
+			, structstat.confv, structstat.confc
+			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
 	}
 
 	// read err+sid
 	odb_err dieerr;
-	if((ret.err = edbs_jobread(job
+	if((ret.err = edbs_jobreadv(job
 			, &dieerr, sizeof(dieerr)
-			, &ret.sid, sizeof(ret.sid)))) {
+			, &ret.sid, sizeof(ret.sid)
+			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
 	}

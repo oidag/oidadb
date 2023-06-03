@@ -115,7 +115,7 @@ struct odbh_jobret odbh_jobj_alloc(odbh *handle
 
 	// get structure
 	struct odb_structstat structstat;
-	if((ret.err = eid2struct(handle, eid, &structstat))) {
+	if((ret.err = eid2struct(handle, eid, &structstat, 0))) {
 		return ret;
 	}
 
@@ -128,18 +128,20 @@ struct odbh_jobret odbh_jobj_alloc(odbh *handle
 	}
 
 	// write the eid+objectdata
-	if((ret.err = edbs_jobwrite(job
+	if((ret.err = edbs_jobwritev(job
 			, &eid, sizeof(eid)
-			, usrobj, structstat.fixedc))) {
+			, usrobj, structstat.fixedc
+			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
 	}
 
 	// read err+oid
 	odb_err dieerr;
-	if((ret.err = edbs_jobread(job
+	if((ret.err = edbs_jobreadv(job
 			, &dieerr, sizeof(dieerr)
-			, &ret.oid, sizeof(ret.oid)))) {
+			, &ret.oid, sizeof(ret.oid)
+			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
 	}
@@ -223,9 +225,10 @@ struct odbh_jobret odbh_jobj_write(odbh *handle
 	}
 
 	// write the oid+objectdata
-	if((ret.err = edbs_jobwrite(job
+	if((ret.err = edbs_jobwritev(job
 			, &oid, sizeof(oid)
-			, usrobj, structstat.fixedc))) {
+			, usrobj, structstat.fixedc
+			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
 	}
@@ -282,9 +285,10 @@ struct odbh_jobret odbh_jobj_read(odbh *handle
 
 	// read err+usrobj
 	odb_err dieerr;
-	if((ret.err = edbs_jobread(job
+	if((ret.err = edbs_jobreadv(job
 			, &dieerr, sizeof(dieerr)
-			, usrobj, structstat.fixedc))) {
+			, usrobj, structstat.fixedc
+			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
 	}
@@ -323,13 +327,7 @@ struct odbh_jobret _odbh_jobj_cb(odbh *handle
 
 	// get pages and calculate how many jobs we need.
 	odb_pid pagec = estat.pagec;
-	unsigned int asyncrecommended;
-	if(edbh_async_recommended(handle, &asyncrecommended)) {
-		log_critf("failed to get recommended job count");
-		ret.err = ODB_ECRIT;
-		return ret;
-	}
-	odb_pid pagecap = estat.pagec / (odb_pid)asyncrecommended;
+	odb_pid pagecap = -1;
 
 		// install the job and check for ODB_EVERSION
 	if((ret.err = edbs_jobinstall(handle->shm, jobtype, &job))) {
@@ -341,10 +339,11 @@ struct odbh_jobret _odbh_jobj_cb(odbh *handle
 
 	// write the oid
 	odb_pid page_start = 0,page_cap = -1;
-	if((ret.err = edbs_jobwrite(job
+	if((ret.err = edbs_jobwritev(job
 			, &eid, sizeof(eid)
 			, &page_start, sizeof(page_start)
-			, &page_cap, sizeof(page_cap)))) {
+			, &page_cap, sizeof(page_cap)
+			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
 	}

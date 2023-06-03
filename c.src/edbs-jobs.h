@@ -124,8 +124,13 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 //  jobwrite with multiple structures: ie: edbs_jobread(j, buff1, count1,
 //  buff2, count2, ect...)
 //
+// The -v variants of edbs_jobreadv & edbs_jobwritev are to easily chain
+// together multiple reads/writes. Simply add the arguemtns pairs  of (void *,
+// int) over and over again, to denote the end of the arguments, supply a 0
+// for the subsequent argument.
+//
 // RETURNS (all of them are logged)
-//  - ODB_EINVAL - buff is 0 and count is not 0.
+//  - ODB_EINVAL - (first) buff is 0 and count is not 0.
 //  - ODB_EBADE - The executor tried to write first (before the installer), or,
 //                the installer tries to perform a read as its first operation.
 //  - ODB_EOPEN  - The installer called edbs_jobterm before its first write
@@ -151,8 +156,10 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 //   For a given job, exclusively 1 thread must hold the installer role and
 //   exclusively 1 thread must hold the executor role.
 //
-odb_err edbs_jobread(edbs_job_t j, void *buff, int count, ... /* additional */);
-odb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count, ...);
+odb_err edbs_jobread(edbs_job_t j, void *buff, int count);
+odb_err edbs_jobreadv(edbs_job_t j, ...);
+odb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count);
+odb_err edbs_jobwritev(edbs_job_t j, ...);
 odb_err edbs_jobterm(edbs_job_t j);
 static odb_err edbs_joberr_trunc(odb_err err) {
 	switch (err) {
