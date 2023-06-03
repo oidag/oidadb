@@ -40,9 +40,10 @@ struct odbh_jobret odbh_jent_create(odbh *handle
 
 	// read err+sid
 	odb_err dieerr;
-	if((ret.err = edbs_jobread(job
+	if((ret.err = edbs_jobreadv(job
 			, &dieerr, sizeof(dieerr)
-			, &ret.eid, sizeof(ret.eid)))) {
+			, &ret.eid, sizeof(ret.eid)
+			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
 	}

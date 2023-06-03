@@ -282,8 +282,8 @@ odb_err odbtelem_image(odbtelem_image_t *o_image) {
 
 
 	// actualize the pointers
-	o_image->job_desc = (void *)telemtry_shared.shm
-	                    + (uint64_t)o_image->job_desc;
+	/*o_image->job_desc = (void *)telemtry_shared.shm
+	                    + (uint64_t)o_image->job_desc;*/
 	o_image->job_workersv = (void *)telemtry_shared.shm
 	                        + (uint64_t)o_image->job_workersv;
 

@@ -97,7 +97,7 @@ typedef struct odbtelem_image_t {
 	/// Rheir descriptions, as well as their owners (worker id).
 	/// jobtype = 0 means no job installed.
 	unsigned int jobsq;
-	odb_jobtype_t *job_desc;
+	//odb_jobtype_t *job_desc;
 	unsigned int *job_workersv;
 
 } odbtelem_image_t;

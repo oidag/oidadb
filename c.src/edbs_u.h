@@ -1,5 +1,6 @@
 #include "edbs.h"
 #include "options.h"
+#include "edbs-jobs.h"
 
 #include <linux/futex.h>
 #include <stdint.h>

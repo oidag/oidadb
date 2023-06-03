@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <strings.h>
+#include <stdarg.h>
 
 
 // jobclose will force all calls to jobread and jobwrite, waiting or not. stop and imediately return -2.
@@ -623,6 +624,49 @@ void  edbs_jobclose(edbs_job_t job) {
 
 
 	pthread_mutex_unlock(&head->jobmutex);
+}
+
+odb_err edbs_jobwritev(edbs_job_t j, ...) {
+	const void *buff;
+	odb_err err;
+	int count;
+	va_list args;
+	va_start(args, j);
+	while(1) {
+		buff = va_arg(args, const void *);
+		if (buff == 0) {
+			// end of args;
+			err = 0;
+			break;
+		}
+		count = va_arg(args, int);
+		if((err = edbs_jobwrite(j, buff, count))) {
+			break;
+		}
+	}
+	va_end(args);
+	return err;
+}
+odb_err edbs_jobreadv(edbs_job_t j, ...) {
+	void *buff;
+	odb_err err;
+	int count;
+	va_list args;
+	va_start(args, j);
+	while(1) {
+		buff = va_arg(args, void *);
+		if (buff == 0) {
+			// end of args;
+			err = 0;
+			break;
+		}
+		count = va_arg(args, int);
+		if((err = edbs_jobread(j, buff, count))) {
+			break;
+		}
+	}
+	va_end(args);
+	return err;
 }
 
 odb_jobtype_t edbs_jobtype(edbs_job_t j) {
