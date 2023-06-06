@@ -3,38 +3,130 @@
 
 * Introduction
 
-OidaDB is software designed to make accessible a massive amount of
-structured data to global a network. The magnituded of such data can
-grow to millions of terabytes, with every byte accessible within
-nanoseconds.
+OidaDB makes petabytes of data accessible to billions of devices. It
+is used by engineers as virtual infrastructure for the flow of
+information.
 
-This software is provided to you by means of a software library. The
-library will handle the storage, retrieval, caching, multithreading,
-hosting, connecting, networking, load balancing, indexing,
-communication, memory use, cpu use, disk (SSD/tape/whatever) use, and
-error handling. /Your/ software will use this library and gain the
-aformentioned accessability without the worry of those things.
+** Who this manual is for
 
-If you have previous experiances with other database such as OidaDB's
-so called such as MySQL, MariaDB, Oracle, SAP, RocksDB, MongoDB, ect.,
-just go ahead and forget everything you know about those
-products. OidaDB is very different from anything else you have
-used. Though your technical knowledge of the underlining system (linux
-& general computer technology) will benifit your OidaDB experiance
-greatly.
+This manual is for engineers who wish to incoporate OidaDB in their
+software. This manual contains the comprehendsive (techical) abilities
+of OidaDB. Whilest reading this manual, it is assumed that:
+
+ - you have basic level understanding of the linux operating system,
+ - you have basic level understanding of common IP protocols
+   (UDP, TCP, DNS, ect).,
+ - you have intermidate understanding of persistant storage systems
+   (HDs vs SSDs, RAIDs, filesystems, ect); and,
+ - you have an urge to optimize the user experiance and maximize the
+   performance of your system.
+
+* TODO High-level Features
+
+If you have previous experiances with other database - such as MySQL,
+MariaDB, Oracle, SAP, RocksDB, MongoDB, ect. - this will help you as
+I'll frequently be referencing features from these products.
+Otherwise, don't sweat it. OidaDB is very unique in how it operates
+compared to these technologies: no prior reading is required for these
+products.
+
+With that being said, lets look at the surface of what OidaDB is, what
+it aims to do, what advantages and disadvantages it has over other
+database technology.
+
+** SWAFUR
+
+"SWAFUR" is the unique DNA of OidaDB, it is an expansion - or
+mutation, depending on how you look at it - of the "CRUD"
+philosophy. Where as CRUD stands for Create/Read/Update/Delete, SWAFUR
+conjugates to Select/Write/Allocate/Free/Update/Read (the order is a
+bit off in the effort to make a pronouncable acronym). There is no
+good way I can deliver the usefulness of this philosphy right here and
+now. The only way you will experiance this philosphy is by practicing
+it. Just know that you'll see these words in the Manual when you get
+down to the technical details.
+
+The takeaway for now is just knowing you will have much more detailed
+control over data flowing in and out of the database as well as
+performing operations on that data.
+
+The SWAFUR design choice will make OidaDB a more powerful, rohbust
+database at the cost of becoming a bit more complex to understand.
+
+** Quick Structures
+
+Quick structures is the sentiment that the structure of the data can
+change just as often as the data itself. Software that uses OidaDB is
+encouraged to approach database designs as flexible rather than fixed.
+
+** The Event Stream
+
+Connecting to OidaDB provides not just access to existing data as all
+other database do, but also a feed of new data authored by other
+connections to the database. This brings OidaDB closer to a operating
+system than a traditional storage scheme.
+
+The usefulness of The Event Stream is limitless. Lets say if you were
+making a system for a manufacturing plant. 
+
+#+BEGIN_EXAMPLE
+
+Lets say you have /HR Mangr/ monitoring employees clocking in and out,
+then /Hardware-sys/ monitoring equipment storage, and then finally
+/myConvey/ controlling conveyor belts. All of them using OidaDB to
+store their information.
+
+By only needing to repogram /myConvey/ (and not even touching /HR
+Mangr/ nor /Hardware-sys/), you can program the convey belts to turn
+on the instant when someone clocks into the shop floor and turn off
+the instant a certain equipment fills up with product.
+
+Then later down the road, you make a different app, /notify.me/. You
+can connect to the same database, and, without touching those other
+systems, send a notification to the floor manager everytime the convey
+belt turns off.
+
+So just like that you have 4 distinct softwares that are completely
+uncoupled yet all play important roles in a comprehendsive system
+without even realizing it.
+
+#+END_EXAMPLE
+
+** Parallel Proccessing
+
+OidaDB breaks apart jobs and executes its pieces concurrently. As jobs
+become larger, their efficiency will scale as they can be broken up
+into smaller pieces. This makes OidaDB become more valuable for larger
+companies.
+
+** The Federated Network
+
+OidaDB is designed to be ran across multiple datacenters; such as a
+franchise operates out of multiple locations, they can be both equal
+and distinct in nature. This is a very important key in larger,
+enterprise-level or fast-growing applications.
 
 * Installation
-The library file, =liboidadb.so= (sometimes with version number before
-the =.so=), should be placed in your systems shared library
-directory. See your linker's documentation for this. You can mostly
-disregard this step because the package management system would have
-taken care of this.
 
- - Debian Systems - /TODO: deb package stuff/
- - Redhat Systems - /TODO: yum package stuff/
- - Non-packaged/other systems - /TODO: tarball package/
+To begin our journey the first step is to get your software talking to
+OidaDB's. OidaDB was written in C, meaning it works with just about
+any language. The full list of supported languages will be discussed
+later.
 
-If everything is installed properly, the following code can be compiled
+OidaDB is mainly supported on any Debian/GNU system that uses =.deb=
+packages. Although, a tar file is provided for any other 64-bit linux
+system: provided you know what you're doing in terms of how to install
+it.
+
+ - See all downloads [[https://oidadb.com/releases/][here]].
+
+Below I'll provide some easy "is it on?" check code for the various
+supported languages. (See also: [[./common-lang.org][Language bindings & Symbols]])
+
+** Installation test: C
+
+We can take the following code saved in =main.c=:
+
 
 #+BEGIN_SRC c
 // main.c
@@ -44,35 +136,99 @@ int main()
 }
 #+END_SRC
 
-With =gcc main.c -loidadb && a.out=. If you see OidaDB's version,
-you're ready to begin.
+And compile it with =gcc main.c -loidadb -o oidadbtest=. And without
+errors you should then run =./oidadbtest=. If you see OidaDB's version
+printed out you're ready to begin.
 
-* Index
+** Installation test: Golang
+
+Golang bindings should automtically be pre-installed with the standard
+distribution. They can NOT be aquired using =go get=, the import URLs
+are virtual. Its up to you to figure what you need in terms of the
+=go.mod=, but in terms of a simple starting point:
+
+#+BEGIN_SRC go
+import "golang.oidadb.com/oidadb"
+
+func main() {
+    println(oidadb.version());
+}
+#+END_SRC
+
+Build and run using =go run main.go=.
+
+** Installation test: Python
+
+Python bindings should automatically be pre-installed with the
+standard distribution.
+
+#+BEGIN_SRC python
+import oidadb
+
+print(oidadb.version());
+#+END_SRC
+
+** Installation test: Typescript
+
+Regarding your package.json, make sure you have ="oidadb": "1.x.x"= is
+in your dependencies. It is recommened you never specifiy any version
+number past the major version (See also: [[./versioning.org][Versioning]]).
+
+And for a simple =index.ts=
+
+#+BEGIN_SRC typescript
+// index.ts
+import * from "oidadb";
+
+console.log(oidadb.version());
+#+END_SRC
+
+** Installation test: Kotlin
+
+Kotlin bindings are included in your system automatically.
+
+#+BEGIN_SRC kotlin
+package oidadbtest
+
+fun main() {
+    println(oidadb.version());
+}
+#+END_SRC
+
+* Manual Index
+
  1. [[./preface.org][Preface]]
-    1. [[./hardware.org][Hardware]] - Hardware information
-	2. [[./clang.org][C]] - Naming conventions, standards, paradigms, ect.
- 2. [[./errors.org][Errors]] - 50% of your job is handling errors; the other 50% is
-    making them.
-    1. [[./odb_errstr.org][=odb_errstr=]]
-	2. [[./odb_log.org][=odb_log=]]
- 3. [[./database.org][Database Creation/Deletion]] - All the info about creating and
-    deleting database files. Then the subsequent opening and closing.
-    1. [[./odb_create.org][=odb_create=]] - Generating new OidaDB Files
-    2. [[./odb_createparams.org][=struct odb_createparams=]]- Configuring new OidaDB Files
- 4. [[./handles.org][Database Hosts/Handles]]
-    1. [[./odb_host.org][=odb_host=]] - Hosting OidaDB Files
-    2. [[./odb_hostconfig.org][=struct odb_hostconfig=]] - Host Configuration
-    3. [[./odb_hostpoll.org][=odb_hostpoll=]] - Listening for database status changes
-    4. [[./odb_handle.org][=odb_handle=]] - Getting handles for a hosted database
- 5. [[./elements.org][OidaDB Elements]] - The fundemental building blocks of every database
+ 2. [[./versioning.org][Versioning]] - Specificaion on how versioning works.
+ 3. [[./hardware.org][Hardware]] - Information regarding OidaDB and its use of hardware.
+ 4. [[./common-lang.org][Language bindings & Symbols]] - Naming conventions, standards,
+    paradigms, ect. Really helpful to allow you to code faster.
+ 5. [[./elements.org][OidaDB Elements]] - The fundemental building blocks of every OidaDB
+    database
     1. [[./odb_elm_jobs.org][Jobs]]
 	2. [[./odb_elm_objects][Objects]]
 	3. [[./odb_elm_structs.org][Structures]]
 	4. [[./odb_elm_entities.org][Index & Entities]]
-	5. Dynamics - coming soon
-	6. Lookups - coming soon
+	5. Dynamics - /coming soon/
+	6. Lookups - /coming soon/
 	7. [[./odb_elm_events.org][Events]]
- 6. [[./odbh.org][The OidaDB Handle]]
+ 6. [[./errors.org][Errors]] - 50% of your job is handling errors; the other 50% is
+    making them. Here we discuss the importance of errors and OidaDB
+    paradigm thereof.
+    1. [[./odb_errstr.org][=odb_errstr=]]
+	2. [[./odb_log.org][=odb_log=]]
+ 7. [[./database.org][Database Creation/Deletion]] - All the info about creating and
+    deleting databases. Also information on how the options to
+    confiugre OidaDB databases.
+    1. [[./odb_create.org][=odb_create=]]
+    2. [[./odb_createparams.org][=struct odb_createparams=]]
+ 8. [[./handles.org][Database Hosts/Handles]] - Once an OidaDB is create and prepared,
+    the next step is to host it. Then, connect to that host and
+    establish /Handles/ to start perform operations.
+    1. [[./odb_host.org][=odb_host=]]
+    2. [[./odb_hostconfig.org][=struct odb_hostconfig=]]
+    3. [[./odb_hostpoll.org][=odb_hostpoll=]]
+    4. [[./odb_handle.org][=odb_handle=]]
+ 9. [[./odbh.org][The OidaDB Handle]]
     1. [[./odbh_tune.org][=odbh_tune=]]- Real-time handle configuration
     2. [[./odbh_index.org][=odbh_index=]]
 	3. [[./odbh_structs.org][=odbh_structs=]]
@@ -80,34 +236,13 @@ you're ready to begin.
     5. [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]] - List of jobs and how to execute them
 	6. [[./odbh_poll.org][=odbh_poll=]]
 	7. =odbh_eventtype_t=
- 7. Routines - coming soon
- 8. [[./telemetry.org][Telementry]]
+ 10. Routines - /coming soon/
+ 11. [[./telemetry.org][Telementry]] - Analyze the meta-operation of an OidaDB
+     database. Detect pitfalls your software may be suffering from and
+     find redundancies in your system.
     1. [[./odbtelem.org][=odbtelem.org=]]
 	2. [[./odbtelem_attach.org][=odbtelem_attach=]]
 	3. [[./odbtelem_poll.org][=odbtelem_poll=]]
-	4. =odbtelem_image= - coming soon
+	4. =odbtelem_image= - /coming soon/
 	5. [[./odbtelem_bind.org][=odbtelem_bind=]]
-
-* Appendix
-** See Also
-Here's some continued reading that influanced OidaDB in one way or
-another:
-
- - https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout
- - https://www.percona.com/blog/2019/11/12/watch-out-for-disk-i-o-performance-issues-when-running-ext4/
- - https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html
- - http://www.dba-oracle.com/t_row_locks_vs_table_locks.htm
- - https://blog.jcole.us/2013/01/03/the-basics-of-innodb-space-file-layout/
- - https://blog.jcole.us/2013/01/07/the-physical-structure-of-innodb-index-pages/
- - https://blog.jcole.us/2013/01/04/page-management-in-innodb-space-files/
- - https://blog.jcole.us/2013/01/10/btree-index-structures-in-innodb/
- - https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-row-format.html
- - https://www.youtube.com/watch?v=0Dj96yFl1SE
- - https://www.cs.cmu.edu/~christos/courses/721-resources/p297-o_neil.pdf
- - https://mariadb.com/resources/blog/does-innodb-page-size-matter/
- - https://dev.mysql.com/doc/refman/5.7/en/sorted-index-builds.html
- - https://en.wikipedia.org/wiki/R-tree
- - https://www.postgresql.org/files/documentation/pdf/15/postgresql-15-A4.pdf
-   - (Part VII)
-   - Shoutout to Postgres team
 
