@@ -21,50 +21,100 @@ of OidaDB. Whilest reading this manual, it is assumed that:
  - you have an urge to optimize the user experiance and maximize the
    performance of your system.
 
-* TODO High-level Features
-
 If you have previous experiances with other database - such as MySQL,
-MariaDB, Oracle, SAP, RocksDB, MongoDB, ect. - this will help you as
-I'll frequently be referencing features from these products.
-Otherwise, don't sweat it. OidaDB is very unique in how it operates
-compared to these technologies: no prior reading is required for these
-products.
+Oracle, SAP, MongoDB, ect. - this will help you as I'll frequently be
+referencing features from these products.  Otherwise, don't sweat
+it. OidaDB is very unique in how it operates compared to these
+technologies so there's lots of explaining to do regardless. With that
+being said, lets look at the surface of what OidaDB is, what it aims
+to do, what advantages and disadvantages it has (over other database
+technology).
 
-With that being said, lets look at the surface of what OidaDB is, what
-it aims to do, what advantages and disadvantages it has over other
-database technology.
+** Purpose of OidaDB
 
-** SWAFUR
+Let me breifly touch on why this was built. It all started with the
+need of a database with a set of *features* (we'll touch on those
+shortly): but no database existed. Provided such features were found
+in some more nichely designed database technology. But I just wanted a
+database that had ALL these features in 1 place.
+
+Another annoyance with current database technology is how it sucked at
+utilizing 100% of the *hardware* it was on. What I mean by this is, if
+I have a multi-terabyte database loaded into a local sql-based engine;
+I should be able to execute a select statement and see that the
+statement utilizes 100% of all the CPUs on my machine until that
+select statment finishes. But alas, it never does. Based case it
+always just utilizes 100% of just 1 out of the 16 cpu cores I have on
+my machine. This goes for many database: they all seem to handycap
+themselves by being extreamly shy when it comes to using the hardware
+that's availabe to them.
+
+There was also always a lack of *tooling* - that is - software that
+helps me use the database. Provided there are some FANTASTIC 3rd party
+apps out there, but these 3rd party apps have the disadvantage for,
+well, being 3rd party. The internals of one database can vastly differ
+from the internals of another database. So if I wish to adequatly
+optimize the database, or at the very least diagnose performance
+problems, I was at the mercy of a quiet community, poor documentation,
+and virtually no offical support. Which brings me to my next point...
+
+The biggest flaw I've seen is the lack of *support*. I'm not just
+talking about over-the-phone support, I'm also talking about things
+like:
+
+ - Practical-use documentation (shout out to Digital Ocean)
+ - 1st party community forums with offical answers to common questions
+   (as much as I hate to admit it, shout out to Microsoft)
+ - Transparent and easy-to-follow bug tracking (shout out to JetBrains)
+
+The above shout outs are examples of companies that do those things
+the way they should. But if we look at the largest database company on
+the planet, Oracle, they are an example of what NOT to do when it
+comes to support.
+
+** Features of OidaDB
+
+In regards to those features I was mentioning earlier, lets dive into
+those.
+
+*** SWAFUR
 
 "SWAFUR" is the unique DNA of OidaDB, it is an expansion - or
 mutation, depending on how you look at it - of the "CRUD"
 philosophy. Where as CRUD stands for Create/Read/Update/Delete, SWAFUR
 conjugates to Select/Write/Allocate/Free/Update/Read (the order is a
-bit off in the effort to make a pronouncable acronym). There is no
-good way I can deliver the usefulness of this philosphy right here and
-now. The only way you will experiance this philosphy is by practicing
-it. Just know that you'll see these words in the Manual when you get
-down to the technical details.
+bit off in the effort to make a pronouncable acronym).
 
-The takeaway for now is just knowing you will have much more detailed
-control over data flowing in and out of the database as well as
-performing operations on that data.
+The pleasantness here is to have very specific, comprehendisve, and
+detailed control over what the database is doing. Breaking up the 4
+operations into the 6 gives us 50% more tools to use when it comes to
+optimizing how our software works with the database.
 
-The SWAFUR design choice will make OidaDB a more powerful, rohbust
-database at the cost of becoming a bit more complex to understand.
-
-** Quick Structures
+*** Quick Structures
 
 Quick structures is the sentiment that the structure of the data can
 change just as often as the data itself. Software that uses OidaDB is
 encouraged to approach database designs as flexible rather than fixed.
 
-** The Event Stream
+It feels like with normal relation database, the =ALTER TABLE= command
+has thus far been reserved for database administrators. OidaDB
+incentivizes that the software becomes the database administrator. The
+ability to add, remove, or modify the structure of the data itself
+should be given to the user who knows what they need, not just the DB
+admin.
+
+*** The Event Stream
 
 Connecting to OidaDB provides not just access to existing data as all
 other database do, but also a feed of new data authored by other
 connections to the database. This brings OidaDB closer to a operating
 system than a traditional storage scheme.
+
+The idea is you should never have to "refresh" for updates. The data
+should be as up to date as it can be: down to the milisecond. And this
+feature should not be a baren on the developer, they need only to
+specify where to find the data, and the database in tern will provide
+a stream to the updates to the data (not just the data itself).
 
 The usefulness of The Event Stream is limitless. Lets say if you were
 making a system for a manufacturing plant. 
@@ -92,19 +142,43 @@ without even realizing it.
 
 #+END_EXAMPLE
 
-** Parallel Proccessing
+*** Parallel Proccessing
 
 OidaDB breaks apart jobs and executes its pieces concurrently. As jobs
 become larger, their efficiency will scale as they can be broken up
-into smaller pieces. This makes OidaDB become more valuable for larger
-companies.
+into smaller pieces.
 
-** The Federated Network
+This once again something thats implicit. The developer should never
+have to worry about how to fully utilize the hardware on the host
+machine. The database should just do it automatically. OidaDB needs
+only to be given the limits of hardware it can use, and OidaDB will do
+its best to utilize 100% of that hardware, /efficiently/. Thus, you
+can throw 500 computers with a total of 32,000 CPU cores and 128
+terabytes of ram at OidaDB, and OidaDB will thrive without even being
+configured.
+
+*** The Federated Network
 
 OidaDB is designed to be ran across multiple datacenters; such as a
 franchise operates out of multiple locations, they can be both equal
 and distinct in nature. This is a very important key in larger,
 enterprise-level or fast-growing applications.
+
+When it comes to hosting larger databases, its typically a team
+effort - sometimes with some consultants involved - to try have that
+database utilize multiple computers. OidaDB has this built-in. Of
+course you can spin up a single OidaDB instance on a single machine
+and do everything with that machine, but when it comes to growing your
+database: all you need is to install OidaDB on a second machine,
+provide it with the IP of the first machine (along with some security
+key stuff), and boom; both machines are now automatically load
+balancing with either of their IPs acting interchangable to incoming
+clients.
+
+Such a network is also implicitly responsive to location-based
+optimizations. For example, if we had 2 datacenters, one in the US and
+another in the EU, data more commonly used in either region will be
+cached in its respective region (note, without being locked therein).
 
 * Installation
 
