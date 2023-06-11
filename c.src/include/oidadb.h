@@ -228,7 +228,10 @@ export odb_err odbh_tune(odbh *handle, odb_option_t option, ... /* args */);
 
 struct odbh_jobret {
 	odb_err err;
-	odb_oid oid;
+	union {
+		odb_oid oid;
+		uint32_t length;
+	};
 	union {
 		odb_sid sid;
 		odb_eid eid;

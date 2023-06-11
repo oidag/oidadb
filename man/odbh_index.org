@@ -16,7 +16,7 @@ typedef struct odb_entstat {
 
 } odb_entstat_t
 
-odb_err odbh_index(odbh *handle, odb_eid eid, odb_entstat_t *o_entry);
+odb_err odbh_index(odbh *handle, odb_eid eid, struct odb_entstat *o_entry);
 #+END_SRC
 
 Get entity information that has a given entity id.

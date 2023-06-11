@@ -16,6 +16,58 @@
 // see https://gcc.gnu.org/onlinedocs/gcc/Thread-Local.html
 static __thread int safety_threadwarn = 0;
 
+odb_err odbh_index(odbh *handle
+						  , odb_eid eid
+						  , struct odb_entstat *o_entry) {
+	if(!handle->indexv) {
+		log_infof("downloading index...");
+		struct odbh_jobret jr = odbh_jent_download(handle
+				, &handle->indexv);
+		if(jr.err) {
+
+			// all errors returned by the download function we'll convert to
+			// critical sense none of them are documented of this function
+			if(jr.err != ODB_ECRIT) {
+				log_critf("unexpected error from download");
+				jr.err = ODB_ECRIT;
+			}
+			return jr.err;
+		}
+		handle->indexc = jr.length;
+	}
+	if(eid < EDBD_EIDSTART) {
+		return ODB_ENOENT;
+	}
+	if(eid >= handle->indexc) {
+		return ODB_EEOF;
+	}
+	*o_entry = handle->indexv[eid];
+	return 0;
+}
+
+export odb_err odbh_structs(odbh *handle
+		, odb_sid structureid
+		, struct odb_structstat *o_struct) {
+	if(!handle->stkv) {
+		log_infof("downloading structure index...");
+		struct odbh_jobret jr = odbh_jstk_download(handle
+				, &handle->stkv);
+		if(jr.err) {
+
+			// all errors returned by the download function we'll convert to
+			// critical sense none of them are documented of this function
+			if(jr.err != ODB_ECRIT) {
+				log_critf("unexpected error from download");
+				jr.err = ODB_ECRIT;
+			}
+			return jr.err;
+		}
+		handle->stkc = jr.length;
+	}
+	TODO...
+	return 0;
+}
+
 odb_err odb_handle(const char *path, odbh **o_handle) {
 
 	// invals

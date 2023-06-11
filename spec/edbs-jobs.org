@@ -256,6 +256,25 @@ Delete an existing entity
  - =ODB_ENOENT= - =eid= is not a valid entity id
  - =ODB_EDELETED= - =eid= is already deleted.
 
+* =ODB_JENTDOWNLOAD= / =ODB_JSTKDOWNLOAD= - Download the index/structres
+
+This downloads the entire, or parts of the index to the client.
+
+** Protocol
+
+| Direction  | Name    | Datatype         | Notes                                                     |
+|------------+---------+------------------+-----------------------------------------------------------|
+| odbj_write | rsvd    | uint32_t         | Just write something, this is ignored.                    |
+| odbj_read  | err+len | odb_err+uint32_t | A die error, and the amount of records that are to follow |
+
+
+Then the following is repeated the amount of records times if err is 0.
+
+| Direction | Name    | Datatype                                   | Notes                           |
+|-----------+---------+--------------------------------------------+---------------------------------|
+| odbj_read | content | struct odb_entstat / struct odb_structstat | dependign on which job you use. |
+
+
 * Dynamics
 * See Also
  - [[./odbh.org][OidaDB Handles]]
