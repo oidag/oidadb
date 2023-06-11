@@ -30,6 +30,10 @@ typedef enum odb_jobtype_t {
 	, ODB_JENTCREATE
 	, ODB_JENTDELETE
 
+	// download
+	, ODB_JENTDOWNLOAD
+	, ODB_JSTKDOWNLOAD
+
 	// Dynamics
 } odb_jobtype_t;
 
