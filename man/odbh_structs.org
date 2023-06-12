@@ -54,7 +54,7 @@ If =o_confv= is not null, =odbh_structs= will write
    whats currently in the database.
  - =ODB_ECRIT=
 
-* Volitility
+* Voltility
 
 The value written to =structstat= may be outdated by the time
 =odbh_structs= returns. Such as when job had been executed to delete the
