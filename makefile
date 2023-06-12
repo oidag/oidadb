@@ -96,4 +96,4 @@ build/publish-index.html:  spec/publish-index.m4.html build/metrics.m4
 clean:
 	-rm -r build
 
-.PHONY: .force clean manual test release
+.PHONY: .force clean manual test release build
