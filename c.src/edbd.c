@@ -186,6 +186,25 @@ unsigned int edbd_size(const edbd_t *c) {
 	return c->page_size;
 }
 
+// helper for edbd_open
+static odb_err hostpid(edbd_t *file) {
+	if(file->head_page->host != 0) {
+		return ODB_EOPEN;
+	}
+	file->head_page->host = getpid();
+	return 0;
+}
+
+// helper for edbd_close
+static odb_err hostpid_remove(edbd_t *file) {
+	if(file->head_page->host != getpid()) {
+		log_warnf("attempt to close out host with different pid");
+		return ODB_EOPEN;
+	}
+	file->head_page->host = 0;
+	return 0;
+}
+
 void edbd_close(edbd_t *file) {
 
 	// destroy mutex
@@ -198,6 +217,9 @@ void edbd_close(edbd_t *file) {
 		}
 		free(file->delpagesv);
 	}
+
+	// remove our pid
+	hostpid_remove(file);
 
 	// dealloc head page
 	if(file->head_page) {
@@ -340,6 +362,13 @@ odb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 		log_critf("failed to call mmap(2) due to unpredictable errno: %d", errnotmp);
 		errno = errnotmp;
 		return ODB_ECRIT;
+	}
+
+	// set up the hostpid
+	err = hostpid(o_file);
+	if(err) {
+		edbd_close(o_file);
+		return err;
 	}
 
 	// **defer-on-fail: edbd_close(o_file)

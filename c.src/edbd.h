@@ -87,8 +87,11 @@ unsigned int edbd_size(const edbd_t *c);
 //   ODB_EFILE  - path is not a regular file,
 //   ODB_ENOTDB - if bad magic number (probably meaning not a edb file)
 //   ODB_EHW    - if invalid hardware.
-//
-// edb_fileclose will preserve errno.
+//  - ODB_EOPEN - the file does not have a hostid of 0. Either its currently
+//                being hosted, or, the last host crashed unexpectedly. Right
+//                now there's no way to surpress this error.
+//                Note this is also returned when the pid of the file is
+//                equal to getpid(2) also.
 //
 odb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config);
 void    edbd_close(edbd_t *file);

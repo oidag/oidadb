@@ -218,6 +218,17 @@ odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 	};
 	eerr = edbd_open(&(host.file), host.fdescriptor, edbdconfig);
 	if(eerr) {
+		if(eerr == ODB_EOPEN) {
+			// assuming this isn't a critical error: what has happened is that the
+			// previous hoster of this file had crashed. This is because edbd_hostpid
+			// returns ODB_EOPEN when either its currently hosted or the last host
+			// had crashed: however we can deduce its the latter because sense we've
+			// established a lock in the above section, we know that no such
+			// processs is currently running.
+			log_errorf("the previous host of this file had closed unexpectedly, "
+			          "file may be corrupt.");
+		}
+		edbd_close(&host.file);
 		goto ret;
 	}
 	// **defer: edbd_fileclose(host.file)
