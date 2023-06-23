@@ -38,6 +38,8 @@ typedef uint64_t odb_rid;
 typedef uint64_t odb_pid;
 ///\}
 
+export const char *odb_version();
+
 // odbh is incomplete and a private structure.
 typedef struct odbh odbh;
 
@@ -219,6 +221,9 @@ struct odb_structstat {
 export odb_err odbh_structs(odbh *handle
 							, odb_sid structureid
 							, struct odb_structstat *o_struct);
+export odb_err odbh_structs_conf(odbh *handle
+								 , odb_sid sid
+								 , const struct odb_structstat *structstat);
 
 typedef enum odb_option_t {
 	ODB_OFILTER,
@@ -240,45 +245,45 @@ struct odbh_jobret {
 typedef int (odb_select_cb)(void *cookie, int usrobjc, const void *usrobjv);
 typedef int (odb_update_cb)(void *cookie, int usrobjc, void *usrobjv);
 
-struct odbh_jobret odbh_jobj_alloc(odbh *handle
+export struct odbh_jobret odbh_jobj_alloc(odbh *handle
 		, odb_eid eid
 		, const void *usrobj);
-struct odbh_jobret odbh_jobj_free(odbh *handle
+export struct odbh_jobret odbh_jobj_free(odbh *handle
 		, odb_oid oid);
-struct odbh_jobret odbh_jobj_write(odbh *handle
+export struct odbh_jobret odbh_jobj_write(odbh *handle
 		, odb_oid oid, const void
 		*usrobj);
-struct odbh_jobret odbh_jobj_read(odbh *handle
+export struct odbh_jobret odbh_jobj_read(odbh *handle
 		, odb_oid oid
 		, void *usrobj);
 // jobs - if 0 then auto
 //        if > 0, then ???
 //        if < 0, then "use maximum amount of jobs"
-struct odbh_jobret odbh_jobj_selectcb(odbh *handle
+export struct odbh_jobret odbh_jobj_selectcb(odbh *handle
 		, odb_eid eid
 		, odb_select_cb cb);
-struct odbh_jobret odbh_jobj_updatecb(odbh *handle
+export struct odbh_jobret odbh_jobj_updatecb(odbh *handle
 		, odb_eid eid
 		, odb_update_cb cb);
-struct odbh_jobret odbh_jstk_create(odbh *handle
+export struct odbh_jobret odbh_jstk_create(odbh *handle
 		, struct odb_structstat);
-struct odbh_jobret odbh_jstk_free(odbh *handle
+export struct odbh_jobret odbh_jstk_free(odbh *handle
 		, odb_sid sid);
-struct odbh_jobret odbh_jent_create(odbh *handle
+export struct odbh_jobret odbh_jent_create(odbh *handle
 		, struct odb_entstat);
-struct odbh_jobret odbh_jent_free(odbh *handle
+export struct odbh_jobret odbh_jent_free(odbh *handle
 		, odb_eid eid);
-struct odbh_jobret odbh_jdyn_read(odbh *handle
+export struct odbh_jobret odbh_jdyn_read(odbh *handle
 		, odb_oid oid
 		, int idx
 		, void *datv
 		, int datc);
-struct odbh_jobret odbh_jdyn_write(odbh *handle
+export struct odbh_jobret odbh_jdyn_write(odbh *handle
 		, odb_oid oid
 		, int idx
 		, const void *datv
 		, int datc);
-struct odbh_jobret odbh_jdyn_free(odbh *handle
+export struct odbh_jobret odbh_jdyn_free(odbh *handle
 		, odb_oid oid
 		, int idx);
 
