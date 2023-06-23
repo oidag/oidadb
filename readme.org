@@ -97,3 +97,24 @@ release.
 
 
 
+* Dependencies
+Here I will list what packages you need to develop this project as
+well as what packages you need to deploy this into a release.
+
+Each dependency needs a justification as well as a version that it has
+been tested with. Be ready to pop open git blame on these items to
+deduce the age of each dependency if it so happens not to work
+anymore.
+
+** Release
+ - =libopenssl= - cryptographic functions.
+
+** Development
+ - =emacs-nox= - for compiling manual =.org= files. emacs 27.1 seems to work.
+ - =gcc= - for compiling C. gcc 10.2.1-6 seems to work fine.
+ - =m4= - for various macro stuff for generating some summeries. m4 is
+   never used in actual code generation. 1.4.18.
+ - =make= - for building production-ready builds. 4.3
+ - =cmake= - for making development-ready builds. 3.22.1
+ - =libopenssl-dev= - headers and libraries for compiling against.
+ - =ldd= - glibc. 2.35.
