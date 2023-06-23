@@ -3,6 +3,7 @@
 #include <malloc.h>
 #include <errno.h>
 #include <strings.h>
+#include <string.h>
 #include <stdatomic.h>
 #include "edbh_u.h"
 #include "include/oidadb.h"
@@ -45,7 +46,7 @@ odb_err odbh_index(odbh *handle
 	return 0;
 }
 
-export odb_err odbh_structs(odbh *handle
+odb_err odbh_structs(odbh *handle
 		, odb_sid structureid
 		, struct odb_structstat *o_struct) {
 	if(!handle->stkv) {
@@ -64,7 +65,55 @@ export odb_err odbh_structs(odbh *handle
 		}
 		handle->stkc = jr.length;
 	}
-	TODO...
+
+	// check for ODB_EEOF
+	if(structureid >= handle->stkc) {
+		return ODB_EEOF;
+	}
+
+	// assign everything except for confv
+	o_struct->fixedc = handle->stkv[structureid].fixedc;
+	o_struct->confc = handle->stkv[structureid].confc;
+	o_struct->dynmc = handle->stkv[structureid].dynmc;
+	o_struct->start = handle->stkv[structureid].start;
+
+	return 0;
+}
+
+export odb_err odbh_structs_conf(odbh *handle
+		, odb_sid structureid
+		, const struct odb_structstat *structstat) {
+	odb_err err;
+
+	if(!handle->stkv) {
+		log_infof("downloading structure index...");
+		struct odbh_jobret jr = odbh_jstk_download(handle
+				, &handle->stkv);
+		if(jr.err) {
+
+			// all errors returned by the download function we'll convert to
+			// critical sense none of them are documented of this function
+			if(jr.err != ODB_ECRIT) {
+				log_critf("unexpected error from download");
+				jr.err = ODB_ECRIT;
+			}
+			return jr.err;
+		}
+		handle->stkc = jr.length;
+	}
+
+	// check for ODB_EEOF
+	if(structureid >= handle->stkc) {
+		return ODB_EEOF;
+	}
+
+	if(structstat->confc < handle->stkv[structureid].confc) {
+		return ODB_EBUFFSIZE;
+	}
+
+	memcpy(structstat->confv
+		   , handle->stkv[structureid].confv
+		   , structstat->confc);
 	return 0;
 }
 
