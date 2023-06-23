@@ -125,18 +125,24 @@ odb_err edb_host_getpid(const char *path, pid_t *outpid) {
 	// we can close the file now sense we got all the info we needed.
 	close(fd);
 
+	// analyze the results of the lock.
+	if(dblock.l_type == F_UNLCK) {
+		// no (running) host connected to this file.
+		return ODB_ENOHOST;
+	}
+
+	// atp: we know that there's a live process currently attached to this file.
+	//      We need that processes's PID. We cannot use dblock.l_pid as we are
+	//      dealing with OFD locks, which will always return l_pid == -1. But
+	//      we can always just look at the head for the pid.
+
 	// analyzie head
 	if(n != sizeof(odb_spec_head)
 	   || head.intro.magic[0] != ODB_SPEC_HEADER_MAGIC[0]
 	   || head.intro.magic[1] != ODB_SPEC_HEADER_MAGIC[1]) {
 		return ODB_ENOTDB;
 	}
-	// analyze the results of the lock.
-	if(dblock.l_type == F_UNLCK) {
-		// no host connected to this file.
-		return ODB_ENOHOST;
-	}
 	// host successfully found.
-	*outpid = dblock.l_pid;
+	*outpid = head.host;
 	return 0;
 }
