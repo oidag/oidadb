@@ -35,6 +35,8 @@ static odb_err execjob(edb_worker_t *self) {
 
 	// route the job to the relevant sub-namespace
 	switch (jobdesc) {
+
+		// object SWAFUR
 		case ODB_JALLOC:
 		case ODB_JFREE:
 		case ODB_JSELECT:

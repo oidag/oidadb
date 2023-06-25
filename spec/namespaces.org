@@ -95,7 +95,7 @@ and what not in accordance with spec. No functional signifigance.
 Everything regarding (w)orkers.
 
  - edba (to execute jobs)
- - edbd (for reading basic structure information for some jobs)
+ - edbs (for reading from job buffers)
 
 * odbm/gman/
 This domain is what we will call "object orientated

@@ -5,7 +5,6 @@
 #include "edbw.h"
 #include "edbw_u.h"
 #include "edbs-jobs.h"
-#include "edbd.h" // todo remove this
 #include "odb-structures.h"
 
 #include <stddef.h>
@@ -144,26 +143,20 @@ odb_err edbw_u_objjob(edb_worker_t *self) {
 	// easy pointers
 	edbs_job_t job = self->curjob;
 	int jobdesc = edbs_jobtype(job);
-	odb_err err = 0;
-	edba_handle_t *handle = self->edbahandle;
 
-	// some easy variables we'll be needing
-	const odb_spec_struct_struct *strt;
-	odb_usrlk usrlocks;
-	void *data;
-	odb_oid oid;
-	int ret;
-
+	// Now preform the actual object job.
 	switch (jobdesc) {
-		case ODB_JWRITE: return jwrite(self);
-		case ODB_JREAD: return jread(self);
-		default:
-
+		case ODB_JSELECT: return jselect(self);
+		case ODB_JALLOC:  return jalloc(self);
+		case ODB_JWRITE:  return jwrite(self);
+		case ODB_JFREE:   return jfree(self);
+		case ODB_JUPDATE: return jupdate(self);
+		case ODB_JREAD:   return jread(self);
+		default:          return log_critf("unknown job description passed in");
 	}
 
 	// if err is non-0 after this then it will close
 	// **defer: edba_objectclose
-	implementme(); // todo: the comment block below has been commented out
 	// sense the change of the job types.
 	/*switch (jobdesc & 0xFF00) {
 		case ODB_CDEL:
@@ -333,6 +326,4 @@ odb_err edbw_u_objjob(edb_worker_t *self) {
 			break;
 		default:break;
 	}*/
-	edba_objectclose(handle);
-	return 0;
 }
