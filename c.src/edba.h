@@ -7,6 +7,7 @@
 #include "odb-structures.h"
 
 typedef enum {
+	EDBA_FREAD = 0, // for future refactorign. Just use it and pretend its not 0
 	EDBA_FWRITE = 0x0001,
 	EDBA_FCREATE = 0x0002,
 } edbf_flags;
@@ -107,7 +108,6 @@ void    edba_handle_decom(edba_handle_t *src); // hmmm... do we need a close?
 // IGNORES ALL USER LOCKS.
 //
 // RETURNS:
-//  - ODB_EINVAL - oid's entry id was invalid (below min/above max)
 //  - EDB_NOENT - oid's rowid was too high
 //  - ODB_EEOF - oid's entryid was too high (did you set oid's entryid?)
 //  - ODB_ENOSPACE - (edba_objectopenc w/ EDBA_FCREATE) failed to allocate more space, disk/file ful)
@@ -120,11 +120,8 @@ void    edba_objectclose(edba_handle_t *h);
 //   Will return a pointer to the fixed data of the object.
 //   You can change the contents of the object so long you opened this
 //   object with EDBD_FWRITE.
-//
-//
-// later: I need to have 'read-only variants' of these functions that return
-//        const pointers so that way I can check for open objectflags on a low level.
 void   *edba_objectfixed(edba_handle_t *h);
+const void *edba_objectfixed_get(edba_handle_t *h);
 
 // edba_objectflags_get, edba_objectlocks_set
 //   Getter and setter to the user locks on this object. setter will do nothing
@@ -165,15 +162,18 @@ unsigned int edba_objectdeleted(edba_handle_t *h);
 odb_err edba_objectdelete(edba_handle_t *h);
 odb_err edba_objectundelete(edba_handle_t *h);
 
-// edbf_objectstruct
+// edba_objectstruct
 //   Will return the (readonly) structure data.
 //   This will point to whatever is given by edbd.
 //
-// edbf_objectentry
+// edba_objectentry
 //   Will return the (readonly) entry data.
 //   This will point to whatever is given by edbd.
+//
+// edba_objectstructid - returns the structure id of the object.
 const odb_spec_struct_struct *edba_objectstruct(edba_handle_t *h);
 const odb_spec_index_entry  *edba_objectentry(edba_handle_t *h);
+odb_sid edba_objectstructid(edba_handle_t *h);
 
 // entry (ent) mods
 

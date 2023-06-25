@@ -22,8 +22,9 @@ errno = terr;}
 void log_crit(const char *log) {
 	log_critf("%s", log);
 }
-void log_critf(const char *fmt, ...) {
+odb_err log_critf(const char *fmt, ...) {
 	stdlogthing(stderr, "crit");
+	return ODB_ECRIT;
 }
 
 void log_error(const char *log) {
@@ -98,6 +99,8 @@ const char *odb_errstr(odb_err error) {
 		case ODB_EMISSED:   return "ODB_EMISSED";
 		case ODB_EDELETED:  return "ODB_EDELETED";
 		case ODB_EBUFFSIZE: return "ODB_EBUFFSIZE";
+		case ODB_ECONFLICT: return "ODB_ECONFLICT";
+		case ODB_EUSER:     return "ODB_EUSER";
 		default: return "UNDOCUMENTEDERROR";
 	}
 }

@@ -5,8 +5,9 @@
 // as log_crit will look at errno and log what ever it is at the time.
 //
 // log_critf will preserve errno.
-void log_crit(const char *log);
-void log_critf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+//
+// log_critf will always return ODB_ECRIT
+odb_err log_critf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 void log_error(const char *log);
 void log_errorf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
