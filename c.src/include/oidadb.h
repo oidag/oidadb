@@ -128,6 +128,12 @@ typedef enum odb_err {
 
 	/// Something wrong with buffer size.
 	ODB_EBUFFSIZE,
+
+	// issue regarding out-of-sync data changes.
+	ODB_ECONFLICT,
+
+	// whatever happened was because of the user.
+	ODB_EUSER,
 } odb_err;
 export const char *odb_errstr(odb_err error);
 
@@ -217,6 +223,8 @@ struct odb_structstat {
 	unsigned int dynmc;
 	unsigned int confc;
 	void *confv;
+
+	unsigned int svid;
 };
 export odb_err odbh_structs(odbh *handle
 							, odb_sid structureid
@@ -251,8 +259,7 @@ export struct odbh_jobret odbh_jobj_alloc(odbh *handle
 export struct odbh_jobret odbh_jobj_free(odbh *handle
 		, odb_oid oid);
 export struct odbh_jobret odbh_jobj_write(odbh *handle
-		, odb_oid oid, const void
-		*usrobj);
+		, odb_oid oid, const void *usrobj);
 export struct odbh_jobret odbh_jobj_read(odbh *handle
 		, odb_oid oid
 		, void *usrobj);
