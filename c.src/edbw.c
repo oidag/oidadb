@@ -22,10 +22,16 @@ log_debugf("worker#%d executing job#%ld: " fmt, workerp->workerid, workerp->curj
 static odb_err execjob(edb_worker_t *self) {
 
 	// easy pointers
-	edbs_job_t *job = &self->curjob;
-	int jobdesc = edbs_jobtype(*job);
+	edbs_job_t job = self->curjob;
+	int jobdesc = edbs_jobtype(job);
 	odb_err err = 0;
 	edba_handle_t *handle = self->edbahandle;
+
+	// the purpose of this routing is specifically for readability. This switch
+	// statement just allows you me to seperate similar code into the same
+	// few files. There's not real logic behind THIS switch statement, but
+	// follow the functions this switch statement calls for the real logic...
+	// except for handling unknown job types.
 
 	// route the job to the relevant sub-namespace
 	switch (jobdesc) {
@@ -34,22 +40,24 @@ static odb_err execjob(edb_worker_t *self) {
 		case ODB_JSELECT:
 		case ODB_JUPDATE:
 		case ODB_JWRITE:
+		case ODB_JREAD:
 			err = edbw_u_objjob(self);
 			break;
 		case ODB_JENTCREATE:
 		case ODB_JENTDELETE:
+		case ODB_JENTDOWNLOAD:
 			err = edbw_u_entjob(self);
 			break;
 		case ODB_JSTKCREATE:
 		case ODB_JSTKDELETE:
+		case ODB_JSTKDOWNLOAD:
 			err = edbw_u_structjob(self);
 			break;
 		default:
 			err = ODB_EJOBDESC;
+			log_warnf("invalid job description hash: %04x", jobdesc);
+			edbs_jobwrite(job, &err, sizeof(err));
 			break;
-	}
-	if(err == ODB_EJOBDESC) {
-		log_errorf("invalid job description hash: %04x", jobdesc);
 	}
 
 	closejob:
