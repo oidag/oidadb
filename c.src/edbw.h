@@ -2,9 +2,7 @@
 #define _edbWORKER_H_ 1
 
 #include "edbs.h"
-#include "edbp.h"
 #include "edba.h"
-#include "edbl.h"
 #include "edbs-jobs.h"
 
 typedef enum _edb_workerstate {
