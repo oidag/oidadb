@@ -81,7 +81,7 @@ odb_err odbh_structs(odbh *handle
 	return 0;
 }
 
-export odb_err odbh_structs_conf(odbh *handle
+odb_err odbh_structs_conf(odbh *handle
 		, odb_sid structureid
 		, const struct odb_structstat *structstat) {
 	odb_err err;
