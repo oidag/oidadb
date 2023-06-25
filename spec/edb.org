@@ -476,7 +476,7 @@ assumed to be the object content.
 | (Dynamic data)  | uint64_t | This is the 1 pointer to dyanmic data. Takes the place of =dy_pointers=. See [[Structures: dyanmic data]] |
 | Fixed len       | uint16_t | The fixed length of data, includes header flags, and pointers                                         |
 | Conf. Size      | uint16_t | The size of the configuration                                                                         |
-| rsvd            | uint16_t | rsvd                                                                                                  |
+| Version         | uint16_t | See [[Structure Versions]]                                                                                |
 | Structure flags | uint8_t  | See [[Structure Flags]]                                                                                   |
 | data pointers   | uint8_t  | The amount of pointers per record                                                                     |
 
@@ -506,6 +506,30 @@ this definition "overloads" the [[Record Flags]["parent definition"]].
 
 TODO - programm these into edba-ent.
 
+** Structure Version
+
+=Version= is something you keep to yourself and your software. You
+want to increment this number every time this structure is update OR
+created (rebember that structure id is not life-time unique sense the
+same structure id can be reused).
+
+The =Version= is used by The Software and handles in order that both
+host and handles are communicating data using the exact same versions.
+
+*** Dialog
+While making this, I discoverd that something can happen while sending
+read/write requests back and forth between handle and host.
+
+What can happen is if I submit a =ODB_JREAD= job, but, between me
+sending that job and the job actually getting to the host, some
+other handle may have edited the structure so that the fixed object is
+actually smaller/larger than what when the job was orignally
+submitted. So me, as the handle, have no gaurentee as to how large the
+buffer should be before I sent the job.
+
+What I think should happen is when I send a read/write request for
+objects I should also include something that says "Hey, I'm updating
+this object, and it uses this structure version".
 
 ** No Editing Structures
 There are no editing structures, only creating and deleting

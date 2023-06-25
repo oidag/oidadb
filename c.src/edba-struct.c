@@ -114,8 +114,10 @@ odb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 			+ sizeof(odb_spec_struct_full_t)
 			* o->trashstart_off);
 
-	// assing the structure
+	// assing the structure, but note we perserve the version and increment it.
+	uint16_t v = h->strct->content.version;
 	h->strct->content = strct;
+	h->strct->content.version = v+1;
 
 	// todo: allocate space for arbitrary configuration when edbp_dynamics are
 	//       implemented. See h->strct.confc

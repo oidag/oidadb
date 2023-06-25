@@ -49,6 +49,9 @@ which was successfully created by the alloc function.
  - =ODB_EDELETED= - (odbh_jobj_free) already deleted.
  - =ODB_EDELETED= - (odbh_jobj_read, odbh_jobj_write) oid does not
    exists/not valid
+ - =ODB_ECONFLICT= - The submitted object (=usrobj=) uses an outdated
+   structure (try calling [[odbh_structs.org][=odbh_structs=]] again to get the fresh
+   structure data).
  - =ODB_ECRIT=
 
 * See Also

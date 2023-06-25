@@ -71,6 +71,36 @@ referencing data thats being temporarly held in the handle, or, may
 even be referencing data strait out of the database file... whichever
 the handle find more appropriate.
 
+** SVID
+When sending objects over the networ, there msut be communication on
+how large these objects are for buffering reasons. Sense object sizes
+are pretty volitile, its best to have some good "expectation" of
+sizes/configurations.
+
+We use what is known as a SVID: Structure Version ID. This is uint32_t
+number with the first 16 bits being the version of the structure, and
+the last/bottom of the 16 bits being the normal structure ID:
+
+ - sid = SVID & 0xFFFF
+ - structureversion = SVID >> 0x10
+
+What can happen is if I submit a =ODB_JREAD= job, but, between me
+sending that job and the job actually getting to the server, some
+other handle may have edited the structure so that the fixed object is
+actually smaller/larger than what when the job was orignally
+submitted. So me, as the handle, have no gaurentee as to how large the
+buffer should be before I sent the job.
+
+What can also happen is if I submit a =ODB_JWRITE= job, the server
+will be where I was with that =ODB_JREAD=. The server would have no
+idea what the sizeo the object I am sending. These are both very rare
+occourances, but should still be accounted for:
+
+ - *The handle will always supply the SVID to verify* (if we try to
+   send the SVID from the host to the handle, remember that the handle
+   cannot actually tell the host that its wrong, remember that the
+   host must be the one to kill the connection).
+
 * =ODB_JALLOC= - Create a object
 This will create a new object for a given entity. If OidaDB can, it
 will reuse something that has previously been deleted. Thus, the
@@ -78,15 +108,16 @@ returned oid may be one that has been returned before.
 
 ** Protocol
 
-| Direction  | Name       | Datatype        | Notes                                                                    |
-|------------+------------+-----------------+--------------------------------------------------------------------------|
-| odbj_write | eid+object | odb_eid+usrobj  | The entity id to create a new object and said new object                 |
-| odbj_read  | err+oid    | odb_err+odb_oid | [[Die-Error]]: See Errors, and if thats 0, The OID of the newly created item |
+| Direction  | Name            | Datatype                | Notes                                                                    |
+|------------+-----------------+-------------------------+--------------------------------------------------------------------------|
+| odbj_write | eid+SVID+object | odb_eid+uint32_t+usrobj | The entity id to create a new object and said new object                 |
+| odbj_read  | err+oid         | odb_err+odb_oid         | [[Die-Error]]: See Errors, and if thats 0, The OID of the newly created item |
 
 ** Errors
 
  - =ODB_ENOENT= - Entity not valid.
  - =ODB_ENOSPACE= - No more space could be allocated for this entity.
+ - =ODB_ECONFLICT= - SVID does not match host.
 
 * =ODB_JFREE= - Delete an object
 
@@ -117,24 +148,24 @@ at a time. But nonetheless, they're very easy to use.
 
 For *READING*:
 
-| Direction  | Name       | Datatype       | Notes                                       |
-|------------+------------+----------------+---------------------------------------------|
-| odbj_write | oid        | odb_oid        | The object id you wish to read              |
-| odbj_read  | err+usrobj | odb_err+usrobj | [[Die-Error]]: See Errors, and if 0, the usrobj |
-|            |            |                |                                             |
+| Direction  | Name       | Datatype         | Notes                                                                             |
+|------------+------------+------------------+-----------------------------------------------------------------------------------|
+| odbj_write | oid+SVID   | odb_oid+uint32_t | The object id you wish to read as well as what you'd expect the object fixed size |
+| odbj_read  | err+usrobj | odb_err_t+usrobj | [[Die-Error]]: See Errors, and if 0, the usrobj                                  |
 
 For *WRITING*:
 
-| Direction  | Name       | Datatype       | Notes                          |
-|------------+------------+----------------+--------------------------------|
-| odbj_write | oid+usrobj | odb_oid+usrobj | The object id you wish to read |
-| odbj_read  | err        | odb_err        | [[Die-Error]]: See Errors          |
+| Direction  | Name            | Datatype              | Notes                          |
+|------------+-----------------+-----------------------+--------------------------------|
+| odbj_write | oid+SVID+usrobj | odb_oid+fixedc+usrobj | The object id you wish to read |
+| odbj_read  | err             | odb_err               | [[Die-Error]]: See Errors          |
 
 
 ** Errors
 
  - =ODB_ENOENT= - OID not valid
  - =ODB_EDELETED= - Object is marked as deleted
+ - =ODB_ECONFLICT= - SVID does not match host.
 
 * =ODB_JSELECT=, =ODB_JUPDATE= - reading/writing of all objects in an entity
 
@@ -153,12 +184,13 @@ having its exclusive 100 pages to update.
 
 The protocol is as follows in both =ODB_CSELECT= and =ODB_CUPDATE=:
 
-| Direction  | Name       | Datatype | Notes                                            |
-|------------+------------+----------+--------------------------------------------------|
-| odbj_write | eid        | odb_eid  | The entry id to which we will perform the select |
-| odbj_write | page_start | odb_pid  | The starting page offset (0 for entity start)    |
+| Direction  | Name       | Datatype | Notes                                                    |
+|------------+------------+----------+----------------------------------------------------------|
+| odbj_write | eid        | odb_eid  | The entry id to which we will perform the select         |
+| odbj_write | page_start | odb_pid  | The starting page offset (0 for entity start)            |
 | odbj_write | page_cap   | odb_pid  | The maximum amount of pages to select (-1 for all pages) |
-| odbj_read  | err        | odb_err  | [[Die-Error]]: See Errors                            |
+| odbj_write | SVID       | uint32_t | To ensure host and handle are using the same [[SVID]]    |
+| odbj_read  | err        | odb_err  | [[Die-Error]]: See Errors                                    |
 
 In the case of =ODB_JSELECT=, the following will reapeat (until =objc= is 0)
 
@@ -177,6 +209,7 @@ with its changes:
 
 ** Errors
 
+ - =ODB_EBUFFSIZE= - Handle submitted a =fixedc= not equal to the current =fixedc= on the server
  - =ODB_ENOENT= - Entity (eid) not valid
 
 ** Remarks
