@@ -5,7 +5,7 @@
 #include "edbw.h"
 #include "edbw_u.h"
 #include "edbs-jobs.h"
-#include "edbd.h"
+#include "edbd.h" // todo remove this
 #include "odb-structures.h"
 
 #include <stddef.h>
@@ -17,8 +17,125 @@
 #include <unistd.h>
 #include <errno.h>
 
-static void edbw_logverbose(edb_worker_t *self, const char *fmt, odb_oid oid) {
-	log_debugf(fmt, oid);
+// returns 0 if not match
+static int svid_good(uint32_t svid, odb_sid host_sid, uint16_t host_version) {
+	if((odb_sid)(svid & 0xFFFF) != host_sid) return 0;
+	if((uint16_t)(svid >> 0x10) != host_version) return 0;
+	return 1;
+}
+
+// wrapper function for sending die-errors. As with a die error, you send it
+// and ignore everything else they had sent.
+void static dieerror(edbs_job_t job, odb_err err) {
+	log_debugf("sending die-error: %s", odb_errstr(err));
+	edbs_jobflush(job);  // todo: implement edbs_jobflush
+	edbs_jobwrite(job, &err, sizeof(err));
+}
+
+// helper function used by both jread and jwrite sense they have so much in
+// common.
+odb_err static _jreadwrite(edb_worker_t *self, int iswrite) {
+	odb_err err;
+	edba_handle_t *handle = self->edbahandle;
+	edbs_job_t job = self->curjob;
+	odb_oid oid;
+	uint32_t svid;
+
+	// first read the oid+svid
+	if((err = edbs_jobreadv(job
+			, &oid, sizeof(oid)
+			, &svid, sizeof(svid)
+			,0))) {
+		return err;
+	}
+
+	// get read access for that object
+	if(iswrite) {
+		err = edba_objectopen(handle, oid, EDBA_FREAD | EDBA_FWRITE);
+	} else {
+		err = edba_objectopen(handle, oid, EDBA_FREAD);
+	}
+	// consolidating errors for spec/edbs-jobs.org
+	switch (err) {
+		case 0: break;
+		case ODB_ENOENT:
+		case ODB_EEOF:
+			err = ODB_ENOENT;
+			//fallthrough
+		default:
+			// die-error
+			dieerror(job, err);
+			return ODB_EUSER;
+	}
+
+	// **defer: edb_objectclose(handle);
+
+	// atp: we have the object opened
+
+	// is it the same structure version?
+	// Note we have to do this AFTER we run edba_objectopen so that we make
+	// sure that this structure is then locked until edba_objectclosed
+	odb_sid sid = edba_objectstructid(handle);
+	const odb_spec_struct_struct *stk = edba_objectstruct(handle);
+	if(!svid_good(svid, sid, stk->version)) {
+		dieerror(job, ODB_ECONFLICT);
+		edba_objectclose(handle);
+		return ODB_EUSER;
+	}
+
+	// is it deleted?
+	if(edba_objectdeleted(handle)) {
+		dieerror(job, ODB_ENOENT);
+		edba_objectclose(handle);
+		return ODB_EUSER;
+	}
+
+	// is it locked?
+	odb_usrlk usrlocks = edba_objectlocks_get(handle);
+	err = 0;
+	if(iswrite) {
+		// we're trying to write so make sure EDB_FUSRLWR isn't present
+		if (usrlocks & EDB_FUSRLWR) {
+			err = ODB_EUSER;
+		}
+	} else {
+		// we're trying to read so make sure EDB_FUSRLRD isn't present
+		if (usrlocks & EDB_FUSRLRD) {
+			err = ODB_EUSER;
+		}
+	}
+	if(err) {
+		dieerror(job, err);
+		edba_objectclose(handle);
+		return ODB_EUSER;
+	}
+
+
+	if (iswrite) {
+		// read in the entire object.
+		edbs_jobread(job, edba_objectfixed(handle), stk->fixedc);
+		// we actually continue past this because we want to write a no
+		// die-error
+	}
+
+	// no die-error
+	err = 0;
+	edbs_jobwrite(job, &err, sizeof(err));
+
+	if(!iswrite) {
+		// send the object to the handle
+		edbs_jobwrite(job, edba_objectfixed_get(handle), stk->fixedc);
+	}
+	return 0;
+}
+
+odb_err static jwrite(edb_worker_t  *self) {
+	return _jreadwrite(self, 1);
+}
+
+// returns errors edbs_jobread
+odb_err static jread(edb_worker_t *self) {
+	return _jreadwrite(self, 0);
 }
 
 // job data is assumed to be EDB_OBJ
@@ -30,25 +147,19 @@ odb_err edbw_u_objjob(edb_worker_t *self) {
 	odb_err err = 0;
 	edba_handle_t *handle = self->edbahandle;
 
-	// check for some common errors regarding the odb_jobclass
-	odb_oid oid;
-	int ret;
-	// all of these job classes need an id parameter
-	ret = edbs_jobread(job, &oid, sizeof(oid));
-	if(ret == -1) {
-		err = ODB_ECRIT;
-		edbs_jobwrite(job, &err, sizeof(err));
-		return err;
-	} else if(ret == -2) {
-		err = ODB_EHANDLE;
-		edbs_jobwrite(job, &err, sizeof(err));
-		return err;
-	}
-
 	// some easy variables we'll be needing
 	const odb_spec_struct_struct *strt;
 	odb_usrlk usrlocks;
 	void *data;
+	odb_oid oid;
+	int ret;
+
+	switch (jobdesc) {
+		case ODB_JWRITE: return jwrite(self);
+		case ODB_JREAD: return jread(self);
+		default:
+
+	}
 
 	// if err is non-0 after this then it will close
 	// **defer: edba_objectclose

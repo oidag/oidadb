@@ -273,14 +273,21 @@ void    edba_objectclose(edba_handle_t *h) {
 	h->opened = 0;
 }
 
+odb_sid edba_objectstructid(edba_handle_t *h) {
+	return h->clutchedentry->structureid;
+}
 
 const odb_spec_struct_struct *edba_objectstruct(edba_handle_t *h) {
 	const odb_spec_struct_struct *ret;
-	edbd_struct(h->parent->descriptor, h->clutchedentry->structureid, &ret);
+	edbd_struct(h->parent->descriptor, edba_objectstructid(h), &ret);
 	return ret;
 }
 
 void   *edba_objectfixed(edba_handle_t *h) {
+	if(!(h->openflags & EDBA_FWRITE)) {
+		log_critf("edba_objectfixed without having EDBA_FWRITE flag");
+		return 0;
+	}
 	return h->content;
 }
 
