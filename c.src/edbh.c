@@ -430,11 +430,7 @@ struct odbh_jobret _odbh_jobj_cb(odbh *handle
 		return ret;
 	}
 
-	// get pages and calculate how many jobs we need.
-	odb_pid pagec = estat.pagec;
-	odb_pid pagecap = -1;
-
-		// install the job and check for ODB_EVERSION
+	// install the job and check for ODB_EVERSION
 	if((ret.err = edbs_jobinstall(handle->shm, jobtype, &job))) {
 		if(ret.err == ODB_EJOBDESC) {
 			ret.err = ODB_EVERSION;
@@ -442,7 +438,9 @@ struct odbh_jobret _odbh_jobj_cb(odbh *handle
 		return ret;
 	}
 
-	// write the oid
+	// write the eid/pagestart/pagecap
+	// later: have page_start and page_cap avaialbe to the user for
+	//  multi-processing.
 	odb_pid page_start = 0,page_cap = -1;
 	if((ret.err = edbs_jobwritev(job
 			, &eid, sizeof(eid)
@@ -454,7 +452,7 @@ struct odbh_jobret _odbh_jobj_cb(odbh *handle
 	}
 
 	// check for error+objc
-	uint64_t objc;
+	uint32_t objc;
 	odb_err dieerr;
 	// later: I should probably start multiple jobs here using the most
 	//  amount of reasonable threads so that the host is sending us as many
@@ -485,6 +483,15 @@ struct odbh_jobret _odbh_jobj_cb(odbh *handle
 		// assume the whole job was a success so our ret.err is 0.
 		if(objc == 0) {
 			ret.err = 0;
+			break;
+		}
+
+
+		// the special case that the server returns -1 means a critical error
+		// has happened that prevents it from sending us another payload.
+		if(objc == -1) {
+			ret.err = log_critf("host broadcasted critical error in "
+								"select/update statement");
 			break;
 		}
 

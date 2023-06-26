@@ -236,6 +236,129 @@ odb_err static jfree(edb_worker_t *self) {
 	return 0;
 }
 
+// helper function used by jupdate and jselect sense they have so much in
+// common.
+odb_err static _jupdateselect(edb_worker_t *self, int jselect) {
+	odb_err err;
+	edba_handle_t *handle = self->edbahandle;
+	edbs_job_t job = self->curjob;
+	odb_eid eid;
+	uint32_t svid;
+	odb_pid page_start, page_cap;
+
+
+	// read eid/page_start/page_cap/SVID
+	err = edbs_jobreadv(job
+				  , &eid, sizeof(eid)
+				  , &page_start, sizeof(page_start)
+				  , &page_cap, sizeof(page_cap)
+				  , &svid, sizeof(svid)
+				  ,0);
+	if(err) {
+		return err;
+	}
+
+	// open the first page.
+	err = edba_pageopen(handle, eid, page_start, EDBA_FREAD);
+	if (err) {
+		dieerror(job, err);
+		return ODB_EUSER;
+	}
+
+	// **defer: edba_pageclose(handle);
+
+	// check the svid.
+	odb_sid sid = edba_pagestructid(handle);
+	const odb_spec_struct_struct *stk = edba_pagestruct(handle);
+	if(!svid_good(svid, sid, stk->version)) {
+		dieerror(job, ODB_ECONFLICT);
+		edba_pageclose(handle);
+		return ODB_EUSER;
+	}
+
+	// all errors have been checked. let us send a 0error
+	err = 0;
+	edbs_jobwrite(job, &err, sizeof(err));
+
+	// now loop through each page and send over the entire body of each page.
+	for(int i = 0; i < page_cap; i++) {
+
+		// note: we start this forloop with the page already checked out, so
+		// we check for errors at the bottom of this for loop when we check
+		// out the next page.
+
+		// get the objects on this page.
+		uint32_t object_count = edba_pageobjectv_count(handle);
+
+		// now send them the entire page body.
+		// get the object body.
+		// note: objectv can be const, used for both jselect and jupdate.
+		void *objecv;
+		unsigned int objectc = edba_pageobjectc(handle);
+		if(jselect) {
+			// get write-ready page
+			objecv = edba_pageobjectv(handle);
+		} else {
+			// get read-only page.
+			objecv = (void *)edba_pageobjectv_get(handle);
+		}
+		err = edbs_jobwritev(job
+				, &object_count, sizeof(object_count)
+				, objecv, objectc
+				, 0);
+		if(err) {
+			// elevate to critical error
+			err = log_critf("unhandled network error in jupdate/jselect: %d",
+			                err);
+			break;
+		}
+
+		if(!jselect) {
+			// we're doing a jupdate, we have to read-back their response.
+			err = edbs_jobread(job, &objecv, (int)objectc);
+			if(err) {
+				// elevate to critical error
+				err = log_critf("unhandled network error in jupdate: %d",
+				                err);
+				break;
+			}
+		}
+
+		// atp: we successfully sent this page to the client. And, if we're
+		// doing a jupdate, received their response for changes.
+
+		// checkout out the next page.
+		err = edba_pageadvance(handle);
+		if(err) {
+			if(err == ODB_EEOF) {
+				// we're done reading all the pages. Send a 0count to let
+				// them know that.
+				object_count = 0;
+				edbs_jobwrite(job, &object_count, sizeof(object_count));
+				break;
+			}
+			// something unexpected failed, send them a -1 to let them know
+			// something critical happened.
+			object_count = -1;
+			edbs_jobwrite(job, &object_count, sizeof(object_count));
+			break;
+		}
+
+		// succesfully checked out, now to process this page.
+	}
+
+	edba_pageclose(handle);
+	return 0;
+}
+
+odb_err jselect(edb_worker_t *self) {
+	return _jupdateselect(self, 1);
+}
+
+odb_err jupdate(edb_worker_t *self) {
+	return _jupdateselect(self, 0);
+}
+
 // job data is assumed to be EDB_OBJ
 odb_err edbw_u_objjob(edb_worker_t *self) {
 
@@ -253,176 +376,4 @@ odb_err edbw_u_objjob(edb_worker_t *self) {
 		case ODB_JREAD:   return jread(self);
 		default:          return log_critf("unknown job description passed in");
 	}
-
-	// if err is non-0 after this then it will close
-	// **defer: edba_objectclose
-	// sense the change of the job types.
-	/*switch (jobdesc & 0xFF00) {
-		case ODB_CDEL:
-		case ODB_CUSRLKW:
-		case ODB_CWRITE:
-			// all require write access
-			err = edba_objectopen(handle, oid, EDBA_FWRITE);
-			break;
-
-		case ODB_CCREATE:
-			if((oid & EDB_OID_AUTOID) != EDB_OID_AUTOID) {
-				// find an ID to use.
-				err = edba_objectopenc(handle, &oid, EDBA_FWRITE | EDBA_FCREATE);
-			} else {
-				// use the existing ID
-				err = edba_objectopen(handle, oid, EDBA_FWRITE);
-			}
-			break;
-
-		case ODB_CUSRLKR:
-		case ODB_CREAD:
-			// read only
-			err = edba_objectopen(handle, oid, 0);
-			break;
-
-		default:
-			return ODB_EJOBDESC;
-	}
-	if(err) {
-		edbs_jobwrite(self->curjob, &err, sizeof(err));
-		return err;
-	}
-
-	// do the routing
-	switch (jobdesc) {
-		case EDB_OBJ | ODB_CCREATE:
-			edbw_logverbose(self, "copy object: 0x%016lX", oid);
-
-			// make sure this oid isn't already deleted
-			if(!edba_objectdeleted(handle)) {
-				err = ODB_EEXIST;
-				edbs_jobwrite(self->curjob, &err, sizeof(err));
-				break;
-			}
-
-			// lock check
-			usrlocks = edba_objectlocks_get(handle);
-			if(usrlocks & EDB_FUSRLCREAT) {
-				err = ODB_EULOCK;
-				edbs_jobwrite(self->curjob, &err, sizeof(err));
-				break;
-			}
-
-			// err 0
-			err = 0;
-			edbs_jobwrite(self->curjob, &err, sizeof(err));
-
-			// write to the created object
-			strt = edba_objectstruct(handle);
-			data  = edba_objectfixed(handle);
-			edbs_jobread(self->curjob, data, strt->fixedc);
-
-			// mark this object as undeleted
-			edba_objectundelete(handle);
-
-			// return the oid of the created object
-			edbs_jobwrite(self->curjob, &oid, sizeof(oid));
-			break;
-
-		case EDB_OBJ | ODB_CREAD:
-			edbw_logverbose(self, "copy object: 0x%016lX", oid);
-
-			// is it deleted?
-			if(edba_objectdeleted(handle)) {
-				err = ODB_ENOENT;
-				edbs_jobwrite(self->curjob, &err, sizeof(err));
-				break;
-			}
-
-			// lock check
-			usrlocks = edba_objectlocks_get(handle);
-			if(usrlocks & EDB_FUSRLRD) {
-				err = ODB_EULOCK;
-				edbs_jobwrite(self->curjob, &err, sizeof(err));
-				break;
-			}
-
-			// err 0
-			err = 0;
-			edbs_jobwrite(self->curjob, &err, sizeof(err));
-
-			// write out the object.
-			strt = edba_objectstruct(handle);
-			data  = edba_objectfixed(handle);
-			edbs_jobwrite(self->curjob, data, strt->fixedc);
-			break;
-
-		case EDB_OBJ | ODB_CWRITE:
-			edbw_logverbose(self, "edit object 0x%016lX", oid);
-
-			// is it deleted?
-			if(edba_objectdeleted(handle)) {
-				err = ODB_ENOENT;
-				edbs_jobwrite(self->curjob, &err, sizeof(err));
-				break;
-			}
-
-			// lock check
-			usrlocks = edba_objectlocks_get(handle);
-			if(usrlocks & EDB_FUSRLWR) {
-				err = ODB_EULOCK;
-				edbs_jobwrite(self->curjob, &err, sizeof(err));
-				break;
-			}
-
-			// err 0
-			err = 0;
-			edbs_jobwrite(self->curjob, &err, sizeof(err));
-
-			// update the record
-			strt = edba_objectstruct(handle);
-			data  = edba_objectfixed(handle);
-			edbs_jobread(self->curjob, data, strt->fixedc);
-
-			break;
-		case EDB_OBJ | ODB_CDEL:
-			// object-deletion
-			edbw_logverbose(self, "delete object 0x%016lX", oid);
-
-			// lock check
-			usrlocks = edba_objectlocks_get(handle);
-			if(usrlocks & EDB_FUSRLWR) {
-				err = ODB_EULOCK;
-				edbs_jobwrite(self->curjob, &err, sizeof(err));
-				break;
-			}
-
-			// (note we don't mark as no-error until after the delete)
-
-			// perform the delete
-			err = edba_objectdelete(handle);
-			edbs_jobwrite(self->curjob, &err, sizeof(err));
-			break;
-
-		case EDB_OBJ | ODB_CUSRLKR:
-			edbw_logverbose(self, "cuserlock read object 0x%016lX", oid);
-
-			// err 0
-			err = 0;
-			edbs_jobwrite(self->curjob, &err, sizeof(err));
-
-			// read-out locks
-			usrlocks = edba_objectlocks_get(handle);
-			edbs_jobwrite(self->curjob, &usrlocks, sizeof(odb_usrlk));
-			break;
-
-		case EDB_OBJ | ODB_CUSRLKW:
-			edbw_logverbose(self, "cuserlock write object 0x%016lX", oid);
-
-			// err 0
-			err = 0;
-			edbs_jobwrite(self->curjob, &err, sizeof(err));
-
-			// update locks
-			edbs_jobread(self->curjob, &usrlocks, sizeof(odb_usrlk));
-			edba_objectlocks_set(handle, usrlocks & _EDB_FUSRLALL);
-			break;
-		default:break;
-	}*/
 }
