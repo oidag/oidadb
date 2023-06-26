@@ -84,7 +84,7 @@ odb_err static _jreadwrite(edb_worker_t *self, int iswrite) {
 
 	// is it deleted?
 	if(edba_objectdeleted(handle)) {
-		dieerror(job, ODB_ENOENT);
+		dieerror(job, ODB_EDELETED);
 		edba_objectclose(handle);
 		return ODB_EUSER;
 	}
@@ -125,6 +125,9 @@ odb_err static _jreadwrite(edb_worker_t *self, int iswrite) {
 		// send the object to the handle
 		edbs_jobwrite(job, edba_objectfixed_get(handle), stk->fixedc);
 	}
+
+	// done, close out.
+	edba_objectclose(handle);
 	return 0;
 }
 
@@ -135,6 +138,102 @@ odb_err static jwrite(edb_worker_t  *self) {
 // returns errors edbs_jobread
 odb_err static jread(edb_worker_t *self) {
 	return _jreadwrite(self, 0);
+}
+
+odb_err static jalloc(edb_worker_t *self) {
+	odb_err err;
+	edba_handle_t *handle = self->edbahandle;
+	edbs_job_t job = self->curjob;
+	odb_eid eid;
+	odb_oid out_oid;
+	uint32_t svid;
+
+	// first read the eid+svid
+	if((err = edbs_jobreadv(job
+			, &eid, sizeof(eid)
+			, &svid, sizeof(svid)
+			,0))) {
+		return err;
+	}
+
+	// create a new object
+	out_oid = odb_oid_set_eid(0, eid);
+	err = edba_objectopenc(handle, &out_oid, EDBA_FREAD | EDBA_FCREATE | EDBA_FWRITE);
+	// error consolidation for edbs-jobs.org
+	switch (err) {
+		case 0: break;
+		case ODB_EEOF:
+			err = ODB_ENOENT;
+			// fallthrouhg
+		default:
+			// die-error
+			dieerror(job, err);
+			return ODB_EUSER;
+	}
+
+	// is it the same structure version?
+	odb_sid sid = edba_objectstructid(handle);
+	const odb_spec_struct_struct *stk = edba_objectstruct(handle);
+	if(!svid_good(svid, sid, stk->version)) {
+		dieerror(job, ODB_ECONFLICT);
+		edba_objectclose(handle);
+		return ODB_EUSER;
+	}
+
+	// read in the entire object.
+	edbs_jobread(job, edba_objectfixed(handle), stk->fixedc);
+
+	// no die-error
+	err = 0;
+	edbs_jobwrite(job, &err, sizeof(err));
+
+	// write the new object id
+	edbs_jobwrite(job, &out_oid, sizeof(out_oid));
+
+	// done.
+	edba_objectclose(handle);
+	return 0;
+}
+
+odb_err static jfree(edb_worker_t *self) {
+	odb_err err;
+	edba_handle_t *handle = self->edbahandle;
+	edbs_job_t job = self->curjob;
+	odb_eid eid;
+	odb_oid oid;
+	uint32_t svid;
+
+	// first read the oid
+	if((err = edbs_jobreadv(job
+			, &oid, sizeof(oid)
+			,0))) {
+		return err;
+	}
+
+	err = edba_objectopen(handle, oid, EDBA_FWRITE);
+	// error consolidation for edbs-jobs.org
+	switch (err) {
+		case 0: break;
+		case ODB_EEOF:
+			err = ODB_ENOENT;
+			// fallthrouhg
+		default:
+			// die-error
+			dieerror(job, err);
+			return ODB_EUSER;
+	}
+
+	if(edba_objectdeleted(handle)) {
+		edba_objectclose(handle);
+		dieerror(job, ODB_EDELETED);
+		return 0;
+	}
+
+	// do the delete
+	err = edba_objectdelete(handle);
+	dieerror(job, 0);
+	edba_objectclose(handle);
+	return 0;
 }
 
 // job data is assumed to be EDB_OBJ
