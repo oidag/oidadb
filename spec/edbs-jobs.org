@@ -194,10 +194,10 @@ The protocol is as follows in both =ODB_CSELECT= and =ODB_CUPDATE=:
 
 In the case of =ODB_JSELECT=, the following will reapeat (until =objc= is 0)
 
-| Direction | Name   | Datatype | Notes                                                                           |
-|-----------+--------+----------+---------------------------------------------------------------------------------|
-| odbj_read | objc   | uint64_t | The number of objects that will follow. This will be 0 if there's no more left. |
-| odbj_read | object | [[usrobj]]   | user defined object structure of =eid=                                          |
+| Direction | Name   | Datatype | Notes                                                                                                                               |
+|-----------+--------+----------+-------------------------------------------------------------------------------------------------------------------------------------|
+| odbj_read | objc   | uint32_t | The number of objects that will follow. This will be 0 if there's no more left. If -1 then a critical host-side die-error happened. |
+| odbj_read | object | [[usrobj]]   | user defined object structure of =eid=                                                                                              |
 
 If the job is a =ODB_JUPDATE=, the the above section is dispatched,
 but before the handle can get the next set of objects, it must respond
@@ -207,9 +207,14 @@ with its changes:
 |------------+--------+----------+--------------------------------------------------------------------|
 | odbj_write | object | [[usrobj]]   | This is an array that is the same size as =odbjc= in the read part |
 
+/Note: I'm again writing down how slow this jupdate process is. The/
+/goal is to eventually have the routine used on the backend so the/
+/jupdate won't even need to send pages let alone receive them/
+
 ** Errors
 
- - =ODB_EBUFFSIZE= - Handle submitted a =fixedc= not equal to the current =fixedc= on the server
+ - =ODB_EEOF= - page_start is too high
+ - =ODB_ECONFLICT= - Handle submitted a =svid= not equal to the current =svid= on the server
  - =ODB_ENOENT= - Entity (eid) not valid
 
 ** Remarks

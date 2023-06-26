@@ -227,6 +227,35 @@ const odb_spec_index_entry *edba_entrydatr(edba_handle_t *h);
 //   - ODB_ENOMEM - no memory for operaiton
 odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e);
 
+// ERRORS
+//   - ODB_EEOF - offset is too high
+//   - ODB_ENOENT - eid is invalid
+odb_err edba_pageopen(edba_handle_t *h, odb_eid eid, odb_pid offset,
+					  edbf_flags flags);
+
+// this allows you to close the current page you're on, and then, open the
+// exact next page with a +1 offset. You must not call pageclose before
+// calling pageadvance, call pageclose only when you're done with browsing
+// through pages.
+//
+// not that pageadvance will open with the same flags as pageopen.
+//
+// ERRORS
+//   - ODB_EEOF - no next page to flip too (you will still have the previous
+//   page open)
+odb_err edba_pageadvance(edba_handle_t *h);
+odb_err edba_pageclose(edba_handle_t *h);
+
+// edba_pageobjectv_count - returns the number of objects per page: NOTE NOT
+// THE SIZE OF THE BODY, BUT THE COUNT OF OBJECTS.
+//
+// edba_pageobjectc - the size of the page body.
+unsigned int edba_pageobjectv_count(edba_handle_t *h);
+unsigned int edba_pageobjectc(edba_handle_t *h);
+const void *edba_pageobjectv_get(edba_handle_t *h);
+void       *edba_pageobjectv(edba_handle_t *h);
+const odb_spec_struct_struct *edba_pagestruct(edba_handle_t *h);
+odb_sid edba_pagestructid(edba_handle_t *h);
 
 // open a new structure for editing.
 // Requires strct so it can know how much space to allocate.
