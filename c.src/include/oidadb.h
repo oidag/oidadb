@@ -32,6 +32,9 @@ typedef uint16_t odb_sid;
 /// (e)ntity (id)
 typedef uint16_t odb_eid;
 static odb_eid odb_oid_get_eid(odb_oid oid) {return (odb_eid)(oid >> 0x30);}
+static odb_oid odb_oid_set_eid(odb_oid oid, odb_eid eid) {
+	return ((odb_oid)(eid) << 0x30) | (oid & 0x0000FFFFFFFFFFFF);
+}
 /// (r)ow (id)
 typedef uint64_t odb_rid;
 /// (p)age (id)
@@ -314,7 +317,7 @@ export odb_err odbh_poll(odbh *handle, struct odb_event *o_evt);
 typedef enum odb_usrlk {
 
 	/// Object cannot be deleted.
-	EDB_FUSRLDEL   = 0x0001,
+	//EDB_FUSRLDEL   = 0x0001,
 
 	/// Object cannot be written too.
 	EDB_FUSRLWR    = 0x0002,
@@ -329,7 +332,7 @@ typedef enum odb_usrlk {
 	///
 	/// This will also make it implicitly unable to be used
 	/// with creating via an AUTOID.
-	EDB_FUSRLCREAT = 0x0008,
+	//EDB_FUSRLCREAT = 0x0008,
 
 	_EDB_FUSRLALL = 0x000F,
 } odb_usrlk;
