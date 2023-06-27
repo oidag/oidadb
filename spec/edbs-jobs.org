@@ -277,6 +277,8 @@ Create a new entity
 ** Errors
 
  - =ODB_ENOENT= - =entstat.sid= is not a valid structure id
+ - =ODB_ECRIT= - other unexpected error
+ - =ODB_ENOSPACE= - no more space to add another entity.
 
 * =ODB_JENTDELETE= - Delete an entity
 

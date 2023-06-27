@@ -23,14 +23,6 @@ static int svid_good(uint32_t svid, odb_sid host_sid, uint16_t host_version) {
 	return 1;
 }
 
-// wrapper function for sending die-errors. As with a die error, you send it
-// and ignore everything else they had sent.
-void static dieerror(edbs_job_t job, odb_err err) {
-	log_debugf("sending die-error: %s", odb_errstr(err));
-	edbs_jobflush(job);  // todo: implement edbs_jobflush
-	edbs_jobwrite(job, &err, sizeof(err));
-}
-
 // helper function used by both jread and jwrite sense they have so much in
 // common.
 odb_err static _jreadwrite(edb_worker_t *self, int iswrite) {
