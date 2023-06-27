@@ -394,7 +394,7 @@ EDB you're able to do this entry-by-entry.
 
 The actual number of pages in a strait is calculated as follows:
 
-Being a uint16 there are 4 bytes. Each byte symbolizes a different
+Being a uint16 there are 4 nybbles. Each nyble symbolizes a different
 Minimum Page Strait for each of the referenced chapters.  The first
 strait is the chapter in question calculated by:
 

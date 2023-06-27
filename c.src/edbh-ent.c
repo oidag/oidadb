@@ -103,7 +103,7 @@ struct odbh_jobret odbh_jent_create(odbh *handle
 		return ret;
 	}
 
-	// write the eid+objectdata
+	// write the entstat
 	if((ret.err = edbs_jobwrite(job
 			, &entstat, sizeof(struct odb_entstat)))) {
 		ret.err = edbs_joberr_trunc(ret.err);

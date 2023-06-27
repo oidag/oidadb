@@ -215,6 +215,9 @@ struct odb_entstat {
 	odb_type type;
 	odb_sid structureid;
 	odb_pid pagec;
+
+	// todo: document this
+	uint16_t memorysettings;
 };
 export odb_err odbh_index(odbh *handle, odb_eid eid
 						  , struct odb_entstat *o_entry);
