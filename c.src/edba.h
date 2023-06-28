@@ -199,6 +199,7 @@ odb_sid edba_objectstructid(edba_handle_t *h);
 //
 //   - ODB_ECRIT: programmer error (can be ignored) (will be logged)
 //   - ODB_ENOSPACE: (edba_entryopenc) no more entry slots availabe
+//   - ODB_ENOENT: (edba_entryopenc) (edba_entrydelete) eid is invalid
 odb_err edba_entryopenc(edba_handle_t *h, odb_eid *o_eid, edbf_flags flags);
 void    edba_entryclose(edba_handle_t *h);
 odb_err edba_entrydelete(edba_handle_t *h, odb_eid eid);
