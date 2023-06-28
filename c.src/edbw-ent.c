@@ -58,6 +58,33 @@ static odb_err entcreate(edb_worker_t *self) {
 	return 0;
 }
 
+static odb_err entdelete(edb_worker_t *self) {
+	// easy pointers
+	edbs_job_t job = self->curjob;
+	odb_err err = 0;
+	edba_handle_t *handle = self->edbahandle;
+	odb_eid eid;
+
+	// read eid
+	err = edbs_jobread(job, &eid, sizeof(eid));
+	if(err) {
+		return err;
+	}
+
+	// do the delete
+	err = edba_entrydelete(handle, eid);
+	if(err) {
+		dieerror(job,err);
+		return ODB_EUSER;
+	}
+
+	// delete successful
+	err = 0;
+	edbs_jobwrite(job, &err, sizeof(err));
+
+	return 0;
+}
+
 odb_err edbw_u_entjob(edb_worker_t *self) {
 
 	// easy pointers
