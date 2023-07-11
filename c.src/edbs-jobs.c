@@ -229,6 +229,11 @@ odb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 
 		// caller is executor
 
+		// check for ODB_ECLOSED
+		if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
+			return ODB_ECLOSED;
+		}
+
 		// working vars
 		pos = &job->executorhead;
 		opos = &job->installerhead;
@@ -261,17 +266,49 @@ odb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 
 	retry:
 
-	// Wait if we have no bytes in front of us
+	// Wait if we have no bytes in front of us.
 	futex_wait(hold, 1);
+
+	// atp: we know we either have bytes in front of us and/or the executor has
+	//      called term
 
 	// we'll lock up the buffer so that reads and writes don't happen at the
 	// same time.
 	pthread_mutex_lock(&job->pipemutex);
 
-	// check for ODB_EPIPE
+	// check for ODB_EEOF.
+	// We must return ODB_EEOF if the exeuctor has closed this buffer AND we
+	// have no more bytes to read. Lets first ask, did the executor close the
+	// job?
 	if(job->transferbuff_FLAGS & EDBS_JEXECUTERTERM) {
-		pthread_mutex_unlock(&job->pipemutex);
-		return ODB_EPIPE;
+
+		// (note, if we're in here this means we're the installer is the caller,
+		//  we can logically deduce this due to the ODB_ECLOSED checks above)
+
+		// the executor has closed the job.
+
+		if(*obytes) {
+			// we still have bytes in the buffer, so we can't return ODB_EEOF
+			// yet.
+
+			// There's an edge case that can happen here: that is the
+			// installer was expecting to read (lets say) 10 bytes, but the
+			// executor terminated after only writing 5
+			// bytes. This shouldn't every happen except in super errornous cases,
+			// so we'll log about it, but it's not critical at all.
+			if(count != *obytes) {
+				log_warnf("attempt to read from execution-terminated job pipe "
+						  "with expected payload not equal to remaining bytes"
+						  " (expected %d bytes, only %d available)"
+						  , count
+						  , *obytes);
+				pthread_mutex_unlock(&job->pipemutex);
+				return ODB_EEOF;
+			}
+		} else {
+			pthread_mutex_unlock(&job->pipemutex);
+			return ODB_EEOF;
+		}
 	}
 
 #ifdef EDB_FUCKUPS
@@ -651,6 +688,7 @@ odb_err edbs_jobreadv(edbs_job_t j, ...) {
 	void *buff;
 	odb_err err;
 	int count;
+	int i = 0;
 	va_list args;
 	va_start(args, j);
 	while(1) {
@@ -662,8 +700,12 @@ odb_err edbs_jobreadv(edbs_job_t j, ...) {
 		}
 		count = va_arg(args, int);
 		if((err = edbs_jobread(j, buff, count))) {
-			break;
+			// (see NOTES)
+			if (i != 0 || err != ODB_EEOF) {
+				break;
+			}
 		}
+		i++;
 	}
 	va_end(args);
 	return err;

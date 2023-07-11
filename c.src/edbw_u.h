@@ -23,7 +23,6 @@ odb_err edbw_u_structjob(edb_worker_t *self);
 // and ignore everything else they had sent.
 void static dieerror(edbs_job_t job, odb_err err) {
 	log_debugf("sending die-error: %s", odb_errstr(err));
-	edbs_jobflush(job);  // todo: implement edbs_jobflush
 	edbs_jobwrite(job, &err, sizeof(err));
 }
 
