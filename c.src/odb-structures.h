@@ -74,7 +74,7 @@ typedef struct odb_spec_struct_struct {
 
 	uint16_t    fixedc;    // total size (see spec)
 	uint16_t    confc;     // configuration size
-	uint16_t    version;      // rsvd
+	uint16_t    version;   // structure version
 	uint8_t     flags;     // flags see spec.
 	uint8_t     data_ptrc; // data pointer count
 

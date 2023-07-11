@@ -9,7 +9,7 @@ static odb_err entcreate(edb_worker_t *self) {
 	odb_err err = 0;
 	edba_handle_t *handle = self->edbahandle;
 
-	// read odbstruct
+	// read odb_entstat
 	struct odb_entstat entstat;
 	err = edbs_jobread(job, &entstat, sizeof(entstat));
 	if(err) {
@@ -26,7 +26,7 @@ static odb_err entcreate(edb_worker_t *self) {
 	// **defer: edba_entryclose
 
 	// translate the struct odb_entstat into a odb_spec_index_entry
-	odb_spec_index_entry ent = {0};
+	odb_spec_index_entry ent;
 	ent.structureid = entstat.structureid;
 	ent.type        = entstat.type;
 	ent.memory      = entstat.memorysettings;
@@ -137,35 +137,4 @@ odb_err edbw_u_entjob(edb_worker_t *self) {
 		case ODB_JENTDOWNLOAD: return entdownload(self);
 		default:               return ODB_EJOBDESC;
 	}
-/*
-	// get params
-	odb_spec_index_entry entryparams;
-	odb_eid eid;
-	switch (jobdesc) {
-		case ODB_JENTCREATE:
-			edbs_jobread(job, &entryparams, sizeof(entryparams));
-			err = edba_entryopenc(handle, &eid, EDBA_FCREATE | EDBA_FWRITE);
-			if(err) {
-				edbs_jobwrite(job, &err, sizeof(err));
-				return err;
-			}
-			err = edba_entryset(handle, entryparams);
-			if(err) {
-				edba_entryclose(handle);
-				edbs_jobwrite(job, &err, sizeof(err));
-				return err;
-			}
-			edbs_jobwrite(job, &err, sizeof(err));
-			edbs_jobwrite(job, &eid, sizeof(eid));
-			edba_entryclose(handle);
-			return 0;
-		case ODB_JENTDELETE:
-			edbs_jobread(job, &eid, sizeof(eid));
-			err = edba_entrydelete(handle, eid);
-			edbs_jobwrite(job, &err, sizeof(err));
-			return err;
-		default:
-			return ODB_EJOBDESC;
-	}
-	return err;*/
 }
