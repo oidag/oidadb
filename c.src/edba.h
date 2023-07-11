@@ -6,6 +6,12 @@
 #include "edbd.h"
 #include "odb-structures.h"
 
+
+// todo:
+//  - Split this header file up into sub-namespaces
+//  - normalize the format of all sub-namespaces (make sure all SWAFUR
+//    methods using the same convensions)
+
 typedef enum {
 	EDBA_FREAD = 0, // for future refactorign. Just use it and pretend its not 0
 	EDBA_FWRITE = 0x0001,
@@ -175,6 +181,8 @@ const odb_spec_struct_struct *edba_objectstruct(edba_handle_t *h);
 const odb_spec_index_entry  *edba_objectentry(edba_handle_t *h);
 odb_sid edba_objectstructid(edba_handle_t *h);
 
+// The actuator will prepare arrays of these commonly used assets and make sure
+// it delivers these arrays to you attomically (to prevent tairing)
 // Note: both of these functions, the output array must be free'd
 odb_err edba_entity_get(edba_handle_t *h
 						, uint32_t *o_entc
@@ -274,12 +282,14 @@ odb_sid edba_pagestructid(edba_handle_t *h);
 //   One of these are required to call any subseqent edba_struct... functions.
 //    - edba_structopen - open for just writting.
 //    - edba_structopenc - create a new structure and open it for writting.
+//    The following fields are used out of the structure, others are ignored:
+//     - fixedc, confc, data_ptrc, flags
 //
 // edba_structclose
 //    Closes the structure, completing the workflow.
 //
 // edba_structdelete
-//   must be called after edba_structopenc and before edba_structclose. This
+//   must be called after edba_structopen and before edba_structclose. This
 //   function will implicitly call edba_structclose. Meaning this is a final
 //   operation you can execute for this structure (even if returns non-EINVAL error).
 //
@@ -290,16 +300,17 @@ odb_sid edba_pagestructid(edba_handle_t *h);
 //   - ODB_ENOSPACE - (edba_structopenc) cannot create another structure, out of space
 //     in structure buffer.
 //   - ODB_EINVAL - (edba_structopenc) strct.fixedc was less than 4 (note the spec defines the min. as 2, but I'm doing
-//     4 here just incase).
+//     4 here just incase). todo: remove this error.
 //   - ODB_EEXIST - (edba_structdelete) cannot delete because an entry is using
 //     this structure.
 //   - ODB_ENOENT - (edba_structopen) structure at sid is not initialized/invalid
 odb_err edba_structopen(edba_handle_t *h, odb_sid sid);
-odb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_struct strct);
+odb_err edba_structopenc(edba_handle_t *h, odb_sid *o_sid
+						 , odb_spec_struct_struct strct);
 void    edba_structclose(edba_handle_t *h);
 odb_err edba_structdelete(edba_handle_t *h);
 
-const void *edba_structconf(edba_handle_t *h);
-odb_err edba_structconfset(edba_handle_t *h, void **o_conf);
+const void *edba_structconfv_get(edba_handle_t *h);
+void       *edba_structconfv_set(edba_handle_t *h);
 
 #endif
