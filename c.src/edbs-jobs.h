@@ -102,11 +102,15 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 //    - if the opposite side has called edbs_jobterm then write will return 0
 //      immediately.
 //  - Read will block if the buffer becomes empty. unless:
-//    - if the executor calls edbs_jobterm, read will return 0 immediately.
+//    - if the executor then calls edbs_jobterm, read will return 0
+//      immediately if read buffer is empty.
 //  - The installer must perform the first operation and that operation must
 //    be write. The installer can only call
 //    edbs_jobterm before this write.
-//  - Once the executer calls edbs_jobterm, the job is considered closed.
+//  - Once the executer calls edbs_jobterm:
+//    - installer calls to read (provided no more bytes are present in the
+//      buffer) will return ODB_EEOF
+//    - installer calls to write will return 0.
 //  - So long that the installer hasn't called edbs_jobterm, either side
 //    cannot write to the buffer without first reading all bytes the
 //    opposing side has written.
@@ -122,11 +126,17 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 // buffer as "closed" prematurely that would otherwise cause other jobs being
 // installed over it. This edge case is not withstanding critical errors.
 //
-// todo: need to specify flushing mechanics... I must be able to use edbs_write
-//  byte-by-byte while its definition makes sure to only flush into the
-//  stream. I did just add the variable args so that the caller can use
-//  jobwrite with multiple structures: ie: edbs_jobread(j, buff1, count1,
-//  buff2, count2, ect...)
+// However, note that when edbs_jobterm is called and depending on the backend
+// of the transferbuffer, edbs_jobterm will attempt to "flush" as many bytes
+// as it can to the installer so edbs_jobterm will not block the executor
+// despite the installer not having yet read all the bytes at that time. This
+// will only work when the backing medium of the job pipe has buffers on
+// either side (will not work in shmpipe mode).
+//
+// Yet another edge case is if the executor has called edbs_jobterm after
+// writting say 5 bytes, and if the installer tries to read the buffer
+// expecting 10 bytes, then ODB_EEOF is still returned (this will
+// generate a log_warn)
 //
 // The -v variants of edbs_jobreadv & edbs_jobwritev are to easily chain
 // together multiple reads/writes. Simply add the arguemtns pairs  of (void *,
@@ -143,10 +153,17 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 //                 protocol specs). This can also occur if one side reads
 //                 and another side writes but their respective calls do
 //                 not have the same counts.
-//  - ODB_ECLOSED - the installer has tried to call read after successfully
-//                  calling term
-//  - ODB_EPIPE - read/write has been interupted/ignored because executor has
+//  - ODB_ECLOSED - the caller has tried call read after successfully
+//                  calling term.
+//  - ODB_EPIPE - write has been ignored because executor has
 //                just called - or previously called - jobterm.
+//  - ODB_EEOF  - Installer tried to read on a pipe that has no more bytes in
+//                it and executor has called edbs_jobterm. Or, installer
+//                tried to read on a pipe that has bytes but not equal to count.
+//                IMPORTANT: the -v variants will only return this only if
+//                the first buff/count pair fits this condition, otherwise,
+//                it is accounted for as no-error for subsequent buff/count
+//                paris (see notes)
 //  - ODB_ECRIT - the pipe was broken for unexpected reasons (ie: other side
 //                no longer responding/bad network) and thus can no longer
 //                read/write and there's no recovering.
@@ -160,6 +177,16 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 //   For a given job, exclusively 1 thread must hold the installer role and
 //   exclusively 1 thread must hold the executor role.
 //
+// NOTES
+//  regarding the edbs_jobreadv return ODB_EEOF. Each pair is executed
+//  atomically. If the first pair returns ODB_EEOF then thats the fault on
+//  the caller for not following protocol. However, what can happen are
+//  dieerrors can be returned in the pipe, and then the pipe will be
+//  terminated afterward. It is up to the caller to make sure that when using
+//  edbs_jobreadv that they always read the die error in the first pairing
+//  as to detect if they should trust subsequent pairings. If I were to allow
+//  ODB_EEOF be returned in subsequent pairings, then there's no way to
+//  detect if dieerror had been successfully read.
 odb_err edbs_jobread(edbs_job_t j, void *buff, int count);
 odb_err edbs_jobreadv(edbs_job_t j, ...);
 odb_err edbs_jobwrite(edbs_job_t j, const void *buff, int count);
