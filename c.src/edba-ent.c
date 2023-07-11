@@ -312,3 +312,75 @@ void edba_u_clutchentry_release(edba_handle_t *handle) {
 	handle->clutchedentry = 0;
 	handle->clutchedentryeid = 0;
 }
+
+odb_err edba_entity_get(edba_handle_t *h
+		, uint32_t *o_entc
+		, struct odb_entstat *o_ents) {
+
+#ifdef EDB_FUCKUPS
+	if(h->clutchedentry) {
+		log_critf("edba_entity_get cannot be called with entry already "
+				  "cluteched.");
+	}
+#endif
+
+	// easy inits
+	odb_err err = 0;
+	odb_eid eid;
+	odb_spec_index_entry *entry;
+	edbl_lock lock;
+	struct odb_entstat entstat;
+	uint32_t o_entstat_capacity; // used to track our capacity of o_ents
+	if(o_ents) {
+		o_entstat_capacity = *o_entc;
+	}
+	*o_entc = 0;
+
+	for(eid = EDBD_EIDSTART; ; eid++) {
+		// SH lock for EDBL_LENTRY.
+		lock.type = EDBL_LENTRY;
+		lock.eid = eid;
+		edbl_set(h->lockh, EDBL_ASH, lock);
+		// **defer: edbl_set(h->lockh, EDBL_ARELEASE, lock);
+		err = edbd_index(h->parent->descriptor, eid, &entry);
+		if(err || entry->type == ODB_ELMINIT) {
+			if(err == ODB_EEOF) {
+				// all good. This just means we've read the last entity of the
+				// index.
+				err = 0;
+			} else if (err) {
+				err = log_critf("unhandled error: %d", err);
+			}
+			// end of all the entities that are useful to us.
+			edbl_set(h->lockh, EDBL_ARELEASE, lock);
+			return err;
+		}
+		if(entry->type != ODB_ELMOBJ) {
+			// not an object, skip.
+			edbl_set(h->lockh, EDBL_ARELEASE, lock);
+		}
+
+		// we know now that this is a valid structure we'd want to return.
+
+		*o_entc = *o_entc+1;
+		if(o_ents) {
+			entstat.type = entry->type;
+			entstat.memorysettings = entry->memory;
+			entstat.structureid = entry->structureid;
+			entstat.pagec = entry->ref0c;
+			o_ents[*o_entc-1] = entstat; // -1 sense entc is the count,
+			if(*o_entc == o_entstat_capacity) {
+				// our o_ents array has run out of capacity, we cannot put in
+				// anymore structures, so return.
+				edbl_set(h->lockh, EDBL_ARELEASE, lock);
+				return 0;
+			}
+		}
+
+
+		// release lock to prepare us for the next one.
+		edbl_set(h->lockh, EDBL_ARELEASE, lock);
+	}
+
+	// (note the above loop will always return)
+}

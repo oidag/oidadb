@@ -103,7 +103,13 @@ static odb_err entdownload(edb_worker_t *self) {
 	// get entityt data
 	uint32_t count;
 	struct odb_entstat *o_ents;
-	err = edba_entity_get(handle, &count, &o_ents);
+	err = edba_entity_get(handle, &count, 0);
+	if(err) {
+		dieerror(job,err);
+		return ODB_EUSER;
+	}
+	o_ents = malloc(sizeof(struct odb_entstat) * count);
+	err = edba_entity_get(handle, &count, o_ents);
 	if(err) {
 		dieerror(job,err);
 		return ODB_EUSER;

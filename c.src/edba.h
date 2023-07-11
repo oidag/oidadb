@@ -182,14 +182,38 @@ const odb_spec_index_entry  *edba_objectentry(edba_handle_t *h);
 odb_sid edba_objectstructid(edba_handle_t *h);
 
 // The actuator will prepare arrays of these commonly used assets and make sure
-// it delivers these arrays to you attomically (to prevent tairing)
+// it delivers these arrays to you atomically (to prevent tairing).
+//
+// These function's methods of resource management operate in the same: both
+// take in pointers to counts and arrays. The count must not be null. The
+// array may be null. If the array is not null, then the value pointed to by
+// the count will specify the array's capacity and that array is filled with
+// the relevant data, the count's value upon return will be the amount of
+// elements that were written in the array. If the array is null, then the
+// count will be written to as the total amount of data that is available
+// (used for allocating the array, so you may call this twice). These
+// functions are expected to be used as follows:
+//
+//    edba_entity_get(h, &count, 0);
+//    array = malloc(sizeof(...) * count);
+//    edba_entity_get(h, &count, array);
+//    // array has count indexes
+//    ...
+//    free(array);
+//
+// edba_entity_get will only return object entities (ODB_ELMOBJ)
 // Note: both of these functions, the output array must be free'd
+//
+// Cannot be called with anything clutched. Must be independently called.
+//
+// ERRORS:
+//   - ODB_ECRIT
 odb_err edba_entity_get(edba_handle_t *h
 						, uint32_t *o_entc
-						, struct odb_entstat **o_ents);
+						, struct odb_entstat *o_ents);
 odb_err edba_stks_get(edba_handle_t *h
 		, uint32_t *o_stkc
-		, struct odb_structstat **o_structs);
+		, struct odb_structstat *o_structs);
 
 // entry (ent) mods
 
