@@ -175,6 +175,14 @@ const odb_spec_struct_struct *edba_objectstruct(edba_handle_t *h);
 const odb_spec_index_entry  *edba_objectentry(edba_handle_t *h);
 odb_sid edba_objectstructid(edba_handle_t *h);
 
+// Note: both of these functions, the output array must be free'd
+odb_err edba_entity_get(edba_handle_t *h
+						, uint32_t *o_entc
+						, struct odb_entstat **o_ents);
+odb_err edba_stks_get(edba_handle_t *h
+		, uint32_t *o_stkc
+		, struct odb_structstat **o_structs);
+
 // entry (ent) mods
 
 // While an entry is opened, only the calling handle has access to anything

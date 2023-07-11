@@ -1,3 +1,4 @@
+#include <malloc.h>
 #include "edbw.h"
 #include "edbw_u.h"
 
@@ -81,6 +82,43 @@ static odb_err entdelete(edb_worker_t *self) {
 	// delete successful
 	err = 0;
 	edbs_jobwrite(job, &err, sizeof(err));
+
+	return 0;
+}
+
+static odb_err entdownload(edb_worker_t *self) {
+	// easy pointers
+	edbs_job_t job = self->curjob;
+	odb_err err = 0;
+	edba_handle_t *handle = self->edbahandle;
+	odb_eid eid;
+
+	// read dummy var
+	uint32_t dummy;
+	err = edbs_jobread(job, &dummy, sizeof(dummy));
+	if(err) {
+		return err;
+	}
+
+	// get entityt data
+	uint32_t count;
+	struct odb_entstat *o_ents;
+	err = edba_entity_get(handle, &count, &o_ents);
+	if(err) {
+		dieerror(job,err);
+		return ODB_EUSER;
+	}
+
+	// err+len
+	err = 0;
+	edbs_jobwrite(job, &err, sizeof(err));
+	edbs_jobwrite(job, &count, sizeof(count));
+
+	// the array
+	edbs_jobwrite(job, o_ents, (int)sizeof(struct odb_entstat) * (int)count);
+
+	// cleanup
+	free(o_ents);
 
 	return 0;
 }
