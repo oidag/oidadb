@@ -300,3 +300,21 @@ odb_err edba_stks_get(edba_handle_t *h
 
 	// (note the above loop will always return)
 }
+
+const void *edba_structconfv_get(edba_handle_t *h) {
+	if(!(h->openflags & EDBA_FWRITE)) {
+		log_critf("edba_structconfv_set without having EDBA_FWRITE flag");
+		return 0;
+	}
+	implementme();
+	return 0;
+}
+
+void *edba_structconfv_set(edba_handle_t *h) {
+	if(!(h->openflags & EDBA_FWRITE)) {
+		log_critf("edba_structconfv_set without having EDBA_FWRITE flag");
+		return 0;
+	}
+	implementme();
+	return 0;
+}
