@@ -291,6 +291,14 @@ void   *edba_objectfixed(edba_handle_t *h) {
 	return h->content;
 }
 
+const void *edba_objectfixed_get(edba_handle_t *h) {
+	if((h->openflags & EDBA_FREAD) != EDBA_FREAD) {
+		log_critf("edba_objectfixed_get without having EDBA_FREAD flag");
+		return 0;
+	}
+	return h->content;
+}
+
 odb_usrlk edba_objectlocks_get(edba_handle_t *h) {
 	return (*(odb_usrlk *)h->objectflags) & _EDB_FUSRLALL;
 }
