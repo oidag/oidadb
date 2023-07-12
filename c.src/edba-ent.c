@@ -358,24 +358,27 @@ odb_err edba_entity_get(edba_handle_t *h
 		if(entry->type != ODB_ELMOBJ) {
 			// not an object, skip.
 			edbl_set(h->lockh, EDBL_ARELEASE, lock);
+			continue;
 		}
 
-		// we know now that this is a valid structure we'd want to return.
+		// we know now that this is a valid entity we'd want to return.
 
-		*o_entc = *o_entc+1;
 		if(o_ents) {
-			entstat.type = entry->type;
-			entstat.memorysettings = entry->memory;
-			entstat.structureid = entry->structureid;
-			entstat.pagec = entry->ref0c;
-			o_ents[*o_entc-1] = entstat; // -1 sense entc is the count,
 			if(*o_entc == o_entstat_capacity) {
 				// our o_ents array has run out of capacity, we cannot put in
 				// anymore structures, so return.
 				edbl_set(h->lockh, EDBL_ARELEASE, lock);
 				return 0;
 			}
+
+			// add an entity
+			entstat.type = entry->type;
+			entstat.memorysettings = entry->memory;
+			entstat.structureid = entry->structureid;
+			entstat.pagec = entry->ref0c;
+			o_ents[*o_entc-1] = entstat; // -1 sense entc is the count,
 		}
+		*o_entc = *o_entc+1;
 
 
 		// release lock to prepare us for the next one.

@@ -213,7 +213,7 @@ odb_err edba_entity_get(edba_handle_t *h
 						, struct odb_entstat *o_ents);
 odb_err edba_stks_get(edba_handle_t *h
 		, uint32_t *o_stkc
-		, struct odb_structstat *o_structs);
+		, struct odb_structstat *o_stkv);
 
 // entry (ent) mods
 

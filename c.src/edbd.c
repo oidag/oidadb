@@ -473,8 +473,8 @@ odb_err edbd_index(const edbd_t *file, odb_eid eid
 	return 0;
 }
 
-odb_err edbd_struct(const edbd_t *file, uint16_t structureid,
-                    const odb_spec_struct_struct **o_struct) {
+odb_err edbd_structf(const edbd_t *file, uint16_t structureid,
+                    const odb_spec_struct_full_t **o_struct) {
 
 	int pageoff = structureid / file->structsperpage;
 
@@ -490,9 +490,18 @@ odb_err edbd_struct(const edbd_t *file, uint16_t structureid,
 	// now do the intra-page offset
 	*o_struct = page
 			+ (structureid % file->structsperpage)
-			* sizeof(odb_spec_struct_full_t)
-			+ offsetof(odb_spec_struct_full_t, content) ;
+			* sizeof(odb_spec_struct_full_t);
 
 	return 0;
 
+}
+
+odb_err edbd_struct(const edbd_t *file, uint16_t structureid,
+                    const odb_spec_struct_struct **o_struct) {
+
+	const odb_spec_struct_full_t *stk;
+	odb_err err = edbd_structf(file, structureid, &stk);
+	*o_struct = ((void *)stk)
+			+ offsetof(odb_spec_struct_full_t, content);
+	return err;
 }

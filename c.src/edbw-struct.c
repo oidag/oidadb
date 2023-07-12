@@ -103,7 +103,13 @@ static odb_err stkdownload(edb_worker_t *self) {
 	// get structure data
 	uint32_t count;
 	struct odb_structstat *o_stks;
-	err = edba_stks_get(handle, &count, &o_stks);
+	err = edba_stks_get(handle, &count, 0);
+	if(err) {
+		dieerror(job,err);
+		return ODB_EUSER;
+	}
+	o_stks = malloc(sizeof(struct odb_structstat) * count);
+	err = edba_stks_get(handle, &count, o_stks);
 	if(err) {
 		dieerror(job,err);
 		return ODB_EUSER;
