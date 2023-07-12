@@ -95,7 +95,7 @@ offset, such as adding or removing trash.
 ** LENTCREAT
 Place an [[LREF0C]](xl) lock on the index chapter entry.
 ** LSTRUCTCREAT
-Place an [[LREF0C]](xl) lock on the structure chapter entry.
+Place an [[LREF0C]](xl/sh) lock on the structure chapter entry.
 ** Arbitrary Locks
 The need for additional locks in future versions is
 unpredictable. They shall come as they are needed, and thus their
@@ -222,6 +222,22 @@ You must go through all indexes from top to bottom, placing [[LENTRY]](sh)
 locks on all of them, then make sure it doesn't posses that
 structure. If it does, then that's an error, you cannot delete the
 structure, roll back the locks and quit.
+
+** Structure-Reading
+
+Structure reading is interesting. Sense there's no such thing as
+structure deleting, this means that structures will only ever be
+created or deleted. 
+
+And a structure cannot be deleted if its being used by an entity. So,
+provided you have a [[LENTRY]] lock, and the structure you're trying to
+read is the same structure that that entry uses, then you actually
+don't need any more special locks.
+
+
+However, if you do not have a LENTRY lock, then you must aquire a
+[[LSTRUCTCREAT]](sh). This will prevent any structure from being created
+or deleted, so this lock should be done breifly.
 
 * Object
 ** Object-Reading

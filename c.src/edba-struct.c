@@ -233,3 +233,70 @@ odb_err edba_structdelete(edba_handle_t *h) {
 	edba_structclose(h);
 	return err;
 }
+
+
+odb_err edba_stks_get(edba_handle_t *h
+		, uint32_t *o_stkc
+		, struct odb_structstat *o_stkv) {
+
+	// easy inits
+	odb_err err = 0;
+	odb_sid sid;
+	const odb_spec_struct_full_t *stkr;
+	edbl_lock lock;
+	struct odb_structstat stkstat;
+	uint32_t o_stkstat_capacity; // used to track our capacity of o_stkv
+	if(o_stkv) {
+		o_stkstat_capacity = *o_stkc;
+	}
+	*o_stkc = 0;
+
+	// SH lock for EDBL_LSTRUCTCREAT.
+	lock.type = EDBL_LSTRUCTCREAT;
+	edbl_set(h->lockh, EDBL_ASH, lock);
+	// **defer: edbl_set(h->lockh, EDBL_ARELEASE, lock);
+
+	for(sid = 0; ; sid++) {
+		err = edbd_structf(h->parent->descriptor, sid, &stkr);
+		if(err) {
+			if(err == ODB_EEOF) {
+				// all good. This just means we've read the last entity of the
+				// index.
+				err = 0;
+			} else {
+				err = log_critf("unhandled error: %d", err);
+			}
+			// end of all the entities that are useful to us.
+			edbl_set(h->lockh, EDBL_ARELEASE, lock);
+			return err;
+		}
+		if(stkr->obj_flags & EDB_FDELETED) {
+			// this structure has been deleted, skip.
+			continue;
+		}
+
+		// we know now that this is a valid structure we'd want to return.
+
+		if(o_stkv) {
+			if(*o_stkc == o_stkstat_capacity) {
+				// our o_stkv array has run out of capacity, we cannot put in
+				// anymore structures, so return.
+				edbl_set(h->lockh, EDBL_ARELEASE, lock);
+				return 0;
+			}
+
+			// add a structure
+			stkstat.confc = stkr->content.confc;
+			stkstat.dynmc = stkr->content.data_ptrc;
+			stkstat.fixedc = stkr->content.fixedc;
+			stkstat.svid = stkr->content.version;
+			stkstat.start = sizeof(odb_spec_object_flags)
+					+ sizeof(odb_dyptr)*stkr->content.data_ptrc;
+
+			o_stkv[*o_stkc] = stkstat;
+		}
+		*o_stkc = *o_stkc + 1;
+	}
+
+	// (note the above loop will always return)
+}

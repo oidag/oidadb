@@ -116,6 +116,10 @@ odb_err edbd_index(const edbd_t *file, odb_eid eid,
 odb_err edbd_struct(const edbd_t *file, uint16_t structureid,
                     const odb_spec_struct_struct **o_struct);
 
+// same as edbd_struct but will return full structure object.
+odb_err edbd_structf(const edbd_t *file, uint16_t structureid,
+                     const odb_spec_struct_full_t **o_struct);
+
 // edbd_add
 //   is the most primative way to create. will create a page strait of length straitc and will return the
 //   first page in that strait's id in o_pid. The pages' binary will is NOT gaurenteed to be initialized,
