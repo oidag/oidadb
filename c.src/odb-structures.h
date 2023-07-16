@@ -210,6 +210,7 @@ typedef struct odb_spec_dynamic {
 //		.trashvor = header.trashvor,
 //		.trashc = objectsperpage,
 //		.head.pleft = header.head.pleft,
+//      .head.pright = header.head.pright
 //
 // later: this probably belongs in edbd.
 void edba_u_initobj_pages(void *page, odb_spec_object header,  uint16_t fixedc,

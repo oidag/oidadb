@@ -183,9 +183,23 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	             &lookuphead,
 	             &lookuprefs);
 	if(err) {
-		goto rollbackcreatedpages;
+		goto rollbackref0c;
 	}
 	// **defer: deloadlookup(handle, &lookuppagelock)
+
+	// we'll grab the current last object page's pid as well need it at the very
+	// end of this function when we need to set its pright to the new pages we
+	// just created.
+	// Note: here we can use lookuprefs[lookuphead->refc - 1] because at no point
+	//       will any (referenced) lookup page have a refc of 0.
+	assert(lookuphead->refc != 0);
+	odb_pid old_last_object_page = lookuprefs[lookuphead->refc - 1].startoff_strait;
+	// see locking.org as to why we do this.
+	edbl_lock lobjpright = (edbl_lock) {
+			.type = EDBL_LOBJPRIGHT,
+			.object_pid = old_last_object_page
+	};
+	edbl_set(handle->lockh, EDBL_AXL, lobjpright);
 
 	// these variables are only needed for handling critical errors
 	// in certain situations See rollbackcreateandreference label.
@@ -335,7 +349,9 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	}
 
 	// [[lastlookuploaded]]
-	// atp: we have created object pages and just referenced them.
+	// atp: we have created object pages and just referenced them in the lookup tree,
+	//      BUT we still need to reference the pright of the "old last page" to the beginning
+	//      of the newly referenced strait.
 	// atp: We have a leaf-baring lookup page locked with lookuprefs[lookuphead->refc-1]
 	//      pointing to our object pages.
 	// atp: we have clutch-sh-lock-entry. XL trashlast, and XL ref0c. But all this
@@ -343,6 +359,20 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 
 	// we don't actually need the leaf-bearing lookup page anymore
 	deloadlookup(handle, &lookuppagelock);
+
+	// now update the previous last page's pright to denote that it is no longer the last
+	// page in the chapter. We don't have to lock it because we already locked it
+	// before.
+	err = edbp_start(edbp, old_last_object_page);
+	if(err) {
+		goto rollbackcreateandreference;
+	}
+	odb_spec_object *opage = edbp_graw(edbp);
+	opage->head.pright = newobjectpid;
+	edbp_finish(edbp);
+	edbl_set(handle->lockh, EDBL_AXL, lobjpright);
+
+	// -- no more errors must happen past this point.
 
 	// the final indicator that we've completed making new object pages and referenced
 	// is to update ref0c and unlock it so other workers may create pages.
@@ -390,8 +420,13 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 		deloadlookup(handle, &lookuppagelock);
 	}
 
-	// note: no deloadlookup already called.
 	rollbackcreatedpages:
+
+	// unlock our LOBJPRIGHT from that old page.
+	edbl_set(handle->lockh, EDBL_AXL, lobjpright);
+
+	// note: no deloadlookup already called.
+	rollbackref0c:
 
 	// unlock entryref0c sense we know none of these pages are referenced.
 	// thus we can allow other workers to go in there and try to do the same function.
@@ -510,6 +545,18 @@ odb_err edba_u_pagecreate_objects(edba_handle_t *handle,
 			return err;
 		}
 		// **defer: edbp_finish(edbp);
+
+		// set up our pright to point to the next page.
+		if(i + 1 == straitc) {
+			// this loop iteration IS no the last page of the strait, so that
+			// means we set our pright to be 0 sense its the last page of the chapter.
+			header.head.pright = 0;
+		} else {
+			// this loop iteration is not on the last page of the strait, so we set our
+			// pright to the pid of the next page sense it'll be the next page in the
+			// chapter.
+			header.head.pright = *o_pid+i+1;
+		}
 
 		// initiate the page
 		void *page = edbp_graw(edbp);

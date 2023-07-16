@@ -78,6 +78,15 @@ This lock means you are installing new references on this lookup page.
 
  - Under LENTRY(sh)
 
+** LOBJPRIGHT
+This is a objec-page-based locked that will lock the =pright= field of the
+header of that object field. This must be done to either read or write the 
+
+ - Under LENTRY(sh)
+ - LOBJPRIGHT(xl) MUST be under LREF0C - this is because if you're
+   updating a a page's =pright= value then that must only mean you're
+   also creating new pages.
+
 ** LROW
 Putting a SH or XL lock on an object allows you to read/write to that
 object respectively.
@@ -333,7 +342,16 @@ is 0 which means we need more pages. Let's continue on:
       Object-Reading/Object-Writing). But with this XL lock the only
       thing we seek to block are other attempts to modify the lookup
       pages.
- 4. If this lookup is not full: refernece the object pages and the
+ 4. Before we actually reference any pages, lets aquire a
+    [[LOBJPRIGHT]](xl) on the object page that is currently the last in
+    line.
+    - Note we don't actually do anything with this page at this
+      moment. We are just blocking other thread's attempts to find the
+      /current/ last page, in the next step, we are going to be adding
+      a /new/ last page. If we didn't do this before the next step,
+      that means a lookup job will find a different "last object page"
+      than a job trying to find it via =pright=.
+ 5. If this lookup is not full: refernece the object pages and the
     increment the =ref0c=. If the this lookup is full:
     1. release the [[LLOOKUP_NEW]] and unload this lookup.
 	2. Create a sibling for the lookup we just unloaded.
@@ -343,13 +361,16 @@ is 0 which means we need more pages. Let's continue on:
          be the child lookup page created in a previous iteration.
     3. follow up to this lookup's parent by aquiring a [[LLOOKUP_NEW]](xl)
        on it.
-    4. If this parent is also full: go back to step 4.1 and
+    4. If this parent is also full: go back to step 5.1 and
        repeat. You will do this recurisvely until the parent is not
        full: to which you reference the created sibling in the parent
        and continue to the next step.
- 5. Release [[LREF0C]].
- 6. Update =trashlast=.
- 7. Go back and continue to follow instrunctions in [[Auto ID Creation]].
+ 6. Back to the page that was previously (but no longer) the last page
+    and update the =pright= to the pid of the newly created page
+    (strait). Then release [[LOBJPRIGHT]] we put on that page in step 4.
+ 7. Release [[LREF0C]].
+ 8. Update =trashlast=.
+ 9. Go back and continue to follow instrunctions in [[Auto ID Creation]].
   
 ** Object-Deleting
 "Object-Deleting" will be defined as marking the row as deleted,

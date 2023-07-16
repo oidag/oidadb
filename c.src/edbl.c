@@ -235,6 +235,12 @@ static odb_err _edbl_set(edbl_handle_t *h, edbl_act action, edbl_lock lock,
 			if(fcntl64(fd, cmd, flock) == -1) break;
 			return 0;
 
+		case EDBL_LOBJPRIGHT:
+			flock->l_start = pagesize * (off64_t)lock.object_pid;
+			flock->l_start += offsetof(odb_spec_object, head.pright);
+			if(fcntl64(fd, cmd, flock) == -1) break;
+			return 0;
+
 		case EDBL_LROW:
 			flock->l_start = pagesize * (off64_t)lock.object_pid;
 			flock->l_start += lock.page_ioffset;
