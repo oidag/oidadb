@@ -68,7 +68,8 @@ typedef struct edba_handle_st {
 	};
 
 	edbl_lock lock;
-	// todo: make sure this is only assigned after successful assigment of elemeht
+
+	// make sure this is only assigned after successful assigment of elemeht
 	odb_type opened; // what type of operation was opened. Set to 0 if nothing is open.
 	edbf_flags openflags;
 

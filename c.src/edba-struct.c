@@ -21,7 +21,6 @@ odb_err edba_structopen(edba_handle_t *h, odb_sid sid) {
 		log_critf("cannot open structure, something already opened");
 		return ODB_EINVAL;
 	}
-	h->opened = ODB_ELMSTRCT;
 	h->openflags = EDBA_FWRITE;
 
 	// as per spec we lock the creation structure index.
@@ -47,6 +46,7 @@ odb_err edba_structopen(edba_handle_t *h, odb_sid sid) {
 		return ODB_ENOENT;
 	}
 
+	h->opened = ODB_ELMSTRCT;
 	return 0;
 }
 
@@ -64,7 +64,6 @@ odb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 		log_critf("cannot create-open structure, something already opened");
 		return ODB_EINVAL;
 	}
-	h->opened = ODB_ELMSTRCT;
 	h->openflags = EDBA_FCREATE | EDBA_FWRITE;
 
 	// value assumptions
@@ -150,6 +149,7 @@ odb_err edba_structopenc(edba_handle_t *h, uint16_t *o_sid, odb_spec_struct_stru
 
 	// set deleted flag as 0.
 	h->strct->obj_flags = h->strct->obj_flags & ~EDB_FDELETED;
+	h->opened = ODB_ELMSTRCT;
 	return 0;
 }
 void    edba_structclose(edba_handle_t *h) {

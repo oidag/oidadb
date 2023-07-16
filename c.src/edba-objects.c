@@ -99,7 +99,6 @@ odb_err edba_objectopenc(edba_handle_t *h, odb_oid *o_oid, edbf_flags flags) {
 		log_critf("cannot open object, something already opened");
 		return ODB_ECRIT;
 	}
-	h->opened = ODB_ELMOBJ;
 	h->openflags = flags;
 
 	// cluth lock the entry
@@ -259,6 +258,7 @@ odb_err edba_objectopenc(edba_handle_t *h, odb_oid *o_oid, edbf_flags flags) {
 
 	// sense we just updated that object flag, set the page to be dirty.
 	edbp_mod(h->edbphandle, EDBP_CACHEHINT, EDBP_HDIRTY);
+	h->opened = ODB_ELMOBJ;
 	return 0;
 }
 

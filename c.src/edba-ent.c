@@ -20,7 +20,6 @@ odb_err edba_entryopenc(edba_handle_t *h, odb_eid *o_eid, edbf_flags flags) {
 		log_critf("cannot open entry, something already opened");
 		return ODB_ECRIT;
 	}
-	h->opened = ODB_ELMENTS;
 	h->openflags = flags;
 
 	// easy pointers
@@ -73,6 +72,7 @@ odb_err edba_entryopenc(edba_handle_t *h, odb_eid *o_eid, edbf_flags flags) {
 
 	// Now we leave this function with only the XL clutch lock on the entry to be
 	// released in the closed statement
+	h->opened = ODB_ELMENTS;
 	return 0;
 }
 
