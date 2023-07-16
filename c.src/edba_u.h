@@ -20,7 +20,9 @@ void edba_u_clutchentry_release(edba_handle_t *host);
 // must be called AFTER edba_u_entrytrashlk (XL)
 //
 // Will add pages to the clutched chapter and update
-// trashlast. returns ODB_ENOSPACE if theres no more lookup
+// trashlast.
+//
+// returns ODB_ENOSPACE if theres no more lookup
 // references left and/or was too large for the hardware.
 //
 // will update handle->clutchedentry->trashlast (assumed to be 0)
@@ -80,6 +82,8 @@ void edba_u_pagedeload(edba_handle_t *handle);
 //       with o_pid+straitc if you're creating these pages for just extra room.
 //     - header.head.rsvdL (aka page offset)
 //       subsequent pages in the strait have rsvdL incrementally.
+//   Note this will also set up header.head.pright for all the created pages, the last
+//   page will thus have a pright of 0.
 //
 // RETURNS:
 //   - ODB_ENOSPACE - no more space left in file / cannot expand

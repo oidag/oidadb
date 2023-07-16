@@ -70,6 +70,7 @@ typedef enum edbl_type {
 
 	// object_pid
 	EDBL_LTRASHOFF,
+	EDBL_LOBJPRIGHT,
 
 	// object_pid, page_ioffset
 	EDBL_LROW,

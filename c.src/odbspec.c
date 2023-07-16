@@ -57,7 +57,7 @@ void edba_u_initobj_pages(void *page, odb_spec_object header,
 			.trashstart_off = 0,
 
 			.head.pleft = header.head.pleft,
-			.head.pright = 0,
+			.head.pright = header.head.pright,
 			.head.ptype = ODB_ELMOBJ,
 			.head.rsvd = 0,
 	};
