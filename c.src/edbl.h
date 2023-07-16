@@ -72,6 +72,9 @@ typedef enum edbl_type {
 	EDBL_LTRASHOFF,
 	EDBL_LOBJPRIGHT,
 
+	// object_pid, page_size
+	EDBL_LOBJBODY,
+
 	// object_pid, page_ioffset
 	EDBL_LROW,
 
@@ -90,6 +93,7 @@ typedef struct edbl_lock {
 	union {
 		unsigned int page_ioffset; // page (i)ntra offset
 		unsigned int l_len;
+		unsigned int page_size;
 	};
 } edbl_lock;
 
