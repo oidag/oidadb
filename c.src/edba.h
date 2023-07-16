@@ -51,16 +51,25 @@ typedef struct edba_handle_st {
 	unsigned int      dy_pointersc;
 	odb_dyptr        *dy_pointers; // dynamic pointers
 	unsigned int      contentc;
-	void             *content; // pointer starts at object objectflags
+	union {
+		void *content;  // ODB_ELMOBJ - start of the fixedc content
+		void *pagebody; // ODB_ELMOBJPAGE - The pointer to the body of the page (past the header)
+	};
+
+	odb_spec_object *pagehead; // ODB_ELMOBJPAGE - pointer to page head.
 
 	// Variables when opened == ODB_ELMSTRCT
 	//
 	// strct - points to persistent mem.
 	odb_spec_struct_full_t *strct;
-	odb_sid            strctid;
+	union {
+		odb_sid strctid;
+		odb_pid pagepid; // ODB_ELMOBJPAGE
+	};
 
 	edbl_lock lock;
-	odb_type opened; // what type of operation was opened
+	// todo: make sure this is only assigned after successful assigment of elemeht
+	odb_type opened; // what type of operation was opened. Set to 0 if nothing is open.
 	edbf_flags openflags;
 
 
@@ -273,24 +282,27 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e);
 //   - ODB_ENOENT - eid is invalid
 odb_err edba_pageopen(edba_handle_t *h, odb_eid eid, odb_pid offset,
 					  edbf_flags flags);
+odb_err edba_pageclose(edba_handle_t *h);
 
 // this allows you to close the current page you're on, and then, open the
 // exact next page with a +1 offset. You must not call pageclose before
 // calling pageadvance, call pageclose only when you're done with browsing
 // through pages.
 //
-// not that pageadvance will open with the same flags as pageopen.
+// not that pageadvance will open with the same flags as pageopen. Regardless of
+// the error that this returns, you should still call edba_pageclose.
 //
 // ERRORS
 //   - ODB_EEOF - no next page to flip too (you will still have the previous
-//   page open)
+//     page open). All edba_page* functions operate just as if you never called this.
+//   - All other errors will make edba_page* operations unusable (execpt for edba_pageclose)
 odb_err edba_pageadvance(edba_handle_t *h);
-odb_err edba_pageclose(edba_handle_t *h);
 
 // edba_pageobjectv_count - returns the number of objects per page: NOTE NOT
 // THE SIZE OF THE BODY, BUT THE COUNT OF OBJECTS.
 //
-// edba_pageobjectc - the size of the page body.
+// edba_pageobjectv_count - the total amount of objects in page (note: including deleted ones)
+// edba_pageobjectc - the total number of bytes of the page body.
 unsigned int edba_pageobjectv_count(edba_handle_t *h);
 unsigned int edba_pageobjectc(edba_handle_t *h);
 const void *edba_pageobjectv_get(edba_handle_t *h);
