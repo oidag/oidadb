@@ -1,6 +1,8 @@
 #ifndef _edbERRORS_H_
 #define _edbERRORS_H_ 1
 
+#include "options.h"
+
 // with crits, if you have an errno to complain about make sure you don't purge it
 // as log_crit will look at errno and log what ever it is at the time.
 //
@@ -23,6 +25,13 @@ void log_warnf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 void log_debug(const char *log);
 void log_debugf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+
+// emmits a log_critf() if !assertion, may also crash depending on settings.
+#ifdef EDB_FUCKUPS
+#define assert(assertion) if(!(assertion)) log_critf("assertion failure")
+#else
+#define assert(assertion)
+#endif
 
 void implementme();
 
