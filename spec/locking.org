@@ -89,9 +89,20 @@ header of that object field. This must be done to either read or write the
 
 ** LROW
 Putting a SH or XL lock on an object allows you to read/write to that
-object respectively.
+object respectively. If you wish to lock multiple objects at once,
+limited to the entire page, simply expand the lock's area across multiple
+rows (See [[LPAGEBODY]])
 
  - Under LENTRY(sh)
+
+** LOBJBODY
+This is basically an LROW on steriods. Instead of locking a single
+row, you're locking the entire page body. Placing a lock over the
+entire page body will implicitly block any colliding LROW locks.
+
+Note: do NOT lock the page head.
+
+ - Under LENTRY(SH)
 
 ** LTRASHOFF
 Lock this on an object page with the intention of changing the trash
@@ -410,6 +421,29 @@ meaning putting it into trash circulaiton.
    2. Update the page's =trashvor= to be the previous =trashlast= and
       set the =trashlast= to be the page's =trashvor=.
  8. Release [[LENTRY]].
+** Object-Pages
+Sometimes you may want to checkout entire pages of objects in the
+effort to do many read/writes at a time.
+
+ 1. To read/write objects in this way, follow
+    Object-Reading/Object-Updating respectively except instead of
+    setting the LROW on the leaf page, set a LOBJBODY(sh for reading,
+    xl for writting) on the entire page body of the leaf page.
+ 2. Make modifications/reads as needed.
+ 3. Optionally, if you wish to go to the next page in the chapter,
+    aquire a [[LOBJPRIGHT]](sh) on your current page and read the pid in
+    =pright=. If you intend to go to that next page, do not release
+    LOBJPRIGHT yet.
+ 4. Release the LOBJBODY lock from the current page.
+ 5. If you chose to follow the =pright= in step 3, then place a
+    LOBJBODY lock on that page, then release the LOBJPRIGHT you
+    aquired in that step. This puts you back at step 2 with that new
+    page.
+
+When transversing pages, you should make use of the page header's
+=pright= attribute as to avoid another lookup. You must aquire a
+[[LOBJPRIGHT]](sh) to read =pright=. Make sure to unlock the page you're
+on before you check out that next page (no weave locks).
 * Defraging
 
 Notes: PAGE-BASED CLUTCH LOCKS DONT WORK, a dead lock can happen

@@ -210,6 +210,7 @@ typedef uint8_t odb_type;
 #define ODB_ELMPEND  6
 #define ODB_ELMLOOKUP 7
 #define ODB_ELMDYN 8
+#define ODB_ELMOBJPAGE 9
 
 struct odb_entstat {
 	odb_type type;
