@@ -62,8 +62,6 @@ static odb_err execjob(edb_worker_t *self) {
 			break;
 	}
 
-	closejob:
-	edbs_jobclose(self->curjob);
 	return err;
 }
 

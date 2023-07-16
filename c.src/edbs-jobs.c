@@ -478,6 +478,8 @@ static odb_err checkvalid(odb_jobtype_t jobclass) {
 		case ODB_JSTKDELETE:
 		case ODB_JENTCREATE:
 		case ODB_JENTDELETE:
+		case ODB_JENTDOWNLOAD:
+		case ODB_JSTKDOWNLOAD:
 			return 0;
 		default:
 			return ODB_EJOBDESC;
