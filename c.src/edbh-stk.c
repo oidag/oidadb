@@ -32,7 +32,7 @@ struct odbh_jobret odbh_jstk_download(odbh *handle
 	// write the dummy proto
 	uint32_t dummy = 1;
 	if((ret.err = edbs_jobwritev(job
-			, dummy, sizeof(dummy)
+			, &dummy, sizeof(dummy)
 			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;

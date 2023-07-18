@@ -403,7 +403,7 @@ odb_err edba_entity_get(edba_handle_t *h
 			entstat.memorysettings = entry->memory;
 			entstat.structureid = entry->structureid;
 			entstat.pagec = entry->ref0c;
-			o_ents[*o_entc-1] = entstat; // -1 sense entc is the count,
+			o_ents[*o_entc] = entstat; // -1 sense entc is the count,
 		}
 		*o_entc = *o_entc+1;
 

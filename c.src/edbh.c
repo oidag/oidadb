@@ -329,7 +329,7 @@ struct odbh_jobret odbh_jobj_write(odbh *handle
 	// write the oid+svid+object
 	if((ret.err = edbs_jobwritev(job
 			, &oid, sizeof(oid)
-			, structstat.svid, sizeof(structstat.svid)
+			, &structstat.svid, sizeof(structstat.svid)
 			, usrobj, structstat.fixedc
 			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
