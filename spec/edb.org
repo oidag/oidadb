@@ -361,6 +361,7 @@ TODO: Need to consolidate the idea that all entries are object pages :)
    type should only exist temporarly.  If you happen to start hosting
    and you see ODB_ELMPEND pages/entries, you can assume they are
    corrupted.
+ - =ODB_ELMRSVD 10= - reserved use.
 ** Entry ID
 All Entrieshave an Entry ID, the Entry ID is a uint16, meaning that an
 AG database can have a maximum of 2^16-1 total entries. Entry 0 /is/
@@ -369,12 +370,12 @@ considered valid, but points to a reserved system entry.
 ** Hard-Coded Entries
 Some Entries are reserved in fixed positions.
 
- - Entry 0: the edbp_index itself.
- - Entry 1: all deleted pages (edbp_deleted)
+ - Entry 0: the edbp_index itself (=ODB_ELMENTS=)
+ - Entry 1: all deleted pages (edbp_deleted, =ODB_ELMTRASH=)
    - For this entry, ref1 will point to the end of the chapter.
- - Enrty 2: edbp_struct
- - Entry 3: reserved
- - Entry 4: and over: edbp_ojbect chapters
+ - Enrty 2: edbp_struct (=ODB_ELMSTRCT=)
+ - Entry 3: reserved (=ODB_ELMRSVD=)
+ - Entry 4: and over: edbp_ojbect chapters (=ODB_ELMOBJ=)
 
 ** Memory Settings
 
