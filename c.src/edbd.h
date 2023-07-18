@@ -65,7 +65,15 @@ typedef struct {
 	//
 	// must be at least 1.
 	int delpagewindowsize;
+
+	// should always be 0, will force open regardless of hostpid.
+	int forceopen;
 } edbd_config;
+
+static const edbd_config edbd_config_default = {
+		.delpagewindowsize = 8,
+		.forceopen = 0,
+};
 
 // simply returns the size of the pages found in this cache.
 // note: this can be replaced with a hardcoded macro in builds

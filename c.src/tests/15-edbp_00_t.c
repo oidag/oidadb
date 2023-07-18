@@ -88,7 +88,7 @@ void test_main() {
 	odbtelem_bind(ODBTELEM_WORKR_PLOAD, pload);
 	odbtelem_bind(ODBTELEM_PAGES_CACHED, pload);
 	edbd_t dfile;
-	edbd_config config;
+	edbd_config config = edbd_config_default;
 	config.delpagewindowsize = 1;
 	err = edbd_open(&dfile, fd, config);
 	if(err) {

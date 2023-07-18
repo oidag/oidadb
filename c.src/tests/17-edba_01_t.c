@@ -210,7 +210,7 @@ void test_main() {
 		return;
 	}
 	// edbd
-	edbd_config config;
+	edbd_config config = edbd_config_default;
 	config.delpagewindowsize = 1;
 	err = edbd_open(&globaledbd_file, fd, config);
 	if (err) {

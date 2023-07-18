@@ -146,3 +146,19 @@ odb_err edb_host_getpid(const char *path, pid_t *outpid) {
 	*outpid = head.host;
 	return 0;
 }
+
+const char *odb_typestr(odb_type type) {
+	switch (type) {
+		case ODB_ELMINIT:  return "ODB_ELMINIT";
+		case ODB_ELMDEL: return "ODB_ELMDEL";
+		case ODB_ELMSTRCT: return "ODB_ELMSTRCT";
+		case ODB_ELMTRASH: return "ODB_ELMTRASH";
+		case ODB_ELMOBJ:   return "ODB_ELMOBJ";
+		case ODB_ELMENTS:  return "ODB_ELMENTS";
+		case ODB_ELMPEND:  return "ODB_ELMPEND";
+		case ODB_ELMLOOKUP: return "ODB_ELMLOOKUP";
+		case ODB_ELMDYN:    return "ODB_ELMDYN";
+		case ODB_ELMOBJPAGE: return "ODB_ELMOBJPAGE";
+		default: return "UNKNOWN";
+	}
+}

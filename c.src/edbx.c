@@ -213,9 +213,7 @@ odb_err odb_host(const char *path, struct odb_hostconfig hostops) {
 
 	// open the file
 	// todo: let the user set this config.
-	edbd_config edbdconfig = {
-			.delpagewindowsize = 4
-	};
+	edbd_config edbdconfig = edbd_config_default;
 	eerr = edbd_open(&(host.file), host.fdescriptor, edbdconfig);
 	if(eerr) {
 		if(eerr == ODB_EOPEN) {
