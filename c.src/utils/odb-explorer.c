@@ -100,8 +100,8 @@ int main(int argc, const char **argv) {
 	tcsetattr(STDIN_FILENO, TCSANOW, &newterm);
 
 	index_print();
-	page_print(65);
-	page_print(33);
+	//page_print(65);
+	//page_print(33);
 
 
 	// set up the shell

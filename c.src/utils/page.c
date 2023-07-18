@@ -7,6 +7,7 @@
 
 #define pagetop "--------------------------------------------------------------------------------"
 #define pagelen "76"
+#define pagelend 76
 
 void static lookup(void *page) {
 	odb_spec_lookup *head = page;
@@ -25,20 +26,76 @@ void static lookup(void *page) {
 
 	int printedthisline = 0;
 	int charsprintedthisline = 0;
+	printf("| ");
 	for(int i = 0; i < head->refc; i++) {
-		printf("| ");
-		charsprintedthisline += printf("[ref: %ld, s/e-off: %ld] "
+		charsprintedthisline += printf("[ref: %5ld, s/e-off: %5ld] "
 				, lrefs[i].ref
 				, lrefs[i].startoff_strait);
 		printedthisline++;
-		if(i+1 == head->refc || printedthisline == 4) {
-			for(int j = 0; j < (76 - charsprintedthisline); j++) {
+		if(i+1 == head->refc || printedthisline == 2) {
+			for(int j = 0; j < (pagelend - charsprintedthisline); j++) {
 				printf(" ");
 			}
-			printf(" |\n");
+			printf(" |\n| ");
 			printedthisline = 0;
 			charsprintedthisline = 0;
 		}
+	}
+	printf(pagetop "\n");
+	free(buffv);
+}
+
+void static object(edbd_t *edbd, void *page) {
+	odb_spec_object *head = page;
+	void *objs = page + ODB_SPEC_HEADSIZE;
+	printf(pagetop "\n");
+	int buffc = strlen(pagetop);
+	char *buffv = malloc(buffc);
+
+	// get the structure/index
+	const odb_spec_struct_struct *stk;
+	edbd_struct(edbd, head->structureid, &stk);
+	odb_spec_index_entry *ent;
+	edbd_index(edbd, head->entryid, &ent);
+
+	// the header
+	sprintf(buffv, "off: %ld    next page: %ld    structure id: %d    fixedc: %d"
+			, head->head.pleft
+			, head->head.pright
+			, head->structureid
+			, stk->fixedc);
+	printf("| %-"pagelen"s |\n", buffv);
+	sprintf(buffv, "trash start: %d    trash count: %d    trashvor: %ld"
+			, head->trashstart_off
+			, head->trashc
+			, head->trashvor);
+	printf("| %-"pagelen"s |\n", buffv);
+
+
+
+	int printedthisline = 0;
+	int charsprintedthisline = 0;
+	int objsperline = pagelend / (strlen(" [ 0000 -0000 ] "));
+	int objsonline = 0;
+	int buffoff = 0;
+	for(int i = 0; i < (edbd_size(edbd) / stk->fixedc); i++) {
+		odb_spec_object_flags *objflags = objs + i * stk->fixedc;
+		if(*objflags & EDB_FDELETED) {
+			buffoff += sprintf(buffv + buffoff, " [ %04x -%04x ] "
+				   , i
+				   , *((uint16_t *)( (void *)objflags + sizeof(odb_spec_object_flags) ))
+				   );
+		} else {
+			buffoff += sprintf(buffv + buffoff, " [ %04x +%02x.. ] ", i
+				   , (*((uint16_t *)((void *)objflags)+sizeof(odb_spec_object_flags))&0xFF00) >> 8);
+		}
+		objsonline++;
+		if(objsonline >= objsperline) {
+			printf("| %-"pagelen"s |\n", buffv);
+			objsonline = 0;
+			buffoff = 0;
+		}
+
 	}
 	printf(pagetop "\n");
 	free(buffv);
@@ -83,6 +140,7 @@ int page_print(odb_pid pid) {
 	printf("page#%ld: %s\n", pid, odb_typestr(type));
 	switch (type) {
 		case ODB_ELMLOOKUP: lookup(page); break;
+		case ODB_ELMOBJ: object(&handle, page); break;
 		default: printf("do not know how to parse this type of page\n"); break;
 	}
 

@@ -19,7 +19,7 @@ int index_print() {
 	printf("struct pages - %d pages\n", handle.head_page->structpagec);
 
 	printf("\n");
-	printf("| %5s | %-14s | %5s | %5s | %5s | %5s | %5s | %7s | %7s | %9s\n"
+	printf("| %5s | %-14s | %5s | %5s | %5s | %5s | %5s | %7s | %7s | %9s | %9s |\n"
 		   , "eid"
 		   , "type"
 		   , "sid"
@@ -29,7 +29,8 @@ int index_print() {
 		   , "ref0c"
 		   , "bgn-lkp"
 		   , "lst-lkp"
-			, "lkp-depth");
+			, "lkp-depth"
+			, "trashlast");
 	odb_spec_index_entry *ent;
 	for(odb_eid eid = 0; ; eid++) {
 		if((err = edbd_index(&handle, eid, &ent))) {
@@ -52,6 +53,7 @@ int index_print() {
 		printf(" %7ld |", ent->ref1);
 		printf(" %7ld |", ent->lastlookup);
 		printf(" %9d |", ent->memory >> 12);
+		printf(" %9ld |", ent->trashlast);
 		printf("\n");
 	}
 	printf("\n");
