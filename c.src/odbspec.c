@@ -159,6 +159,7 @@ const char *odb_typestr(odb_type type) {
 		case ODB_ELMLOOKUP: return "ODB_ELMLOOKUP";
 		case ODB_ELMDYN:    return "ODB_ELMDYN";
 		case ODB_ELMOBJPAGE: return "ODB_ELMOBJPAGE";
+		case ODB_ELMRSVD: return "ODB_ELMRSVD";
 		default: return "UNKNOWN";
 	}
 }

@@ -81,6 +81,9 @@ void edbd_u_initindex_rsvdentries(void *page,
 	// deleted
 	rsvd_deleted->type = ODB_ELMTRASH;
 
+	// rsvd
+	rsvd_3->type = ODB_ELMRSVD;
+
 
 
 }
