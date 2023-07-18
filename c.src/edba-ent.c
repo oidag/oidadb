@@ -368,7 +368,7 @@ odb_err edba_entity_get(edba_handle_t *h
 	}
 	*o_entc = 0;
 
-	for(eid = EDBD_EIDSTART; ; eid++) {
+	for(eid = 0; ; eid++) {
 		// SH lock for EDBL_LENTRY.
 		lock.type = EDBL_LENTRY;
 		lock.eid = eid;
@@ -386,11 +386,6 @@ odb_err edba_entity_get(edba_handle_t *h
 			// end of all the entities that are useful to us.
 			edbl_set(h->lockh, EDBL_ARELEASE, lock);
 			return err;
-		}
-		if(entry->type != ODB_ELMOBJ) {
-			// not an object, skip.
-			edbl_set(h->lockh, EDBL_ARELEASE, lock);
-			continue;
 		}
 
 		// we know now that this is a valid entity we'd want to return.
