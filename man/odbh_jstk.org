@@ -15,6 +15,10 @@ struct odbh_jobret odbh_jstk_free(odbh *handle, odb_sid sid));
 =odbh_jstk_create= creates a new structure and =odbh_jstk_free= will
 free structure space provided that nothing is using that structure.
 
+=structstat.confv= can be null/uninitialize so long that
+=structstat.confc= is 0. Otherwise, the =confc= must point to the
+bytes available at address of =confv=.
+
 ** Returns
 
 For =odbh_jstk_create=: so long that =.err= is 0, =.sid= will be set.
