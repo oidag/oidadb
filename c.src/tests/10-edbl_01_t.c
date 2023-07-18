@@ -26,7 +26,7 @@ void test_main() {
 	// edbd open
 	edbd_t dfile;
 	edbd_t *p_dfile = &dfile;
-	edbd_config config;
+	edbd_config config = edbd_config_default;
 	config.delpagewindowsize = 1;
 	err = edbd_open(&dfile, fd, config);
 	if(err) {

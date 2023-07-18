@@ -367,8 +367,13 @@ odb_err edbd_open(edbd_t *o_file, int descriptor, edbd_config config) {
 	// set up the hostpid
 	err = hostpid(o_file);
 	if(err) {
-		edbd_close(o_file);
-		return err;
+		if(err == ODB_EOPEN && config.forceopen) {
+			log_debug("forcing open per config, this will disrupt other connections");
+			o_file->head_page->host = getpid();
+		} else {
+			edbd_close(o_file);
+			return err;
+		}
 	}
 
 	// **defer-on-fail: edbd_close(o_file)
