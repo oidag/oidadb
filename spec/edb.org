@@ -354,7 +354,7 @@ TODO: Need to consolidate the idea that all entries are object pages :)
    =ODB_ELMINIT= signifies the given entity has never been used.
  - =ODB_ELMSTRCT 2= - =edbp_struct=
  - =ODB_ELMTRASH   3= - =edbp_deleted=
- - =ODB_ELMOBJ   4= - =edbp_object=
+ - =ODB_ELMOBJ   4= - =edbp_object= - at no point should =ref0= nor =ref0c= be 0
  - =ODB_ELMENTS  5= - The index itself
  - =ODB_ELMPEND 6= - Temporary status between ODB_ELMINIT and whatever it
    is trying to become. Used only for traffic control. Pages of this

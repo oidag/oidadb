@@ -1,6 +1,7 @@
 #include "edba.h"
 #include "edba_u.h"
 #include "include/oidadb.h"
+#include "telemetry.h"
 
 odb_err edba_entryopenc(edba_handle_t *h, odb_eid *o_eid, edbf_flags flags) {
 
@@ -95,6 +96,7 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	// clear out all bits that are not used
 	e.memory = e.memory & 0x3f0f;
 	int depth = e.memory >> 0xC;
+	unsigned int straitc = 1 << (e.memory & 0x000F);
 
 	// validation
 	if(h->openflags & EDBA_FCREATE) {
@@ -127,10 +129,6 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 
 	// to make corruption easy to detect: we set *entry = e; at the very last.
 
-	// ref0: objects page(s)
-	e.ref0 = 0;
-	e.ref0c = 0;
-
 	// ref2: dynamic page(s)
 	// these are created as we go.
 	e.ref2c = 0;
@@ -141,10 +139,34 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	// fill out lastlookup, last lookup must point to a page of max depth.
 	odb_pid parentid = 0;
 	odb_pid lookuppages[depth + 1];
+
+	// we are also not only going to create an entire stack of lookups, we're also creating the first set of
+	// object pages.
+	odb_pid objectpages;
+	odb_spec_object objheader;
+	objheader.structureid = e.structureid;
+	objheader.entryid = h->clutchedentryeid;
+	objheader.trashvor = 0;
+	objheader.head.pleft = 0;
+	err = edba_u_pagecreate_objects(h
+			, objheader
+			, strck
+			, straitc
+			, &objectpages);
+	if(err) {
+		return err;
+	}
+
 	// our for-loop, we go backwards, creating the depthest page first so
 	// that we can reference that child page to its parent in the subsequent
 	// itoration.
-	odb_spec_lookup_lref childref = {0};
+
+	// and for the above reason, we set our first reference to actually reference
+	// our object page, sense its a leaf bearing node.
+	odb_spec_lookup_lref childref = {
+		.startoff_strait = straitc - 1,
+		.ref = objectpages,
+	};
 	for (int i = depth; i >= 0; i--) { // ">=" because depth is 0-based.
 		odb_spec_lookup lookup_header;
 		lookup_header.entryid = h->clutchedentryeid;
@@ -163,11 +185,15 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 					log_critf("page leak: %ld", lookuppages[i]);
 				}
 			}
+			if(edbd_del(descriptor, straitc, objectpages)) {
+				log_critf("page leak: %ld", lookuppages[i]);
+			}
 			return err;
 		}
 		if(i == depth) {
 			// this is our currently deepest rightest lookup page.
 			e.lastlookup = lookuppages[i];
+
 		}
 		if(i == 0) {
 			// this is the root page so it's ref1.
@@ -195,6 +221,9 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 					log_critf("page leak: %ld", lookuppages[i]);
 				}
 			}
+			if(edbd_del(descriptor, straitc, objectpages)) {
+				log_critf("page leak: %ld", lookuppages[i]);
+			}
 			return err;
 		}
 		odb_spec_lookup *page = edbp_graw(edbphandle);
@@ -216,11 +245,14 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 	e.lookupsperpage = (edbd_size(h->parent->descriptor) - ODB_SPEC_HEADSIZE) / sizeof(odb_spec_lookup_lref);
 	e.objectsperpage = (edbd_size(h->parent->descriptor) - ODB_SPEC_HEADSIZE) /
 			strck->fixedc;
-	e.trashlast = 0;
+	e.trashlast = objectpages+(straitc-1); // the last page id in the strait.
+	e.ref0c = straitc;
+	e.ref0  = objectpages;
 
 	// we're all done, save to persistant memory.
 	*entry = e;
 	entry->type = ODB_ELMOBJ; // the final "we're done" marker.
+	telemetry_pages_newobj(h->clutchedentryeid, objectpages, straitc); // sense we did create object pages
 	return 0;
 }
 
