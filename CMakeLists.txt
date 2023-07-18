@@ -78,6 +78,15 @@ add_executable(edbx_00 ${stdtestfiles}
         c.src/tests/20-edbx_00_t.c
         ${liboidadb_src})
 
+add_executable(edbx_01 ${stdtestfiles}
+        c.src/tests/20-edbx_01_t.c
+        ${liboidadb_src})
+
+file(GLOB odb_explorer c.src/utils/*.c)
+add_executable(odb-explorer ${stdtestfiles}
+        ${odb_explorer}
+        ${liboidadb_src})
+
 #add_executable       (edbd_00 ${stdtestfiles} c.src/tests/20-edbx_00_t.c c.src/edbh.c c.src/edbd.c c.src/edbd-init.c)
 #target_link_libraries(t0091_io ${stdtestlibs})
 
