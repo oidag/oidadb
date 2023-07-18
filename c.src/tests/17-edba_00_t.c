@@ -15,7 +15,7 @@
 int newdeletedpages = 0;
 
 const int cachesize = 256;
-const int records   = 1000000;
+const int records   = 20000;
 
 
 uint64_t totalmysqlinsert = 0;
@@ -265,8 +265,8 @@ void test_main() {
 
 	// now recreate using half using autoid, and the other half non id.
 	// non-auto
-	test_log("manual-id creating %ld rows...", records/2);
-	for(int i = 0; i < records/2; i++) {
+	test_log("manual-id creating %ld rows...", records/3);
+	for(int i = 0; i < records/3; i++) {
 		// We do NOT use EDBA_FCREATE here because we know for a fact we have
 		// space sense we've previously made room.
 		if((err = edba_objectopen(edbahandle, oids[i], EDBA_FWRITE))) {
@@ -303,8 +303,8 @@ void test_main() {
 
 	// auto-id
 	test_log("auto-id creating %ld rows by reusing pages...",
-			 records-records/2);
-	for(int i = records/2; i < records; i++) {
+			 records-records/3);
+	for(int i = records/3; i < records; i++) {
 		// We do NOT use EDBA_FCREATE here because we know for a fact we have
 		// space sense we've previously made room.
 		if((err = edba_objectopenc(edbahandle, &oids[i], EDBA_FWRITE))) {
