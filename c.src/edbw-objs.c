@@ -67,8 +67,8 @@ odb_err static _jreadwrite(edb_worker_t *self, int iswrite) {
 	// Note we have to do this AFTER we run edba_objectopen so that we make
 	// sure that this structure is then locked until edba_objectclosed
 	odb_sid sid = edba_objectstructid(handle);
-	const odb_spec_struct_struct *stk = edba_objectstruct(handle);
-	if(!svid_good(svid, sid, stk->version)) {
+	struct odb_structstat stkstat = edba_objectstructstat(handle);
+	if(stkstat.svid != svid) {
 		dieerror(job, ODB_ECONFLICT);
 		edba_objectclose(handle);
 		return ODB_EUSER;
@@ -104,7 +104,7 @@ odb_err static _jreadwrite(edb_worker_t *self, int iswrite) {
 
 	if (iswrite) {
 		// read in the entire object.
-		edbs_jobread(job, edba_objectfixed(handle), stk->fixedc);
+		edbs_jobread(job, edba_objectfixed(handle), (int)(stkstat.fixedc - stkstat.start));
 		// we actually continue past this because we want to write a no
 		// die-error
 	}
@@ -115,7 +115,7 @@ odb_err static _jreadwrite(edb_worker_t *self, int iswrite) {
 
 	if(!iswrite) {
 		// send the object to the handle
-		edbs_jobwrite(job, edba_objectfixed_get(handle), stk->fixedc);
+		edbs_jobwrite(job, edba_objectfixed_get(handle), (int)(stkstat.fixedc - stkstat.start));
 	}
 
 	// done, close out.
@@ -165,15 +165,15 @@ odb_err static jalloc(edb_worker_t *self) {
 
 	// is it the same structure version?
 	odb_sid sid = edba_objectstructid(handle);
-	const odb_spec_struct_struct *stk = edba_objectstruct(handle);
-	if(!svid_good(svid, sid, stk->version)) {
+	struct odb_structstat stkstat = edba_objectstructstat(handle);
+	if(svid != stkstat.svid) {
 		dieerror(job, ODB_ECONFLICT);
 		edba_objectclose(handle);
 		return ODB_EUSER;
 	}
 
 	// read in the entire object.
-	edbs_jobread(job, edba_objectfixed(handle), stk->fixedc);
+	edbs_jobread(job, edba_objectfixed(handle), (int)stkstat.fixedc - (int)stkstat.start);
 
 	// no die-error
 	err = 0;
