@@ -286,19 +286,23 @@ odb_err edba_stks_get(edba_handle_t *h
 			}
 
 			// add a structure
-			stkstat.confc = stkr->content.confc;
-			stkstat.dynmc = stkr->content.data_ptrc;
-			stkstat.fixedc = stkr->content.fixedc;
-			stkstat.svid = stkr->content.version | (sid << 0x10);
-			stkstat.start = sizeof(odb_spec_object_flags)
-					+ sizeof(odb_dyptr)*stkr->content.data_ptrc;
-
-			o_stkv[*o_stkc] = stkstat;
+			o_stkv[*o_stkc] = edba_u_stk2stat(stkr->content, sid);
 		}
 		*o_stkc = *o_stkc + 1;
 	}
 
 	// (note the above loop will always return)
+}
+
+struct odb_structstat edba_u_stk2stat(odb_spec_struct_struct stkr, odb_sid sid) {
+	struct odb_structstat stkstat;
+	stkstat.confc = stkr.confc;
+	stkstat.dynmc = stkr.data_ptrc;
+	stkstat.fixedc = stkr.fixedc;
+	stkstat.svid = stkr.version | (sid << 0x10);
+	stkstat.start = sizeof(odb_spec_object_flags)
+	                + sizeof(odb_dyptr)*stkr.data_ptrc;
+	return stkstat;
 }
 
 const void *edba_structconfv_get(edba_handle_t *h) {

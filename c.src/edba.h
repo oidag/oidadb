@@ -182,12 +182,17 @@ odb_err edba_objectundelete(edba_handle_t *h);
 //   Will return the (readonly) structure data.
 //   This will point to whatever is given by edbd.
 //
+// edba_objectstructstat
+//   Same as edba_objectstruct but will return the structure in
+//   odb_structstat form.
+//
 // edba_objectentry
 //   Will return the (readonly) entry data.
 //   This will point to whatever is given by edbd.
 //
 // edba_objectstructid - returns the structure id of the object.
 const odb_spec_struct_struct *edba_objectstruct(edba_handle_t *h);
+struct odb_structstat edba_objectstructstat(edba_handle_t *h);
 const odb_spec_index_entry  *edba_objectentry(edba_handle_t *h);
 odb_sid edba_objectstructid(edba_handle_t *h);
 
