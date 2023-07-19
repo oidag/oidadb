@@ -23,7 +23,13 @@ odb_err edbw_u_structjob(edb_worker_t *self);
 // and ignore everything else they had sent.
 void static dieerror(edbs_job_t job, odb_err err) {
 	log_debugf("sending die-error: %s", odb_errstr(err));
-	edbs_jobwrite(job, &err, sizeof(err));
+	err = edbs_jobwrite(job, &err, sizeof(err));
+
+	// if ODB_EPROTO is returned from the server writting dieerro, that's a very
+	// common sign that the client is not following proto.
+	if(err == ODB_EPROTO) {
+		log_noticef("writing out the die error caused an ODB_EPROTO, is the client/server following protocol?");
+	}
 }
 
 #endif //EDB_EDBW_U_H

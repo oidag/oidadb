@@ -289,7 +289,7 @@ odb_err edba_stks_get(edba_handle_t *h
 			stkstat.confc = stkr->content.confc;
 			stkstat.dynmc = stkr->content.data_ptrc;
 			stkstat.fixedc = stkr->content.fixedc;
-			stkstat.svid = stkr->content.version;
+			stkstat.svid = stkr->content.version | (sid << 0x10);
 			stkstat.start = sizeof(odb_spec_object_flags)
 					+ sizeof(odb_dyptr)*stkr->content.data_ptrc;
 
