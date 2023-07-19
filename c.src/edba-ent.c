@@ -172,8 +172,8 @@ odb_err edba_entryset(edba_handle_t *h, odb_spec_index_entry e) {
 		lookup_header.entryid = h->clutchedentryeid;
 		//lookup_header.parentlookup = ???; // see note after loop
 		lookup_header.depth = i;
-		lookup_header.head.pleft = 0;
-		lookup_header.head.pright = 0;
+		lookup_header.head.pleft = 0;  // sense we have no siblings on any level, just 1 page per level.
+		lookup_header.head.pright = 0; // sense the first page offset is always 0
 		err = edba_u_pagecreate_lookup(h, lookup_header, &lookuppages[i], childref);
 		if(err) {
 			// failed for whatever reason,

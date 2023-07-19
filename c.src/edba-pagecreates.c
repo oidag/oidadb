@@ -193,7 +193,25 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 	// Note: here we can use lookuprefs[lookuphead->refc - 1] because at no point
 	//       will any (referenced) lookup page have a refc of 0.
 	assert(lookuphead->refc != 0);
-	odb_pid old_last_object_page = lookuprefs[lookuphead->refc - 1].startoff_strait;
+	odb_pid old_last_object_page = lookuprefs[lookuphead->refc - 1].ref;
+	// however, we only have the pageid for the page at the start of this strait,
+	// we need to find the pageid of page at the end of this strait. It may seem
+	// simple to just add straitc to our reference, however, the spec defines
+	// that the entity's straitc setting is only the *minimum* strait. But this is
+	// still not a problem, we still have all the info we need to get how long this
+	// strait is on this look up page. Its either on the lookup right before us (sense
+	// it also keeps track of the last offset), or, if we're the only reference on this
+	// page, we can get it from the pright as per edb spec.
+	if(lookuphead->refc == 1) {
+		// we'll get the starting offset from the pright
+		old_last_object_page += lookuprefs[lookuphead->refc - 1].startoff_strait
+				- lookuphead->head.pright;
+	} else {
+		// we can get it from the refence before this one.
+		old_last_object_page += lookuprefs[lookuphead->refc - 1].startoff_strait
+				- (lookuprefs[lookuphead->refc - 2].startoff_strait + 1);
+	}
+
 	// see locking.org as to why we do this.
 	edbl_lock lobjpright = (edbl_lock) {
 			.type = EDBL_LOBJPRIGHT,
@@ -275,7 +293,8 @@ odb_err edba_u_lookupdeepright(edba_handle_t *handle) {
 			// one thing is for sure though, we know that even though the two pages
 			// relationship isn't completely clear, we do know that they'll be subquentional
 			// on the same generation so we can set pleft.
-			newheader.head.pleft = pleft;
+			newheader.head.pleft  = pleft;
+			newheader.head.pright = newobjectpage_offsetid;
 
 			// create the actual lookup
 			err = edba_u_pagecreate_lookup(handle, newheader, &createdlookups[i-1], newreference);
