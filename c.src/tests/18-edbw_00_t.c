@@ -13,6 +13,7 @@
 #include "../edbw.h"
 #include "../edbw_u.h"
 #include "../wrappers.h"
+#include "../edbs_u.h"
 
 int newdeletedpages = 0;
 
@@ -126,7 +127,7 @@ void test_main() {
 
 	// write an echo buffer
 	int buffc = 50;
-	void *buffv = malloc(buffc);
+	void *buffv = malloc(buffc+5); // +5 for play room to send too many bytes
 	for(int i = 0; i < buffc; i++) {
 		((char *)buffv)[i] = (char)i;
 	}
@@ -162,6 +163,43 @@ void test_main() {
 			return;
 		}
 	}
+
+	// try to read something without installing job
+	err = edbs_jobread(job, &newbuffc, sizeof(newbuffc));
+	if(err != ODB_EEOF) {
+		test_error("expected EOF, did not get");
+	}
+	err = edbs_jobwrite(job, &newbuffc, sizeof(newbuffc));
+	if(err != ODB_EPIPE) {
+		test_error("expected ODB_EPIPE, did not get.");
+	}
+
+
+	// try to break it now by writting too many bytes
+	err = edbs_jobinstall(shm_host, ODB_JTESTECHO, &job);
+	if(err) {
+		test_error("job install");
+		return;
+	}
+	err = edbs_jobwrite(job, &buffc, sizeof(buffc));
+	if(err) {
+		test_error("");
+		return;
+	}
+	// writting to many bytes here would have caused the server to get an EPROTO
+	// when trying to echo back our stuff. So our next read we should be
+	// getting an EOF.
+	err = edbs_jobwrite(job, buffv, buffc+5);
+	if(err) {
+		test_error("");
+		return;
+	}
+	err = edbs_jobread(job, buffv, buffc+5);
+	if(err != ODB_EEOF) {
+		test_error("expected EOF because we wrote too many bytes.");
+		return;
+	}
+
 	free(newbuffv);
 	free(buffv);
 
