@@ -123,6 +123,11 @@ static void inline edba_u_oidextract(odb_oid oid, odb_eid *o_eid, odb_rid
 }
 
 
+// This function converts a odb in-file-memory structure (odb_spec_struct_struct) into a more friendly
+// odb_structstat.
+struct odb_structstat edba_u_stk2stat(odb_spec_struct_struct stkr, odb_sid sid);
+
+
 // mark the data at the pointer as deleted.
 // todo: locks?
 // ERRORS:

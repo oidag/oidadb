@@ -283,6 +283,10 @@ const odb_spec_struct_struct *edba_objectstruct(edba_handle_t *h) {
 	return ret;
 }
 
+struct odb_structstat edba_objectstructstat(edba_handle_t *h) {
+	return edba_u_stk2stat(*edba_objectstruct(h), edba_objectstructid(h));
+}
+
 void   *edba_objectfixed(edba_handle_t *h) {
 	if(!(h->openflags & EDBA_FWRITE)) {
 		log_critf("edba_objectfixed without having EDBA_FWRITE flag");
