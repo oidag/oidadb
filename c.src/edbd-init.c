@@ -72,7 +72,7 @@ void edbd_u_initindex_rsvdentries(void *page,
 	// structure chapter
 	rsvd_struct->type = ODB_ELMSTRCT;
 	rsvd_struct->objectsperpage = (psize-ODB_SPEC_HEADSIZE) / sizeof
-			(odb_spec_struct_struct);
+			(odb_spec_struct_full_t);
 	rsvd_struct->ref0c = structurepagec;
 	rsvd_struct->ref0 = structstart;
 	rsvd_struct->trashlast = structstart;
