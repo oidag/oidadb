@@ -48,7 +48,8 @@ protocol documents that you'll be reading a =odb_err=-structured
 that stream if this Die-Error is non-0 but instead call =odbj_close=
 ** usrobj
 The *usrobj* is not a datatype. But instead, symbolizes the structure
-the user had defined for the object.
+the user had defined for the object. Does **not** include
+flags/dyanmics. Let =usrobj_full= symbolize that.
 
 ** stream-pointer
 Sometimes when data should be presented to you for both reading and
@@ -197,7 +198,7 @@ In the case of =ODB_JSELECT=, the following will reapeat (until =objc= is 0)
 | Direction | Name   | Datatype | Notes                                                                                                                               |
 |-----------+--------+----------+-------------------------------------------------------------------------------------------------------------------------------------|
 | odbj_read | objc   | uint32_t | The number of objects that will follow. This will be 0 if there's no more left. If -1 then a critical host-side die-error happened. |
-| odbj_read | object | [[usrobj]]   | user defined object structure of =eid=                                                                                              |
+| odbj_read | object | [[usrobj]]_full | user defined object structure of =eid=                                                                                              |
 
 If the job is a =ODB_JUPDATE=, the the above section is dispatched,
 but before the handle can get the next set of objects, it must respond
@@ -205,7 +206,7 @@ with its changes:
 
 | Direction  | Name   | Datatype | Notes                                                              |
 |------------+--------+----------+--------------------------------------------------------------------|
-| odbj_write | object | [[usrobj]]   | This is an array that is the same size as =odbjc= in the read part |
+| odbj_write | object | [[usrobj]]_full | This is an array that is the same size as =odbjc= in the read part |
 
 /Note: I'm again writing down how slow this jupdate process is. The/
 /goal is to eventually have the routine used on the backend so the/
