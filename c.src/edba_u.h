@@ -68,7 +68,8 @@ void edba_u_pagedeload(edba_handle_t *handle);
 //     - header.depth
 //     - header.entryid
 //     - header.parentlookup (can be 0 if root)
-//     - header.head.pleft & header.head.pright (if applicable)
+//     - header.head.pleft
+//     - header.head.pright
 //   ref will be the first reference written into the lookup before the function returns. (if ref is 0, then refc is not incremented)
 //
 // edba_u_pagecreate_objects - object page straits.

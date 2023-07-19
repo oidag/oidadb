@@ -927,7 +927,13 @@ has been created or not)
 
 *** Regarding Page Left / Page Right
 
-Only pleft is used in non-root pages to show the left-sibling lookup page 
+pleft is used in non-root pages to show the left-sibling lookup page.
+
+pright will designate the starting offset of the first
+reference. Thus, a lookup page's pright will be equal to its parent's
+=startoff_strait= field for the reference pointing to the page. This
+is used when accessing the entity's =lastlookup= to quickly insert
+object pages.
 
 * edbp_dynamic
 ** subpage
