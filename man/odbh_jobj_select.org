@@ -6,8 +6,13 @@
 #+BEGIN_SRC c
 #include <oidadb/oidadb.h>
 
-typedef int (odb_select_cb)(void *cookie, int usrobjc, const void *usrobjv);
-typedef int (odb_update_cb)(void *cookie, int usrobjc, void *usrobjv);
+// todo: This pointer will not be starting at the user object, but the entire object
+//       flags, dynamcis, and what have you. Need to find a way the user can use this
+//       to safely perfom deletes/get dynamic data.
+typedef void *usrobjcontrollerTODO;
+
+typedef int (odb_select_cb)(void *cookie, int usrobjc, const usrobjcontrollerTODO usrobjv);
+typedef int (odb_update_cb)(void *cookie, int usrobjc, usrobjcontrollerTODO usrobjv);
 
 struct odbh_jobret odbh_jobj_selectcb(odbh *handle, odb_eid eid, odb_select_cb cb);
 struct odbh_jobret odbh_jobj_updatecb(odbh *handle, odb_eid eid, odb_update_cb cb);

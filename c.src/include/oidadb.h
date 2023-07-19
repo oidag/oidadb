@@ -228,7 +228,10 @@ export odb_err odbh_index(odbh *handle, odb_eid eid
 struct odb_structstat {
 	unsigned int fixedc; // the entire structre, including dynamic list and
 	// flags
-	unsigned int start; // the starting byte
+
+	// the offset of the content. (past flags, dyanmics)
+	// do fixedc - start get the total size of the userobj.
+	unsigned int start;
 	unsigned int dynmc;
 	unsigned int confc;
 	void *confv;
