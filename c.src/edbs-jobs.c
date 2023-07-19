@@ -465,27 +465,6 @@ odb_err edbs_jobselect(const edbs_handle_t *shm, edbs_job_t *o_job,
 	return 0;
 }
 
-// returns ODB_EJOBDESC if the jobclass is invalid
-static odb_err checkvalid(odb_jobtype_t jobclass) {
-	switch (jobclass) {
-		case ODB_JALLOC:
-		case ODB_JFREE:
-		case ODB_JWRITE:
-		case ODB_JREAD:
-		case ODB_JSELECT:
-		case ODB_JUPDATE:
-		case ODB_JSTKCREATE:
-		case ODB_JSTKDELETE:
-		case ODB_JENTCREATE:
-		case ODB_JENTDELETE:
-		case ODB_JENTDOWNLOAD:
-		case ODB_JSTKDOWNLOAD:
-			return 0;
-		default:
-			return ODB_EJOBDESC;
-	}
-}
-
 odb_err edbs_jobinstall(const edbs_handle_t *h,
                         odb_jobtype_t jobclass,
                         edbs_job_t *o_job) {
@@ -496,9 +475,6 @@ odb_err edbs_jobinstall(const edbs_handle_t *h,
 	const uint64_t jobc = head->jobc;
 	o_job->shm = h;
 	o_job->descriptortype = 0;
-	if((err = checkvalid(jobclass))) {
-		return err;
-	}
 
 	rehold:
 	// if there's no open spots in the job buffer we wait. Yes, we are

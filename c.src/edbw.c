@@ -2,11 +2,48 @@
 #include "edbw_u.h"
 
 #include <strings.h>
+#include <malloc.h>
 
 // function to easily verbosely log worker and job ids
 #define edbw_logverbose(workerp, fmt, ...) \
 log_debugf("worker#%d executing job#%ld: " fmt, workerp->workerid, workerp->curjob.job->jobid, ##__VA_ARGS__)
 
+static odb_err echotest(edb_worker_t *self) {
+	edbs_job_t job = self->curjob;
+	odb_err err;
+
+	int size;
+	void *buff;
+	err = edbs_jobread(job, &size, sizeof(size));
+	if(err) {
+		log_critf("failed to read: %s", odb_errstr(err));
+		return err;
+	}
+	buff = malloc(size);
+	err = edbs_jobread(job, buff, size);
+	if(err) {
+		log_critf("failed to read: %s", odb_errstr(err));
+		free(buff);
+		return err;
+	}
+
+	// echo...
+
+	err = edbs_jobwrite(job, &size, sizeof(size));
+	if(err) {
+		log_critf("failed to write: %s", odb_errstr(err));
+		free(buff);
+		return err;
+	}
+	err = edbs_jobwrite(job, buff, size);
+	if(err) {
+		log_critf("failed to write: %s", odb_errstr(err));
+		free(buff);
+		return err;
+	}
+	free(buff);
+	return 0;
+}
 
 // helper func to selectjob.
 //
@@ -55,6 +92,11 @@ static odb_err execjob(edb_worker_t *self) {
 		case ODB_JSTKDOWNLOAD:
 			err = edbw_u_structjob(self);
 			break;
+#ifdef EDB_JOBSTEST
+		case ODB_JTESTECHO:
+			err = echotest(self);
+			break;
+#endif
 		default:
 			err = ODB_EJOBDESC;
 			log_warnf("invalid job description hash: %04x", jobdesc);

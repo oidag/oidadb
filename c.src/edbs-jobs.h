@@ -35,6 +35,15 @@ typedef enum odb_jobtype_t {
 	, ODB_JSTKDOWNLOAD
 
 	// Dynamics
+
+	// Misc.
+
+	// This one is undocumented, used for testing purposes.
+	// installer will write and int for the count of bytes,
+	// the install will then write said bytes
+	// the executor will read those bytes, and write back to the installer
+	// the same count/bytes
+	, ODB_JTESTECHO
 } odb_jobtype_t;
 
 // unlike many of the other namespaces, we actually expose some structures
