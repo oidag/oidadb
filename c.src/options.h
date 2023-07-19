@@ -37,6 +37,12 @@
   #define EDB_FUCKUPS
 #endif
 
+// EDB_TESTJOBS
+//    The edbw will recognize testjobs.
+#ifndef _ODB_CD_RELEASE
+  #define EDB_JOBSTEST
+#endif
+
 // If EDB_OPT_PRA_OS is defined, then it will use the operating system's
 // native page replace algo. Otherwise, it will use a proprietary oidadb one.
 //#define EDB_OPT_PRA_OS

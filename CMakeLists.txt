@@ -28,6 +28,10 @@ add_executable(edbd_00 ${stdtestfiles}
         c.src/tests/10-edbd_00_t.c
         ${edbd_t})
 target_link_libraries(edbd_00 ${stdtestlibs})
+add_executable(edbd_01 ${stdtestfiles}
+        c.src/tests/10-edbd_01_t.c
+        ${edbd_t})
+target_link_libraries(edbd_00 ${stdtestlibs})
 
 #edbl
 file(GLOB edbl_t c.src/edbl*.c)
@@ -72,7 +76,18 @@ add_executable(edba_01 ${stdtestfiles}
         ${edbd_t}
         ${edbp_t})
 
+#edbw
+file(GLOB edbw_t c.src/edbw*.c)
+add_executable(edbw_00 ${stdtestfiles}
+        c.src/tests/18-edbw_00_t.c
+        ${edbw_t}
+        ${edbs_t}
+        ${edba_t}
+        ${edbl_t}
+        ${edbd_t}
+        ${edbp_t})
 
+target_link_libraries(edbw_00 ${stdtestlibs})
 
 add_executable(edbx_00 ${stdtestfiles}
         c.src/tests/20-edbx_00_t.c
