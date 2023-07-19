@@ -679,7 +679,12 @@ odb_err edbs_jobreadv(edbs_job_t j, ...) {
 		count = va_arg(args, int);
 		if((err = edbs_jobread(j, buff, count))) {
 			// (see NOTES)
-			if (i != 0 || err != ODB_EEOF) {
+			if(err == ODB_EEOF) {
+				if(i == 0) {
+					break;
+				}
+				// note: here we do NOT break. This means EOF was returned on a not the first set of buff.
+			} else {
 				break;
 			}
 		}

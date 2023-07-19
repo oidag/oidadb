@@ -14,8 +14,11 @@
 
 // See spec/edbs-jobs.org
 typedef enum odb_jobtype_t {
+
+	_ODB_JNONE // 0 is not a valid job id.
+
 	// Objects
-	ODB_JALLOC
+	, ODB_JALLOC
 	, ODB_JFREE
 	, ODB_JWRITE
 	, ODB_JREAD
