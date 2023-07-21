@@ -382,8 +382,8 @@ struct odbh_jobret odbh_jobj_read(odbh *handle
 
 	// write the oid+SVID
 	if((ret.err = edbs_jobwritev(job
-			, &structstat.svid, sizeof(structstat.svid)
 			, &oid, sizeof(oid)
+			, &structstat.svid, sizeof(structstat.svid)
 			,0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
