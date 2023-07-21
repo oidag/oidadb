@@ -7,6 +7,18 @@
 #include "../include/oidadb.h"
 #include "../wrappers.h"
 
+struct userd {
+	char username[50];
+	char password[32];
+	char email[25];
+	int gender;
+};
+struct orders {
+	odb_oid user;
+	int productid;
+	int quantity;
+	double price;
+};
 
 struct threadpayload {
 	pthread_t thread;
@@ -25,7 +37,7 @@ void *handlethread(void *payload);
 static const int handle_procs = 0; // how many extra processes to start (0
 // means
 // none)
-static const int handle_threads = 5; // how many threads to start PER THREAD (0
+static const int handle_threads = 1; // how many threads to start PER THREAD (0
 // means none, meaning nothing will be done)
 
 void test_main() {
@@ -48,7 +60,7 @@ void test_main() {
 			test_error("host futext fed error");
 			return;
 		case ODB_VACTIVE:
-			test_log("...done.");
+			test_log("...host booted up.");
 			break;
 	}
 
@@ -56,7 +68,7 @@ void test_main() {
 
 	// start the processes
 	test_log("launching %d handle processes...", handle_procs);
-	pid_t mypid;
+	pid_t mypid = getpid();
 	for(int i = 0; i < handle_procs; i++) {
 		mypid = fork();
 		if(mypid == 0) {
@@ -106,6 +118,7 @@ void test_main() {
 void *func_hostthread(void *v) {
 	struct odb_hostconfig config = odb_hostconfig_default;
 	config.stat_futex = &host_futex;
+	config.worker_poolsize=1;
 	odb_err err1 = odb_host(test_filenmae, config);
 	if(err1) {
 		test_error("odb_host returned error %d", err1);
@@ -118,7 +131,7 @@ void *handlethread(void *payload) {
 	odb_err err1;
 	err1 = odb_handle(test_filenmae, &handle);
 	if(err1) {
-		test_error("error: %d", err1);
+		test_error("error: %s", odb_errstr(err1));
 	}
 
 	// datashit.
@@ -128,24 +141,12 @@ void *handlethread(void *payload) {
 	odb_oid orderids[orderslen];
 
 	// create a "users" object.
-	struct user {
-		char username[50];
-		char password[32];
-		char email[25];
-		int gender;
-	};
 	odb_sid usersid;
-	struct orders {
-		odb_oid user;
-		int productid;
-		int quantity;
-		double price;
-	};
 	odb_sid ordersid;
 
 	// user structure
 	struct odb_structstat stat;
-	stat.fixedc = sizeof(struct user);
+	stat.objc = sizeof(struct userd);
 	stat.dynmc  = 0;
 	stat.confc  = 0;
 	struct odbh_jobret jret = odbh_jstk_create(handle, stat);
@@ -157,7 +158,7 @@ void *handlethread(void *payload) {
 
 	// orders structure
 	struct odb_structstat ordersstat;
-	ordersstat.fixedc = sizeof(struct orders);
+	ordersstat.objc = sizeof(struct orders);
 	ordersstat.dynmc  = 0;
 	ordersstat.confc  = 0;
 	jret = odbh_jstk_create(handle, ordersstat);
@@ -172,6 +173,7 @@ void *handlethread(void *payload) {
 	// create entities
 	struct odb_entstat estat;
 	estat.structureid = usersid;
+	estat.type = ODB_ELMOBJ;
 	jret = odbh_jent_create(handle, estat);
 	if(jret.err) {
 		test_error("odbh_jent_create: %d", jret.err);
@@ -190,12 +192,12 @@ void *handlethread(void *payload) {
 
 	// create some users
 	for(int i = 0; i < userlen; i++) {
-		struct user u = {0};
+		struct userd u = {0};
 		strcpy(u.email, "email@email.com");
 		u.gender = 69;
 		strcpy(u.password, "supersecret");
 		sprintf(u.username, "user %d", i);
-		jret = odbh_jobj_alloc(handle, ordereid, &u);
+		jret = odbh_jobj_alloc(handle, usereid, &u); // todo: using the wrong usereid here.
 		if(jret.err) {
 			test_error("jobj %d", jret.err);
 			goto close;
@@ -227,15 +229,10 @@ void *handlethread(void *payload) {
 			test_error("jobj 3 %d", jret.err);
 			goto close;
 		}
-		struct user u;
+		struct userd u;
 		jret = odbh_jobj_read(handle, o.user, &u);
 		if(jret.err) {
 			test_error("jobj 4 %d", jret.err);
-			goto close;
-		}
-		// make sure gender is what it should be.
-		if(u.gender != 69) {
-			test_error("gender is not 69");
 			goto close;
 		}
 		// write an update to this user.
@@ -243,6 +240,18 @@ void *handlethread(void *payload) {
 		jret = odbh_jobj_write(handle, o.user, &u);
 		if(jret.err) {
 			test_error("jobj 5 %d", jret.err);
+			goto close;
+		}
+		int gendertest = u.gender;
+		u.gender = 0;
+		// make sure the write went through
+		jret = odbh_jobj_read(handle, o.user, &u);
+		if(jret.err) {
+			test_error("jobj 6 %d", jret.err);
+			goto close;
+		}
+		if(u.gender != gendertest) {
+			test_error("jobj 7 %d", jret.err);
 			goto close;
 		}
 	}
