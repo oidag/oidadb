@@ -232,6 +232,7 @@ struct odb_structstat {
 	// the offset of the content. (past flags, dyanmics)
 	// do fixedc - start get the total size of the userobj.
 	unsigned int start;
+	unsigned int objc; // userobject length
 	unsigned int dynmc;
 	unsigned int confc;
 	void *confv;

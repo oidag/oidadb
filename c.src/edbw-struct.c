@@ -23,9 +23,9 @@ static odb_err stkcreate(edb_worker_t *self) {
 	// try to create a new structure
 	odb_sid o_sid;
 	odb_spec_struct_struct stk;
-	stk.fixedc = stkstat.fixedc;
 	stk.confc = stkstat.confc;
 	stk.data_ptrc = stkstat.dynmc;
+	stk.fixedc = stkstat.objc + sizeof(odb_spec_object_flags) + (stkstat.dynmc*sizeof(odb_dyptr)); // todo: this logic should be inside of edba_structopenc.
 	stk.flags       = 0;
 	err = edba_structopenc(handle, &o_sid, stk);
 	if(err) {

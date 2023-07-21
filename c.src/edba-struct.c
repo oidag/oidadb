@@ -300,8 +300,8 @@ struct odb_structstat edba_u_stk2stat(odb_spec_struct_struct stkr, odb_sid sid) 
 	stkstat.dynmc = stkr.data_ptrc;
 	stkstat.fixedc = stkr.fixedc;
 	stkstat.svid = stkr.version | (sid << 0x10);
-	stkstat.start = sizeof(odb_spec_object_flags)
-	                + sizeof(odb_dyptr)*stkr.data_ptrc;
+	stkstat.objc = stkr.fixedc - (sizeof(odb_spec_object_flags)
+	                + sizeof(odb_dyptr)*stkr.data_ptrc);
 	return stkstat;
 }
 
