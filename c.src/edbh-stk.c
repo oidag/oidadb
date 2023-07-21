@@ -85,8 +85,8 @@ struct odbh_jobret odbh_jstk_create(odbh *handle
 
 	// invals
 	if(handle == 0
-	   || structstat.fixedc < 4
-	   || structstat.fixedc > INT16_MAX
+	   || structstat.objc < 4
+	   || structstat.objc > INT16_MAX
 	   || structstat.dynmc > INT16_MAX
 	   || structstat.confc > INT16_MAX
 	   ) {

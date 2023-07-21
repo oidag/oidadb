@@ -75,7 +75,7 @@ odb_err odbh_structs(odbh *handle
 	o_struct->fixedc = handle->stkv[structureid].fixedc;
 	o_struct->confc = handle->stkv[structureid].confc;
 	o_struct->dynmc = handle->stkv[structureid].dynmc;
-	o_struct->start = handle->stkv[structureid].start;
+	o_struct->objc = handle->stkv[structureid].objc;
 	o_struct->svid  = handle->stkv[structureid].svid;
 
 	return 0;
@@ -233,7 +233,7 @@ struct odbh_jobret odbh_jobj_alloc(odbh *handle
 	if((ret.err = edbs_jobwritev(job
 			, &eid, sizeof(eid)
 			, &structstat.svid, sizeof(structstat.svid)
-			, usrobj, structstat.fixedc - structstat.start
+			, usrobj, structstat.objc
 			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
@@ -331,7 +331,7 @@ struct odbh_jobret odbh_jobj_write(odbh *handle
 	if((ret.err = edbs_jobwritev(job
 			, &oid, sizeof(oid)
 			, &structstat.svid, sizeof(structstat.svid)
-			, usrobj, structstat.fixedc - structstat.start
+			, usrobj, structstat.objc
 			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;
@@ -393,7 +393,7 @@ struct odbh_jobret odbh_jobj_read(odbh *handle
 	odb_err dieerr;
 	if((ret.err = edbs_jobreadv(job
 			, &dieerr, sizeof(dieerr)
-			, usrobj, structstat.fixedc - structstat.start
+			, usrobj, structstat.objc
 			, 0))) {
 		ret.err = edbs_joberr_trunc(ret.err);
 		return ret;

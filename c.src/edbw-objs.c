@@ -15,6 +15,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <errno.h>
+#include <malloc.h>
 
 // returns 0 if not match
 static int svid_good(uint32_t svid, odb_sid host_sid, uint16_t host_version) {
@@ -104,9 +105,7 @@ odb_err static _jreadwrite(edb_worker_t *self, int iswrite) {
 
 	if (iswrite) {
 		// read in the entire object.
-		edbs_jobread(job, edba_objectfixed(handle), (int)(stkstat.fixedc - stkstat.start));
-		// we actually continue past this because we want to write a no
-		// die-error
+		edbs_jobread(job, edba_objectfixed(handle), (int)(stkstat.objc));
 	}
 
 	// no die-error
@@ -115,7 +114,7 @@ odb_err static _jreadwrite(edb_worker_t *self, int iswrite) {
 
 	if(!iswrite) {
 		// send the object to the handle
-		edbs_jobwrite(job, edba_objectfixed_get(handle), (int)(stkstat.fixedc - stkstat.start));
+		edbs_jobwrite(job, edba_objectfixed_get(handle), (int)(stkstat.objc));
 	}
 
 	// done, close out.
@@ -173,7 +172,7 @@ odb_err static jalloc(edb_worker_t *self) {
 	}
 
 	// read in the entire object.
-	edbs_jobread(job, edba_objectfixed(handle), (int)stkstat.fixedc - (int)stkstat.start);
+	edbs_jobread(job, edba_objectfixed(handle), (int)stkstat.objc);
 
 	// no die-error
 	err = 0;
