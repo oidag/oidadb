@@ -73,6 +73,7 @@ odb_err edbs_jobwrite(edbs_job_t jh, const void *buff, int count) {
 		return ODB_EINVAL;
 	}
 #endif
+	if(!count) return 0;
 	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
 	uint8_t *jbuf = jh.shm->transbuffer + job->transferbuffoff;
 	int totalbytes = 0;
@@ -217,6 +218,7 @@ odb_err edbs_jobread(edbs_job_t jh, void *buff, int count) {
 		return ODB_EINVAL;
 	}
 #endif
+	if(!count) return 0;
 	edbs_shmjob_t *job = &jh.shm->jobv[jh.jobpos];
 	uint8_t *jbuf = jh.shm->transbuffer + job->transferbuffoff;
 	int totalbytes = 0;
