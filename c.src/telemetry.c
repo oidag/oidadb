@@ -478,3 +478,21 @@ void telemetry_workr_punload(unsigned int workerid, odb_pid pageid) {
 	};
 	odb_data_process(d);
 }
+void telemetry_job_added(unsigned int workerid, unsigned int jobslot) {
+	if(!telemenabled) return;
+	struct odbtelem_data d = {
+			.class = ODBTELEM_JOBS_ADDED,
+			.workerid = workerid,
+			.jobslot = jobslot,
+	};
+	odb_data_process(d);
+}
+void telemetry_job_complete(unsigned int workerid, unsigned int jobslot) {
+	if(!telemenabled) return;
+	struct odbtelem_data d = {
+			.class = ODBTELEM_JOBS_COMPLETED,
+			.workerid = workerid,
+			.jobslot = jobslot,
+	};
+	odb_data_process(d);
+}

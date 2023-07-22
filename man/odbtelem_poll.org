@@ -59,10 +59,14 @@ the buffer is cleared, at that point subsequent calls will return
 
 *** =ODBTELEM_JOBS_ADDED=
 
+/not implemented/
+
+ - =.workerid=
  - =.jobslot=
 
 *** =ODBTELEM_JOBS_COMPLETED=
 
+ - =.workerid=
  - =.jobslot=
 
 
