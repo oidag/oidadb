@@ -35,10 +35,8 @@ static odb_err stkcreate(edb_worker_t *self) {
 	// **defer: edba_structclose
 
 	// set the confv, if one was provided.
-	if(stk.confc) {
-		void *confv = edba_structconfv_set(handle);
-		edbs_jobread(job, confv, stk.confc);
-	}
+	void *confv = edba_structconfv_set(handle);
+	edbs_jobread(job, confv, stk.confc);
 
 	// close the structure: we're all done.
 	edba_structclose(handle);

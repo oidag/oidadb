@@ -155,6 +155,9 @@ odb_err edbs_jobinstall(const edbs_handle_t *shm,
 // int) over and over again, to denote the end of the arguments, supply a 0
 // for the subsequent argument.
 //
+// If edbs_jobread, edbs_jobwrite is called with a 0 count, then they will return instantly,
+// without error, as if they were not called at all.
+//
 // RETURNS (all of them are logged)
 //  - ODB_EINVAL - (first) buff is 0 and count is not 0.
 //  - ODB_EBADE - The executor tried to write first (before the installer), or,
