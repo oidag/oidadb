@@ -20,6 +20,9 @@ void telemetry_pages_decached(odb_pid pid);
 void telemetry_workr_accepted(unsigned int workerid, unsigned int jobslot);
 void telemetry_workr_pload(unsigned int workerid, odb_pid pageid);
 void telemetry_workr_punload(unsigned int workerid, odb_pid pageid);
+//void telemetry_job_added(unsigned int workerid, unsigned int jobslot); // later
+void telemetry_job_complete(unsigned int workerid, unsigned int jobslot);
+
 
 //todo:
 //void telemetry_jobs_added(unsigned int jobslot);

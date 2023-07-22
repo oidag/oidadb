@@ -1,5 +1,6 @@
 #include "edbw.h"
 #include "edbw_u.h"
+#include "telemetry.h"
 
 #include <strings.h>
 #include <malloc.h>
@@ -125,6 +126,7 @@ void static *workermain(void *_selfv) {
 			}
 		} else {
 			execjob(self);
+			telemetry_job_complete(self->workerid, self->curjob.jobpos);
 			edbs_jobclose(self->curjob);
 		}
 	}
