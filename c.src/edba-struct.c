@@ -163,19 +163,6 @@ void    edba_structclose(edba_handle_t *h) {
 	h->opened = 0;
 	h->openflags = 0;
 }
-const void *edba_structconf(edba_handle_t *h) {
-	// todo Need to first implement edbp_dynamic pages before I can deal with
-	// this
-	implementme();
-
-	//h->strct->dy_pointer...
-}
-odb_err edba_structconfset(edba_handle_t *h, void **conf) {
-	// todo
-	implementme();
-
-	//h->strct->dy_pointer...
-}
 odb_err edba_structdelete(edba_handle_t *h) {
 	// easy ptrs
 	edbl_handle_t *lockh = h->lockh;
@@ -310,7 +297,9 @@ const void *edba_structconfv_get(edba_handle_t *h) {
 		log_critf("edba_structconfv_set without having EDBA_FWRITE flag");
 		return 0;
 	}
-	implementme();
+	if(h->strct->content.confc) { // todo: remove this wrapper when the below implement me is done.
+		implementme();
+	}
 	return 0;
 }
 
@@ -319,6 +308,8 @@ void *edba_structconfv_set(edba_handle_t *h) {
 		log_critf("edba_structconfv_set without having EDBA_FWRITE flag");
 		return 0;
 	}
-	implementme();
+	if(h->strct->content.confc) { // todo: remove this wrapper when the below implement me is done.
+		implementme();
+	}
 	return 0;
 }
