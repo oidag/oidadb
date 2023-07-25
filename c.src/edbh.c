@@ -168,6 +168,8 @@ odb_err odb_handle(const char *path, odbh **o_handle) {
 
 void odb_handleclose(odbh *handle) {
 	// todo: should handle close implictly call odb_jclose just incase?
+	if(handle->indexv) free(handle->indexv);
+	if(handle->stkv) free(handle->stkv);
 	edbs_handle_free(handle->shm);
 	free(handle);
 	atomic_fetch_sub(&safety_threadwarn, 1);
