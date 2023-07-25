@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include "teststuff.h"
 #include "../include/oidadb.h"
+#include "../include/telemetry.h"
 #include "../wrappers.h"
 
 struct userd {
@@ -22,10 +23,12 @@ struct orders {
 
 struct threadpayload {
 	pthread_t thread;
+	int randr;
 };
 
 static struct shmobj {
 } shmobj;
+_Atomic unsigned int jobscomplete = 0;
 
 // forward declarations
 pthread_t hostthread;
@@ -40,7 +43,21 @@ static const int handle_procs = 0; // how many extra processes to start (0
 static const int handle_threads = 1; // how many threads to start PER THREAD (0
 // means none, meaning nothing will be done)
 
+const int host_workers = 1;
+
+const int stkjobs = 3; // not actually used
+const int entjobs = 3; // not actually used. just needs to be 2
+int userlen = 100;
+int readwritejobs = 10 * 4; // must be amultiple of 4.
+
+int orderslen = 100;
+
+void telem_jcomplete(struct odbtelem_data data) {
+	jobscomplete++;
+}
+
 void test_main() {
+	srand(3713713);
 	test_log("creating oidadb file...");
 	struct odb_createparams createparams = odb_createparams_defaults;
 	err = odb_create(test_filenmae, createparams);
@@ -48,6 +65,9 @@ void test_main() {
 		test_error("failed to create file");
 		return;
 	}
+
+	odbtelem(1, (struct odbtelem_params){0});
+	odbtelem_bind(ODBTELEM_JOBS_COMPLETED, telem_jcomplete);
 
 	test_log("starting host thread...");
 	pthread_create(&hostthread, 0, func_hostthread, 0);
@@ -80,6 +100,7 @@ void test_main() {
 	struct threadpayload pthreads[handle_threads];
 	test_log("launching %d handle threads...", handle_threads);
 	for(int i = 0; i < handle_threads; i++) {
+		pthreads[i].randr = rand();
 		pthread_create(&pthreads[i].thread, 0, handlethread, &pthreads[i]);
 		test_log("... created t%lx", pthreads[i].thread);
 	}
@@ -104,6 +125,15 @@ void test_main() {
 		}
 	}
 
+	// make sure everything was created
+	// note, this only accounts for the jobs executed on the main process, sense telemtry only
+	// works on the process the host is on.
+	int totaljobs = (stkjobs + entjobs + userlen + readwritejobs + orderslen) * handle_threads * (handle_procs+1);
+	if(jobscomplete != totaljobs) {
+		test_error("total jobs not expected: expected %d, got %d", totaljobs, jobscomplete);
+		return;
+	}
+
 	test_log("closing host...");
 	err = odb_hoststop();
 	if(err) {
@@ -117,8 +147,9 @@ void test_main() {
 
 void *func_hostthread(void *v) {
 	struct odb_hostconfig config = odb_hostconfig_default;
+	//config.slot_count=1;
 	config.stat_futex = &host_futex;
-	config.worker_poolsize=1;
+	config.worker_poolsize=host_workers;
 	odb_err err1 = odb_host(test_filenmae, config);
 	if(err1) {
 		test_error("odb_host returned error %d", err1);
@@ -127,6 +158,8 @@ void *func_hostthread(void *v) {
 }
 
 void *handlethread(void *payload) {
+	struct threadpayload* pl = payload;
+	unsigned int randr = pl->randr;
 	struct odbh *handle;
 	odb_err err1;
 	err1 = odb_handle(test_filenmae, &handle);
@@ -135,9 +168,7 @@ void *handlethread(void *payload) {
 	}
 
 	// datashit.
-	int userlen = 100;
 	odb_oid uids[userlen];
-	int orderslen = 1000;
 	odb_oid orderids[orderslen];
 
 	// create a "users" object.
@@ -194,10 +225,10 @@ void *handlethread(void *payload) {
 	for(int i = 0; i < userlen; i++) {
 		struct userd u = {0};
 		strcpy(u.email, "email@email.com");
-		u.gender = 69;
+		u.gender = rand_r(&randr);
 		strcpy(u.password, "supersecret");
 		sprintf(u.username, "user %d", i);
-		jret = odbh_jobj_alloc(handle, usereid, &u); // todo: using the wrong usereid here.
+		jret = odbh_jobj_alloc(handle, usereid, &u);
 		if(jret.err) {
 			test_error("jobj %d", jret.err);
 			goto close;
@@ -208,10 +239,10 @@ void *handlethread(void *payload) {
 	// create some orders
 	for(int i = 0; i < orderslen; i++) {
 		struct orders o = {0};
-		o.user = uids[rand() % userlen];
-		o.price = (double)rand();
+		o.user = uids[rand_r(&randr) % userlen];
+		o.price = (double)rand_r(&randr);
 		o.productid = i % 40;
-		o.quantity = rand() % 243;
+		o.quantity = rand_r(&randr) % 243;
 		jret = odbh_jobj_alloc(handle, ordereid, &o);
 		if(jret.err) {
 			test_error("jobj 2 %d", jret.err);
@@ -221,8 +252,9 @@ void *handlethread(void *payload) {
 	}
 
 	// randomly read order data
-	for(int i = 0; i < 100; i++) {
-		odb_oid orderid = orderids[rand() % orderslen];
+	// /4 because each itoration has 4 jobs
+	for(int i = 0; i < readwritejobs/4; i++) {
+		odb_oid orderid = orderids[rand_r(&randr) % orderslen];
 		struct orders o;
 		jret = odbh_jobj_read(handle, orderid, &o);
 		if(jret.err) {
