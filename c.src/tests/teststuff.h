@@ -25,11 +25,11 @@ fprintf(stream, prefix ": ");\
 vfprintf(stream, fmt, args); \
 fprintf(stream, "\n");               \
 if(err) {                            \
-fprintf(stream, "had odb_err: %d\n", err);\
+fprintf(stream, "had odb_err: %d (%s)\n", err, odb_errstr(err));\
 }\
 if(terr) { \
 errno = terr;                        \
-fprintf(stream, "had err: %d\n", terr);perror(prefix " had errno"); \
+fprintf(stream, "had err: %d (%s)\n", terr, strerror(terr)); \
 } \
 va_end(args);\
 errno = terr;}
@@ -68,31 +68,6 @@ double static timetoseconds(timepassed t) {
 	return (double)t/1000000;
 }
 
-
-// creates build/tests if it wasn't already created.
-// it will then cd into build/tests for easyness
-static int test_mkdir() {
-	char buff[200];
-	getcwd(buff, 200);
-	const char *dir = "build/test";
-	if(strcmp(basename(buff), "build") == 0) {
-		// we're already in build folder
-		dir = "test";
-	}
-	int err = mkdir(dir, 0777);
-	if(err == -1 && errno != EEXIST) {
-		test_error("failed to make build/tests");
-		return 1;
-	}
-	errno = 0; // clear out errno
-	err = chdir(dir);
-	if(err) {
-		test_error("failed to chdir into build/tests");
-		return 1;
-	}
-	return 0;
-}
-
 // must call test_mkdir first.
 // generates a file name, make sure it hasn't already been created.
 // see test_filename after.
@@ -107,7 +82,6 @@ void test_main();
 int main(int argc, const char **argv) {
 	const char *arg0 = argv[0];
 	// create an empty file
-	test_mkdir();
 	test_mkfile(argv[0]);
 	errno = 0;
 	test_main();

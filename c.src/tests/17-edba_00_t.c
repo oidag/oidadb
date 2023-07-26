@@ -346,7 +346,7 @@ void test_main() {
 	// hmmm... lets do a mysql benchmark
 	//mysql();
 }
-
+/*
 void mysql() {
 	printf("executing mysql...\n");
 	MYSQL *con = mysql_init(NULL);
@@ -444,4 +444,4 @@ void mysql() {
 	printf("mysql time-per-update: %fns\n", (double)totalmysqlupdate/(double)
 			records);
 	//printf("MySQL client version: %s\n", mysql_get_client_info());
-}
+}*/
