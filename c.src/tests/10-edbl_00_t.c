@@ -168,7 +168,7 @@ void test_main() {
 	              MAP_SHARED, shmfd, 0);
 	if(shmobj == MAP_FAILED) {
 		test_error("mmap");
-		if(ischild) return 1;
+		if(ischild) return ;
 		goto ret;
 	}
 	close(shmfd);
