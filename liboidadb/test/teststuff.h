@@ -15,8 +15,8 @@
 #include <libgen.h>
 #include <sys/time.h>
 
-odb_err err;
-static int test_waserror = 0;
+extern odb_err err;
+extern int test_waserror;
 #define stdlogthing(stream,prefix) { \
 	int terr = errno; \
 va_list args; \
@@ -41,9 +41,14 @@ static void test_error(const char *fmt, ...)  {
 	test_waserror = 1;
 }
 
+#define test_log(fmt, ...) _test_log (__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
-__attribute__ ((format (printf, 1, 2)))
-static void test_log(const char *fmt, ...)  {
+__attribute__ ((format (printf, 3, 4)))
+static void _test_log(const char *file, unsigned int line, const char *fmt, ...)  {
+
+	// trim the filename.
+
+	fprintf(stdout, "%s:%d: ", file, line);
 	stdlogthing(stdout, "test-stdout")
 }
 
@@ -71,7 +76,7 @@ double static timetoseconds(timepassed t) {
 // must call test_mkdir first.
 // generates a file name, make sure it hasn't already been created.
 // see test_filename after.
-char test_filenmae[100];
+extern char test_filenmae[100];
 static int test_mkfile(const char *argv0) {
 	sprintf(test_filenmae, "%s.oidadb", argv0);
 	unlink(test_filenmae);
@@ -79,19 +84,6 @@ static int test_mkfile(const char *argv0) {
 
 // we define main out here.
 void test_main();
-int main(int argc, const char **argv) {
-	const char *arg0 = argv[0];
-	// create an empty file
-	test_mkfile(argv[0]);
-	errno = 0;
-	test_main();
-	if(test_waserror) {
-		test_error("\n%s: test failed", arg0);
-		return 1;
-	} else {
-		test_log("\n%s: test passed", arg0);
-		return 0;
-	}
-}
+
 
 #endif

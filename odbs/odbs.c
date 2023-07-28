@@ -89,7 +89,7 @@ int main(int argc, const char **argv) {
 		printf("usage: %s ODB-FILE\nJust run the thing... its a interactive terminal app.\n", argv[0]);
 	}*/
 
-	filename = "../../build/cmakedebug/edba_00.oidadb";
+	filename = "../../build/cmakedebug/edbx_00.oidadb";
 	setvbuf(stdout, NULL, _IONBF, 0);
 
 	struct termios orignterm, newterm;

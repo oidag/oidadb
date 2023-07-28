@@ -1,53 +1,32 @@
-# Library source code
-lib_src := $(wildcard find c.src/*.c)
+build        := $(if $(build),$(build),build)
 
-# TESTING
-test_src := $(wildcard c.src/tests/*_t.c)
-test_exec := $(patsubst c.src/tests/%_t.c,build/tests/%_t,$(test_src))
-lib_obj_test := $(patsubst c.src/%.c,build/tests/%.o,$(lib_src))
 
-build/tests/%.o: c.src/%.c
+
+# Testing
+test:
+	@mkdir -p $(build)/test
+	build=../$(build)/release $(MAKE) test -C liboidadb.src
+
+# the library
+$(build)/release/liboidadb.so:
 	@mkdir -p `dirname $@`
-	gcc $(gcc_compile_args) -c $^ -o $@
+	build=../$(build)/release $(MAKE) -C liboidadb.src
 
-build/tests/%: gcc_compile_args = -g
-build/tests/%_t: c.src/tests/%_t.c $(lib_obj_test)
+# odb (s)hell
+$(build)/utils/odbs:
 	@mkdir -p `dirname $@`
-	gcc $(gcc_compile_args) -o $@ $^
-	$@
+	build=../$(build)/utils $(MAKE) -C odbs.src
 
-test: $(test_exec)
-
-
-# MANUAL
-manual_src := $(wildcard man/*.org)
-manual_html:= $(patsubst man/%.org,build/man/%.html,$(manual_src))
-build/man/%.html: man/%.org
+# The manual
+$(build)/man:
 	@mkdir -p `dirname $@`
-	emacs $< -Q --batch --kill --eval '(org-html-export-to-html)'
-	mv $(patsubst %.org,%.html,$<) $@
+	build=../$(build)/man $(MAKE) -C man	
 
-manual: $(manual_html)
-
-
-# RELEASE BUILDS
-# note: debug/test builds are done with cmake, not this makefile
-lib_obj_release := $(patsubst c.src/%.c,build/release/%.o,$(lib_src))
-
-build/release/%.o: gcc_compile_args = -fvisibility=hidden -fPIC -O3 -D_ODB_CD_RELEASE
-build/release/%.o: c.src/%.c
-	@mkdir -p `dirname $@`
-	gcc $(gcc_compile_args) -c $^ -o $@
-
-build/release/liboidadb.so: gcc_link_args=-fPIC -O3 -s -shared
-build/release/liboidadb.so: $(lib_obj_release)
-	@mkdir -p `dirname $@`
-	gcc $(gcc_link_args) -o $@ $^
 
 # PACKAGING
 # (builds + manual)
 
-includesrc = $(wildcard c.src/include/*.h)
+includesrc = $(wildcard src/include/*.h)
 build/oidadb-package.tar.gz: $(manual_src) $(manual_html) build/release/liboidadb.so $(includesrc)
 	@mkdir -p build/packaged/include
 	@mkdir -p build/packaged/manual-html
@@ -76,7 +55,7 @@ COMMITS=$(shell git rev-list --all --count)
 LASTCOMMIT=$(shell git log -1 --format=%cI)
 REVISION=$(shell git log -1 --format=%H)
 TODOCOUNT=$(shell grep -rne 'todo:' | wc -l)
-LINECOUNT=$(shell ( find ./spec ./c.src ./man -type f -print0 | xargs -0 cat ) | wc -l)
+LINECOUNT=$(shell ( find ./spec ./src ./man -type f -print0 | xargs -0 cat ) | wc -l)
 build/metrics.m4: .force
 	@mkdir -p build
 	echo 'dnl' > $@
