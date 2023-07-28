@@ -4,8 +4,8 @@
 #include <wait.h>
 #include <stdlib.h>
 #include "teststuff.h"
-#include "../include/oidadb.h"
-#include "../include/telemetry.h"
+#include <oidadb/oidadb.h>
+#include <oidadb/telemetry.h>
 #include "../wrappers.h"
 
 struct userd {

@@ -1,6 +1,6 @@
 
 #include "../edbd.h"
-#include "../include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "teststuff.h"
 
 

@@ -1,7 +1,7 @@
 #include "../edbd.h"
 #include "../edba.h"
-#include "../include/telemetry.h"
-#include "../include/oidadb.h"
+#include <oidadb/telemetry.h>
+#include <oidadb/oidadb.h>
 #include "teststuff.h"
 
 #include <mariadb/mysql.h>

@@ -1,8 +1,8 @@
 #define _GNU_SROUCE
 
 #include "../options.h"
-#include "../include/oidadb.h"
-#include "../include/telemetry.h"
+#include <oidadb/oidadb.h>
+#include <oidadb/telemetry.h>
 #include "teststuff.h"
 #include "../edbp.h"
 #include "../edbd.h"

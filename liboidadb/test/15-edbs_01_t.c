@@ -2,8 +2,8 @@
 
 #include "../edbd.h"
 #include "../edbs_u.h"
-#include "../include/telemetry.h"
-#include "../include/oidadb.h"
+#include <oidadb/telemetry.h>
+#include <oidadb/oidadb.h>
 #include "teststuff.h"
 #include "../wrappers.h"
 

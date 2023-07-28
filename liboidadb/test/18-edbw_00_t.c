@@ -7,9 +7,9 @@
 
 #include "../edbd.h"
 #include "../edba.h"
-#include "../include/telemetry.h"
-#include "../include/oidadb.h"
-#include "../include/oidadb.h"
+#include <oidadb/telemetry.h>
+#include <oidadb/oidadb.h>
+#include <oidadb/oidadb.h>
 #include "../edbw.h"
 #include "../edbw_u.h"
 #include "../wrappers.h"

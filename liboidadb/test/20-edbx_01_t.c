@@ -4,7 +4,7 @@
 #include <wait.h>
 #include <stdlib.h>
 #include "teststuff.h"
-#include "../include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "../wrappers.h"
 
 
