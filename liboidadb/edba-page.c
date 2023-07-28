@@ -1,6 +1,6 @@
 #include "edba.h"
 #include "edba_u.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 
 static void assignpage(edba_handle_t *h, odb_pid pid, void *page) {
 	h->pagehead = page;

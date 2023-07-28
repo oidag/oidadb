@@ -2,7 +2,7 @@
 #define _edbdFILE_H_ 1
 
 #include "odb-structures.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 
 #include <unistd.h>
 #include <fcntl.h>

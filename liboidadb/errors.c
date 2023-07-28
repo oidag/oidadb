@@ -2,7 +2,7 @@
 #include <stdarg.h>
 #include <errno.h>
 
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "errors.h"
 
 #define stdlogthing(stream,prefix) { \

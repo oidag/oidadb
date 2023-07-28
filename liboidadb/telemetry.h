@@ -4,8 +4,8 @@
 #endif
 
 #include "options.h"
-#include "include/oidadb.h"
-#include "include/telemetry.h"
+#include <oidadb/oidadb.h>
+#include <oidadb/telemetry.h>
 
 
 

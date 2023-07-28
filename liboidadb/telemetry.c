@@ -1,4 +1,4 @@
-#include "include/telemetry.h"
+#include <oidadb/telemetry.h>
 #include "options.h"
 #include "telemetry.h"
 #include "errors.h"

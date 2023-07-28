@@ -4,7 +4,7 @@
 #include "edbd.h"
 #include "errors.h"
 #include "edbw.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "edba.h"
 #include "edbs.h"
 #include "wrappers.h"

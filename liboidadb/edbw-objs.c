@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "edba.h"
 #include "edbw.h"
 #include "edbw_u.h"

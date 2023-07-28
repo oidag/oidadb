@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdatomic.h>
 #include "edbh_u.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "edbh_u.h"
 #include "edbh.h"
 #include "errors.h"

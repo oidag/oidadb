@@ -2,7 +2,7 @@
 
 #include "options.h"
 #include "telemetry.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "edbd.h"
 #include "errors.h"
 

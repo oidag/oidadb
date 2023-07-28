@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "edbl.h"
 #include "edba.h"
 #include "edba_u.h"

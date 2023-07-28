@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 
 #include "options.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "edbd.h"
 #include "errors.h"
 #include "edbd_u.h"

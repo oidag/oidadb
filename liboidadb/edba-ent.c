@@ -1,6 +1,6 @@
 #include "edba.h"
 #include "edba_u.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "telemetry.h"
 
 odb_err edba_entryopenc(edba_handle_t *h, odb_eid *o_eid, edbf_flags flags) {

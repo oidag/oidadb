@@ -1,7 +1,7 @@
 #include "edba.h"
 #include "edbl.h"
 #include "edba_u.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 
 // special imports from edbd
 

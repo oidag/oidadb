@@ -2,7 +2,7 @@
 #define _edbl_h_
 #include "options.h"
 #include "edbd.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 
 #include <unistd.h>
 #include <fcntl.h>

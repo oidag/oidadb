@@ -1,7 +1,7 @@
 #ifndef _edbtypes_h_
 #define _edbtypes_h_
 
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 
 #include <unistd.h>
 #include <stdint.h>

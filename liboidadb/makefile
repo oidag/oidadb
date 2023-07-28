@@ -9,14 +9,14 @@ lib_obj_release := $(patsubst %.c,$(build)/%.o,$(lib_src))
 
 default: $(build)/liboidadb.so
 
-$(build)/%.o: gcc_compile_args = -fvisibility=hidden -fPIC -O3 -D_ODB_CD_RELEASE
+$(build)/%.o: CFLAGS += -fvisibility=hidden -fPIC -O3 -D_ODB_CD_RELEASE
 $(build)/%.o: %.c
 	@mkdir -p `dirname $@`
-	gcc $(gcc_compile_args) -c $^ -o $@
+	gcc $(CFLAGS) -I../include -c $^ -o $@
 
-$(build)/liboidadb.so: gcc_link_args=-fPIC -O3 -s -shared
+$(build)/liboidadb.so: LDFLAGS += -fPIC -O3 -s -shared
 $(build)/liboidadb.so: $(lib_obj_release)
-	gcc $(gcc_link_args) -o $@ $^
+	gcc $(LDFLAGS) -o $@ $^
 
 # Testing
 test:

@@ -1,4 +1,4 @@
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 struct odbh_jobret odbh_jdyn_read(odbh *handle
 		, odb_oid oid
 		, int idx

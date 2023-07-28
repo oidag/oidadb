@@ -1,7 +1,7 @@
 #ifndef EDBH_U_
 #define EDBH_U_
 
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "edbh.h"
 #include "edbs.h"
 

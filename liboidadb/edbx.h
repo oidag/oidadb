@@ -2,7 +2,7 @@
 #define _edbHOST_H_
 
 #include "edbs.h"
-#include "include/oidadb.h"
+#include <oidadb/oidadb.h>
 #include "errors.h"
 
 #include <sys/types.h>
