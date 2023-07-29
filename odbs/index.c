@@ -1,22 +1,12 @@
 #include <stdio.h>
-#include "odb-explorer.h"
-#include "../edbd.h"
+#include "odbs.h"
 
 int index_print() {
-	int fd = open(filename, O_RDWR);
-	edbd_t handle;
-	edbd_config config = edbd_config_default;
-	config.forceopen = 1;
-	odb_err err = edbd_open(&handle, fd, config);
-	if(err) {
-		printf("err : %s\n", odb_errstr(err));
-		close(fd);
-		return 1;
-	}
-	printf("opened %s\n", filename);
-	printf("page size    - %d bytes (%d x %d)\n", handle.page_size, handle.head_page->intro.pagesize, handle.head_page->intro.pagemul);
-	printf("index pages  - %d pages\n", handle.head_page->indexpagec);
-	printf("struct pages - %d pages\n", handle.head_page->structpagec);
+
+	const odb_spec_head *head_page = odbfile_head();
+	printf("page size    - %d bytes (%d x %d)\n", odbfile_pagesize(), head_page->intro.pagesize, head_page->intro.pagemul);
+	printf("index pages  - %d pages\n", head_page->indexpagec);
+	printf("struct pages - %d pages\n", head_page->structpagec);
 
 	printf("\n");
 	printf("| %5s | %-14s | %5s | %5s | %5s | %5s | %5s | %7s | %7s | %9s | %9s |\n"
@@ -31,15 +21,10 @@ int index_print() {
 		   , "lst-lkp"
 			, "lkp-depth"
 			, "trashlast");
-	odb_spec_index_entry *ent;
+	const odb_spec_index_entry *ent;
 	for(odb_eid eid = 0; ; eid++) {
-		if((err = edbd_index(&handle, eid, &ent))) {
-			if(err == ODB_EEOF) {
-				break;
-			}
-			printf("eid %d: Error loading: %s\n", eid, odb_errstr(err));
-			continue;
-		}
+		ent = odbfile_ent(eid);
+		if(!ent) break;
 		if(ent->type == ODB_ELMINIT) {
 			continue;
 		}
@@ -57,7 +42,4 @@ int index_print() {
 		printf("\n");
 	}
 	printf("\n");
-
-	edbd_close(&handle);
-	close(fd);
 }

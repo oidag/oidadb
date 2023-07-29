@@ -3,93 +3,66 @@
 #include <unistd.h>
 #include <termios.h>
 #include <assert.h>
-#include "../include/oidadb.h"
-#include "odb-explorer.h"
+#include <oidadb/oidadb.h>
+#include "odbs.h"
 
-#define inputbuffq  512
-char inputbuffv[inputbuffq];
-const char *filename;
-
-const char *ontab(const char *strv, int charc) {
-	if(!charc) {
-		return "type \"help\" for commands";
-	}
-
-	return "not fucking clue.";
-}
-void setcommand(int up) {
-
-}
-void status(const char *status, int colpos) {
-	dprintf(STDOUT_FILENO, "\n\r\033[K%s\r", status);
-	dprintf(STDOUT_FILENO, "\033[A\033[%dC", colpos);
+int openodb() {
+	printf("opening %s...\n", cmd_arg.file);
 }
 
-char readlinebuff[256];
-int readline(const char *str) {
-	assert(inputbuffq > 1); // needs space for 1 character plus null character
-	dprintf(STDOUT_FILENO, "\033[37m%s\033[0m > ", str);
-	int colpos = strlen(str) + 3;
-	int i = 0;
-	int dobreak = 0;
-	char readchar;
-	while(!dobreak) {
-		ssize_t n = read(STDIN_FILENO, &readchar, 1);
-		if(n == -1) {
-			return -1;
+
+struct cmd cmds[] = {
+		{
+				.command     = "help",
+				.description = "show this dialog",
+				.func        = help,
+				.argc        = 0,
+		},
+		{
+				.command     = "open",
+				.description = "open (or switch to) an oidadb file",
+				.func        = openodb,
+				.argc        = 1,
+				.argv        = {&cmd_arg.file},
+		},
+		{
+				.command     = "index",
+				.description = "show the entity index",
+				.func        = index_print,
+				.argc        = 0,
+				.argv        = 0,
+		},
+		{
+				.command     = "page",
+				.description = "describe the contents of page at PID",
+				.func        = page_print,
+				.argc        = 1,
+				.argv        = {&cmd_arg.pid},
+		},
+		{
+				.command     = "obj",
+				.description = "print an object found on PID at object offset OFF",
+				.func        = print_obj,
+				.argc        = 2,
+				.argv        = {&cmd_arg.pid, &cmd_arg.offset},
+		},
+		{
+				.command     = "btree",
+				.description = "print out the btree starting at lookup page PID",
+				.func        = print_btree,
+				.argc        = 1,
+				.argv        = {&cmd_arg.pid},
 		}
-		switch(readchar) {
-			case '\004':
-				return -1;
-			case '\n':
-				dobreak=1;
-				break;
-			case '\t':
-				status(ontab(inputbuffv, i),colpos);
-				break;
+};
 
-			case 27: // escape
-
-				// read the next char, make sure
-				//read(STDIN_FILENO, &readchar, 1);
-				break;
-			case 0:
-				break;
-
-			case 127: // delete
-				if(i == 0) break;
-				dprintf(STDOUT_FILENO, "\33[D\33[K");
-				colpos--;
-				i--;
-				break;
-
-			default:
-				// echo out the character and add it to the buffer
-				write(STDOUT_FILENO, &readchar, 1);
-				inputbuffv[i] = readchar;
-				i++;
-				colpos++;
-				if(i == inputbuffq+1) {
-					// we have no more room in the buffer, bail out.
-					dobreak = 1;
-				}
-				break;
-		}
-	}
-	inputbuffv[i] = 0;
-	readchar = '\n';
-	write(STDOUT_FILENO, &readchar, 1); // write a new line
-	// kill any remaining buffer with the status
-	dprintf(STDOUT_FILENO, "\033[K");
-	return i;
-}
+int cmdc = sizeof(cmds)/sizeof(cmds[0]);
 
 int main(int argc, const char **argv) {
-	/*if(argc == 1 || (argc == 2 && !strcmp(argv[1], "--help"))) {
-		printf("usage: %s ODB-FILE\nJust run the thing... its a interactive terminal app.\n", argv[0]);
-	}*/
+	if(argc == 2 && !strcmp(argv[1], "--help")) {
+		printf("usage: %s FILE\nJust run the thing... its a interactive terminal app.\n", argv[0]);
+		return 0;
+	}
 
-	filename = "../../build/cmakedebug/edbx_00.oidadb";
 	setvbuf(stdout, NULL, _IONBF, 0);
 
 	struct termios orignterm, newterm;
@@ -99,40 +72,15 @@ int main(int argc, const char **argv) {
 	newterm.c_lflag &= ~(ECHO | ICANON | ECHOE | ECHOK | ECHOCTL) ;
 	tcsetattr(STDIN_FILENO, TCSANOW, &newterm);
 
-	index_print();
-	//page_print(65);
-	//page_print(33);
 
 
 	// set up the shell
-	while(1) {
-		//status("press tab at any time for help on whatever the hell you're doing.", 0);
-		int n = readline("odb-explorer");
-		if(n == -1) break;
-		if(!strcmp(inputbuffv, "help")) {
-			printf("Available commands: \n"
-//				    "  open [FILE] open a oidadb file\n"
-					"  index       show the entity index\n"
-					"  page [PID]  describe the contents of page at PID\n"
-					);
-			continue;
-		}
-		if(!strcmp(inputbuffv, "index")) {
-			index_print();
-			continue;
-		}
-		if(!strncmp(inputbuffv, "page", sizeof("page")-1)) {
-			odb_pid pid = 0;
-			sscanf(inputbuffv, "page %ld", &pid);
-			if(pid == 0) {
-				printf("not valid page id\n");
-				continue;
-			}
-
-			page_print(pid);
-			continue;
-		}
-		printf("%s (%d) - unknown command\n", inputbuffv, n);
-	}
+	shell_loop();
 	tcsetattr(STDIN_FILENO, TCSANOW, &orignterm);
 }
+
+const odb_spec_struct_struct *odbfile_stk(odb_sid sid){} // returns 0 on error/eof
+const odb_spec_index_entry   *odbfile_ent(odb_eid eid){} // returns 0 on error/eof
+const odb_spec_head          *odbfile_head(){}
+const void *odbfile_page(odb_pid){}
+unsigned int odbfile_pagesize(){}
