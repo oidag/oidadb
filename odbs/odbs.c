@@ -63,20 +63,12 @@ int main(int argc, const char **argv) {
 		return 0;
 	}
 
-	setvbuf(stdout, NULL, _IONBF, 0);
 
-	struct termios orignterm, newterm;
-	tcgetattr(STDIN_FILENO, &orignterm);
-	newterm = orignterm;
-
-	newterm.c_lflag &= ~(ECHO | ICANON | ECHOE | ECHOK | ECHOCTL) ;
-	tcsetattr(STDIN_FILENO, TCSANOW, &newterm);
 
 
 
 	// set up the shell
 	shell_loop();
-	tcsetattr(STDIN_FILENO, TCSANOW, &orignterm);
 }
 
 const odb_spec_struct_struct *odbfile_stk(odb_sid sid){} // returns 0 on error/eof

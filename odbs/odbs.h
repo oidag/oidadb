@@ -15,6 +15,8 @@ unsigned int odbfile_pagesize();
 
 int index_print();
 int page_print();
+int print_btree();
+int print_obj();
 
 
 #endif

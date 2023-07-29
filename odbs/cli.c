@@ -1,7 +1,9 @@
-#include "cli.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <termios.h>
+
+#include "cli.h"
 #include "assert.h"
 
 #define inputbuffq  512
@@ -182,6 +184,14 @@ int help() {
 }
 
 void shell_loop() {
+	setvbuf(stdout, NULL, _IONBF, 0);
+
+	struct termios orignterm, newterm;
+	tcgetattr(STDIN_FILENO, &orignterm);
+	newterm = orignterm;
+
+	newterm.c_lflag &= ~(ECHO | ICANON | ECHOE | ECHOK | ECHOCTL) ;
+	tcsetattr(STDIN_FILENO, TCSANOW, &newterm);
 	while(1) {
 		//status("press tab at any time for help on whatever the hell you're doing.", 0);
 		int n = readline("odbs");
@@ -202,4 +212,6 @@ void shell_loop() {
 			cmds[i].func();
 		}
 	}
+
+	tcsetattr(STDIN_FILENO, TCSANOW, &orignterm);
 }
