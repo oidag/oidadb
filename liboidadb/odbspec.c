@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include "odb-structures.h"
+#include <oidadb-internal/odbfile.h>
 #include "options.h"
 #include "errors.h"
 

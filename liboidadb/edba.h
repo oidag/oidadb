@@ -4,7 +4,7 @@
 #include "edbl.h"
 #include "edbp.h"
 #include "edbd.h"
-#include "odb-structures.h"
+#include <oidadb-internal/odbfile.h>
 
 
 // todo:

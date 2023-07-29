@@ -5,7 +5,7 @@
 #define _EDBA_UTIL_ 1
 
 #include "edba.h"
-#include "odb-structures.h"
+#include <oidadb-internal/odbfile.h>
 
 
 // returns ODB_EEOF if eid is out of bounds

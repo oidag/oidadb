@@ -5,7 +5,7 @@
 #include "edbw.h"
 #include "edbw_u.h"
 #include "edbs-jobs.h"
-#include "odb-structures.h"
+#include <oidadb-internal/odbfile.h>
 
 #include <stddef.h>
 #include <stdint.h>

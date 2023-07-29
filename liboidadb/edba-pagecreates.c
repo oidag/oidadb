@@ -1,6 +1,6 @@
 #include "edba_u.h"
 #include "edba.h"
-#include "odb-structures.h"
+#include <oidadb-internal/odbfile.h>
 #include "telemetry.h"
 
 #include <strings.h>

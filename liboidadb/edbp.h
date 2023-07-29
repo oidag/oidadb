@@ -1,7 +1,7 @@
 #ifndef _EDBP_PAGES_H_
 #define _EDBP_PAGES_H_ 1
 
-#include "odb-structures.h"
+#include <oidadb-internal/odbfile.h>
 #include <oidadb/oidadb.h>
 #include "edbd.h"
 #include "errors.h"

@@ -2,7 +2,7 @@
 #define _edbd_u_h
 
 #include "edbd.h"
-#include "odb-structures.h"
+#include <oidadb-internal/odbfile.h>
 
 // note: at this time these functions only work on database creation.
 // once we get to extending index/structure pages after the database has been

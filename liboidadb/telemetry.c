@@ -3,7 +3,7 @@
 #include "telemetry.h"
 #include "errors.h"
 #include "wrappers.h"
-#include "odb-structures.h"
+#include <oidadb-internal/odbfile.h>
 
 #include <strings.h>
 #include <stdatomic.h>

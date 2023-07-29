@@ -1,7 +1,7 @@
 #ifndef _edbdFILE_H_
 #define _edbdFILE_H_ 1
 
-#include "odb-structures.h"
+#include <oidadb-internal/odbfile.h>
 #include <oidadb/oidadb.h>
 
 #include <unistd.h>
