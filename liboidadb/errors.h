@@ -3,13 +3,15 @@
 
 #include "options.h"
 
+#define log_critf(fmt, ...) _log_critf(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+
 // with crits, if you have an errno to complain about make sure you don't purge it
 // as log_crit will look at errno and log what ever it is at the time.
 //
 // log_critf will preserve errno.
 //
 // log_critf will always return ODB_ECRIT
-odb_err log_critf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+odb_err _log_critf(const char *file, int line, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
 void log_error(const char *log);
 void log_errorf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));

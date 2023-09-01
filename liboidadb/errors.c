@@ -19,11 +19,20 @@ perror(prefix " (had errno)"); \
 va_end(args);\
 errno = terr;}
 
-void log_crit(const char *log) {
-	log_critf("%s", log);
-}
-odb_err log_critf(const char *fmt, ...) {
-	stdlogthing(stderr, "crit");
+
+odb_err _log_critf(const char *file, int line, const char *fmt, ...) {
+	int terr = errno;
+	va_list args;
+	va_start(args, fmt);
+	fprintf(stderr, "crit: ");
+	vfprintf(stderr, fmt, args);
+	fprintf(stderr, "\n");
+	if(terr) {
+		errno = terr;
+		perror("crit" " (had errno)");
+	}
+	va_end(args);
+	errno = terr;
 	return ODB_ECRIT;
 }
 
