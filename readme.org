@@ -1,3 +1,15 @@
+* OidaDB
+OidaDB is a project to reinvent the modern database. Supporting dynamic typing,
+geospatial R-Trees, arbitrary B-Trees, hardware accelerated queries, horizontal
+scalling, Machine Learning and AI interfacing, and much, much, much more.
+
+OidaDB "v0" was recently built tested and now OidaGroup inteneds to approach the
+"v1" of the database. v1 will have much of the same expectations although with
+a unique (patent pending) layered design.
+
+ - [[./spec/odbv0.org][See Version 1 file specification]]
+ - [[./spec/locking.org][...And its companion process locking structure]]
+
 * My rules for c programming
 
  - all files that are in the same directory are files that are known
