@@ -4,30 +4,27 @@ build        := $(if $(build),$(build),build)
 
 # Testing
 test:
-	@mkdir -p $(build)/test
-	build=../$(build)/release $(MAKE) test -C liboidadb.src
+	$(MAKE) test -C liboidadb
 
 # the library
-$(build)/release/liboidadb.so:
+liboidadb/build/liboidadb.so:
 	@mkdir -p `dirname $@`
-	build=../$(build)/release $(MAKE) -C liboidadb.src
+	$(MAKE) build/liboidadb.so -C liboidadb
 
 # odb (s)hell
-$(build)/utils/odbs:
-	@mkdir -p `dirname $@`
-	build=../$(build)/utils $(MAKE) -C odbs.src
+odbs/build/odbs:
+	$(MAKE) build/odbs -C odbs.src
 
 # The manual
-$(build)/man:
-	@mkdir -p `dirname $@`
-	build=../$(build)/man $(MAKE) -C man	
+man/build/man:
+	$(MAKE) build/man -C man	
 
 
 # PACKAGING
 # (builds + manual)
 
 includesrc = $(wildcard src/include/*.h)
-build/oidadb-package.tar.gz: $(manual_src) $(manual_html) build/release/liboidadb.so $(includesrc)
+build/oidadb-package.tar.gz: $(manual_src) $(manual_html) build/build/liboidadb.so $(includesrc)
 	@mkdir -p build/packaged/include
 	@mkdir -p build/packaged/manual-html
 	@mkdir -p build/packaged/manual-org
