@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <pthread.h>
+#include <malloc.h>
 
 enum hoststate {
 	HOST_NONE = 0,
@@ -28,7 +29,7 @@ enum hoststate {
 	HOST_CLOSING,
 };
 
-struct odbd_pages {
+typedef struct odb_desc {
 	int fd;
 
 	struct meta_block *block0;
@@ -42,7 +43,7 @@ struct odbd_pages {
 	int stack_current_offset;
 	int stack_capacity;
 	pthread_mutex_t stackmutex;
-};
+} odb_desc;
 
 struct checkout_options {
 // note that all pages for a single checkout_data all belong to the same group.
@@ -67,30 +68,18 @@ struct checkout_frame {
 	int data_count;
 };
 
+odb_err _odb_open(const char *path, odb_ioflags flags, mode_t mode, odb_desc *desc) {
 
-
-
-
-
-// not thread/process safe when creating
-// otherwise, if file exists (is initialized) then this function is therad and process safe
-odb_err odb_open(const char *path, odb_ioflags flags, mode_t mode, struct odbd_pages **o_descriptor) {
-	odb_err err = _odb_open(path, flags, mode, o_descriptor);
-	if(err) {
-		odb_close(*o_descriptor);
-	}
-	return err;
-}
-odb_err _odb_open(const char *path, odb_ioflags flags, mode_t mode, struct odbd_pages **o_descriptor) {
-
-	// INVAL
+	// invals
 	if(!strlen(path)) {
 		return ODB_EINVAL;
 	}
+	if((flags & ODB_PWRITE) && !(flags & ODB_PREAD)) {
+		return ODB_EINVAL;
+	}
 
-	struct odbd_pages host;
-	host.state = HOST_NONE;
-	host.flags = flags;
+	desc->state = HOST_NONE;
+	desc->flags = flags;
 
 	// convert our flags to mmap(2)/open(2) flags
 	int mmap_flags = 0;
@@ -103,57 +92,51 @@ odb_err _odb_open(const char *path, odb_ioflags flags, mode_t mode, struct odbd_
 		mmap_flags |= PROT_WRITE;
 		open_flags = O_WRONLY;
 	}
+	if(flags & ODB_PCREAT) {
+		open_flags |= O_CREAT | O_EXCL;
+	}
 	if((flags & (ODB_PWRITE | ODB_PREAD)) == (ODB_PWRITE | ODB_PREAD)) {
 		open_flags = O_RDWR;
 	}
-
+	open_flags |= O_CLOEXEC | O_LARGEFILE | O_SYNC;
 
 	// open (and create if specified) the file
-	host.state = HOST_OPENING_DESCRIPTOR;
-	int created = 0;
-	reopen:
-	host.fd = open64(path, open_flags
-	                             | O_SYNC
-	                             | O_LARGEFILE, mode);
-	if(host.fd == -1) {
+	desc->state = HOST_OPENING_DESCRIPTOR;
+	int created = flags & ODB_PCREAT;
+	desc->fd = open64(path, open_flags, mode);
+	if(desc->fd == -1) {
 		switch (errno) {
 			case ENOENT:
-				if((flags & ODB_PCREAT) && !created) {
-					created = 1;
-					open_flags |= (O_CREAT | O_EXCL);
-					goto reopen;
-				}
-				log_errorf("failed to open file %s: path of file does not "
-				           "exist",
-				           path);
 				return ODB_ENOENT;
+			case EEXIST:
+				return ODB_EEXIST;
 			default:
-				log_errorf("failed to open file %s", path);
 				return ODB_EERRNO;
 		}
 	}
+	// initialize the first super block
 	if(created) {
-		if(ftruncate(host.fd, blocksize()) == -1) {
+		if(ftruncate(desc->fd, ODB_PAGESIZE) == -1) {
 			log_errorf("failed to truncate file %s", path);
 			return ODB_EERRNO;
 		}
 	}
 
-	// map the metablock
-	host.state = HOST_OPENING_XLLOCK;
-	host.block0 = mmap64(0, blocksize(), mmap_flags,
-	                        MAP_SHARED,
-	                        host.fd,
-	                        0);
-	if(host.block0 == (void*)-1) {
+	// map the super block
+	desc->state = HOST_OPENING_XLLOCK;
+	desc->block0 = mmap64(0, ODB_PAGESIZE, mmap_flags,
+	                     MAP_SHARED,
+	                     desc->fd,
+	                     0);
+	if(desc->block0 == (void*)-1) {
 		log_errorf("failed to map super block");
 		return ODB_EERRNO;
 	}
 	// verify the super / initialize the super
 	if(created) {
-		initialize_super(host.block0);
+		super_create(desc->block0);
 	} else {
-		odb_err err = verify_super(host.block0);
+		odb_err err = super_load(desc->block0);
 		if(err) {
 			log_errorf("failed to verify super block");
 			return err;
@@ -161,21 +144,36 @@ odb_err _odb_open(const char *path, odb_ioflags flags, mode_t mode, struct odbd_
 	}
 
 	// all done
-	host.state = HOST_OPENING_FILE;
+	desc->state = HOST_OPENING_FILE;
 	return 0;
 }
 
-odb_err odb_close(struct odbd_pages *descriptor) {
+// not thread/process safe when creating
+// otherwise, if file exists (is initialized) then this function is therad and process safe
+odb_err odb_open(const char *file, odb_ioflags flags, odb_desc **o_descriptor) {
+	odb_desc *desc = malloc(sizeof(odb_desc));
+	*o_descriptor = desc;
+	odb_err err = _odb_open(file, flags, 0777, desc);
+	if(err) {
+		odb_close(*o_descriptor);
+		return err;
+	}
+	return 0;
+}
+
+
+odb_err odb_close(odb_desc *descriptor) {
 	odb_err err = 0;
 	switch (descriptor->state) {
 		case HOST_OPENING_FILE:
-			munmap(descriptor->block0, blocksize());
+			munmap(descriptor->block0, ODB_PAGESIZE);
 		case HOST_OPENING_XLLOCK:
 			close(descriptor->fd);
 		case HOST_OPENING_DESCRIPTOR:
 		case HOST_NONE:
 			break;
 	}
+	free(descriptor);
 	return err;
 }
 

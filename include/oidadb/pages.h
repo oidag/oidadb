@@ -4,7 +4,9 @@
 #include "common.h"
 #include "errors.h"
 
-typedef enum edb_ioflags {
+#define ODB_PAGESIZE 0x2000 /* 4096 * 2 */
+
+typedef enum odb_ioflags {
 
 	// Can only be read
 	ODB_PREAD = 1,
@@ -35,7 +37,7 @@ typedef uint64_t odb_pid;
 typedef uint64_t odb_bid;
 const odb_bid ODB_BID_END = 0xFFFFFFFFFFFFFFFF;
 
-export odb_err odb_open(const char *file, odb_ioflags flags, odb_desc *o_descriptor);
+export odb_err odb_open(const char *file, odb_ioflags flags, odb_desc **o_descriptor);
 export odb_err odb_close(odb_desc *desc);
 
 /**
