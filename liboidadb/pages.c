@@ -38,6 +38,10 @@ typedef struct odb_desc {
 
 	enum hoststate state;
 
+	// where the cursor is sense the last successful call
+	// to odbp_seek. Will always be a multiple of ODB_PAGESIZE
+	off64_t cursor;
+
 	// todo: fields below this line need to be updated
 	struct checkout_frame *stack; // prealloced
 	int stack_current_offset;
@@ -52,7 +56,7 @@ struct checkout_options {
 	odb_pid page;
 	int strait;
 	void *o_page;
-}
+};
 
 struct checkout_data {
 	struct checkout_options options;
@@ -60,7 +64,7 @@ struct checkout_data {
 
 	// (private vars)
 	// the array of version of each page when we checked it out (associative).
-	const odb_vid *version;
+	const odb_revision *version;
 };
 
 struct checkout_frame {
@@ -77,6 +81,9 @@ odb_err _odb_open(const char *path, odb_ioflags flags, mode_t mode, odb_desc *de
 	if((flags & ODB_PWRITE) && !(flags & ODB_PREAD)) {
 		return ODB_EINVAL;
 	}
+
+	// set the structure to a 0val.
+	memset(desc, 0, sizeof(*desc));
 
 	desc->state = HOST_NONE;
 	desc->flags = flags;
@@ -177,6 +184,17 @@ odb_err odb_close(odb_desc *descriptor) {
 	return err;
 }
 
+odb_err odbp_seek(odb_desc *desc, odb_bid block) {
+	uint64_t byte = block * ODB_PAGESIZE;
+	off64_t off = lseek64(desc->fd, byte, SEEK_SET);
+	if(off == (off64_t)-1) {
+		log_errorf("failed to seek to position");
+		return ODB_EERRNO;
+	}
+	desc->cursor = off;
+	return 0;
+}
+
 odb_err addframedata(struct checkout_frame *target, struct checkout_options *opt) {
 
 }
@@ -185,7 +203,7 @@ void dumpframedata(struct checkout_frame *target) {
 
 }
 
-odb_err odbh_checkout(struct odbd_pages *handle, struct checkout_options *opts, int opts_count) {
+odb_err odbp_checkout(odb_desc *desc, int count) {
 
 	// make sure all the pages are good
 	for(int i = 0; i < opts_count; i++) {

@@ -20,13 +20,13 @@ typedef enum odb_usage {
 } odb_usage;
 
 struct odb_block {
-	odb_version version;
+	odb_revision version;
 	odb_page *page;
 };
 
 
 struct odb_buffer_info {
-	size_t size;
+	uint32_t size;
 	odb_usage usage;
 	odb_ioflags flags;
 };

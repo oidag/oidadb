@@ -29,12 +29,8 @@ typedef uint64_t odb_rid;
 typedef uint64_t odb_pid;
 ///\}
 
-<<<<<<< Updated upstream
-=======
+typedef uint64_t odb_revision;
 
-typedef uint32_t odb_vid;
-
->>>>>>> Stashed changes
 // odbh is incomplete and a private structure.
 typedef struct odbh odbh;
 

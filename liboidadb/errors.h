@@ -1,6 +1,7 @@
 #ifndef _edbERRORS_H_
 #define _edbERRORS_H_ 1
 
+#include <oidadb/errors.h>
 #include "options.h"
 
 #define log_critf(fmt, ...) _log_critf(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
