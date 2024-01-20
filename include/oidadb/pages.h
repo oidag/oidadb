@@ -5,6 +5,7 @@
 #include "errors.h"
 
 #define ODB_PAGESIZE 0x2000 /* 4096 * 2 */
+#define ODB_BLOCKSIZE ODB_PAGESIZE
 
 typedef enum odb_ioflags {
 
@@ -35,6 +36,7 @@ typedef uint64_t odb_revision;
 // page".
 typedef uint64_t odb_pid;
 typedef uint64_t odb_bid;
+typedef uint64_t odb_gid; // group
 const odb_bid ODB_BID_END = 0xFFFFFFFFFFFFFFFF;
 
 export odb_err odb_open(const char *file, odb_ioflags flags, odb_desc **o_descriptor);
@@ -50,8 +52,8 @@ export odb_err odb_close(odb_desc *desc);
  * commit requires that the bound buffer be ODB_UBLOCKS
  */
 export odb_err odbp_seek(odb_desc *desc, odb_bid block);
-export odb_err odbp_checkout(odb_desc *desc, int count);
-export odb_err odbp_commit(odb_desc *desc, int count);
+export odb_err odbp_checkout(odb_desc *desc, int bcount);
+export odb_err odbp_commit(odb_desc *desc, int bcount);
 
 
 

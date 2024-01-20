@@ -89,6 +89,9 @@ typedef enum odb_err {
 	/// Something wrong with buffer size.
 	ODB_EBUFFSIZE,
 
+	/// Something wrong with buffer
+	ODB_EBUFF,
+
 	// issue regarding out-of-sync data changes.
 	ODB_ECONFLICT,
 
