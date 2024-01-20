@@ -1,0 +1,97 @@
+#+SETUPFILE: ~/.emacs.d/themes/stylish_white.theme
+#+TITLE: OidaDB Specification
+#+AUTHOR: Kevin Marschke
+
+Let us manage a list of all page versions in the database header. So
+the header offset of 123 will be the version of page offset 123.
+
+* Core library
+The core part of oidadb is its pages interface. This interface is
+inherited into more specific things such as the index, lookups,
+fixeddat, dyndat, ect. But All of these things all use the pages
+interface to perform their operations and expose interfaces simular to
+that.
+
+v1 will be JUST pages.
+
+
+Inheritance tree (for how data is structured, i think):
+
+Pages <- Entities <- Fixed Data    <- btrees
+                                   <- structure data
+                  <- Dynamic Data  <- ?also structured data?
+      <- ?Blobs
+
+** Thoughts on permissions
+
+Further down the line, I can add permissions to the overall
+interface. That is, every time checkout is called, it creates a
+"namespace" so child checkouts will have to follow the rules of that
+namespace. (think capabilities).
+
+
+how about the idea of *rejecting* merges by the parent. this will
+provide also the ability to accept them and call hooks.
+
+* Descriptor Engineering
+For an open descriptor of the database, we want to make sure we use
+the idea of commits, merges, ect.
+
+ - Open a file descriptor.
+ - Performing any operations without checking out is editing data
+   strait on the file. This may be useful to you, it may not be. But
+   it is allowed.
+ - Checkout - When you checkout, its like you freeze the database from
+   being edited by anything else. You won't see other's changes during
+   this time (unless their your own).
+ - Use - when you specify that you want to "use" a page, this means
+   that you are declaring the uses you need for a particular page. You
+   must specify the use of a page before you can modify/see its
+   contents. All calls to "use" add it to the checkout stack and are
+   all closed when a commit is successfully executed. You can also
+   specify a use to be a "full exclusive" - this will stop others from
+   accessing that page but also guanetee that no conflict can happen
+ - Commit - if the commit fails, a list of conflicts is shown by means
+   of a list of pages that have conflicts. Commit will not work until
+   these conflicts are marked as resolved. You can compare conflicts
+   between your pages (via odbh_page) and the upstream pages (that
+   conflict will return, but these upstream pages are readonly).
+ - Rollback - forget about all changes.
+
+
+You can call "checkout" multiple times to have recursive checkout frames.
+
+Once again, you can operate outside the checkout. 
+
+** Thoughts on networking
+
+With the "use" and checkout stuff. we can change the checkout/commit
+and stuff to operate through a socket instead of shared memory
+
+* ODB File
+** Layout/Definitions
+Inside of a OidaDB file (which can also be a block device) or
+"volume", as we call it, is broken up is into "pages". Pages are
+exactly 8192 bytes in length.
+
+An OidaDB's pages are then spit up into *Groups*. A Group is
+classified as 1024 subsequent pages. With the first 1024 pages
+belonging to Group 0, the next 1024 pages belonging to Group 1, and so
+forth.
+
+Inside each group, the first 2 pages are known as *Meta Pages*, the
+remaining 1022 pages are known as *Blocks* (aka User Pages).
+
+The first Meta Page in each group, known as the *Descriptor Page* is
+actully split up into 2 sections, each eactly 4096 bytes in
+length. The first section is the *Super Descriptor*, the second
+section is known as the *Group Descriptor*.
+
+The second Meta Page in each group is known as the *Version
+Index*. The Version Index is then split up into 8 byte unsigned
+integers known as *Versions* (1024 in total) that map to each page in
+the Group to represent its version. With the first two Version mapped
+to the Meta Pages and the remaining 1022 Versions mapped to the
+Blocks.
+
+
