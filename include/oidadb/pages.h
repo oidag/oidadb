@@ -40,7 +40,7 @@ typedef uint64_t odb_gid; // group
 const odb_bid ODB_BID_END = 0xFFFFFFFFFFFFFFFF;
 
 export odb_err odb_open(const char *file, odb_ioflags flags, odb_desc **o_descriptor);
-export odb_err odb_close(odb_desc *desc);
+export void odb_close(odb_desc *desc);
 
 /**
  * odbp_checkout and odbp_commit write to and read from the bound buffer

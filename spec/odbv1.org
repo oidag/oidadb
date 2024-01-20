@@ -94,4 +94,43 @@ the Group to represent its version. With the first two Version mapped
 to the Meta Pages and the remaining 1022 Versions mapped to the
 Blocks.
 
+* Descriptor Page
+As discussed in layout, the descriptor page has a super and group
+descriptor in a single 8KiB page. The Super Descriptor is required to
+be on the first Descriptor page of the volume. All other Descriptor
+pages can optionally have the Super Descriptor as backups, but the
+primary source of truth is the first super descriptor.
+** Super Descriptor
 
+| Name  | Type       | Description                                   |
+|-------+------------+-----------------------------------------------|
+| magic | uint8_t[2] | ODB Magic number, will always be {0xA6, 0xF0} |
+
+** Group Descriptor
+
+* Concurrency Control
+A single ODB file is assumed to be operated by an unlimited amount of
+processes at a given time. And each one of those processes can have
+their own threads, so there's a lot to consider here. So lets start at
+the beginning.
+
+** Creating/Opening an ODB file
+When creating a fresh ODB file, you're obliaged to write the first
+set of Meta Pages before the file can be opened up by subsequent
+processes. To prevent the condition to which multiple processes are
+attempting to create the same file, we always create odb files using
+the =O_EXCL= flag with =open(2)=.
+
+Once we have created a odb file, we still need to ward off other
+processes from trying to load our file until the first Meta Pages
+is complete. So, once we've created an odb file, we immediately place
+a =F_WRLCK= advisory lock using =fcntl(2)= on the first 2 bytes of the
+file (soon to be the magic number), we set up the first Descriptor
+Page and then only after we release the =F_WRLCK=. Conversely, when
+opening an odb file, we first place a =F_RDLCK= on said file's first 2
+bytes, read the magic number and make sure its valid, then relase the
+lock. This will ensure the file will always be properly initialized
+when opening a newly created odb file.
+
+Concurrently creating an ODB file from multiple different threads of
+the same process results in undefined behaviour.

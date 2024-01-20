@@ -36,11 +36,5 @@ struct group_descriptor {
 
 };
 
-struct meta_block {
-	// super_descriptor may be 0val if copies are not needed.
-	struct super_descriptor super;
-	struct group_descriptor group;
-};
-
 
 #endif
