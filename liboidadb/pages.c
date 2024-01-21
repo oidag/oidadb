@@ -1,9 +1,7 @@
 #define _LARGEFILE64_SOURCE
 
+#include "pages.h"
 #include "errors.h"
-#include "buffers.h"
-#include "blocks.h"
-#include "meta.h"
 
 #include <oidadb-internal/odbfile.h>
 #include <oidadb/buffers.h>
@@ -11,47 +9,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
-#include <pthread.h>
 #include <malloc.h>
 
-enum hoststate {
-	ODB_SNEW = 0,
-
-	// opening file
-	ODB_SFILE,
-
-	ODB_SALLOC,
-	ODB_SGROUP_LOAD,
-	ODB_SPREP,
-	ODB_SREADY,
-};
-
-typedef struct odb_cursor {
-	meta_pages group_meta;
-	odb_gid curosr_gid;
-	odb_pid cursor_pid;
-	odb_bid cursor_bid;
-	off64_t cursor_off;
-} odb_cursor;
-
-typedef struct odb_desc {
-	int fd;
-
-	// special flag set to 1
-	const char *unitialized;
-
-	meta_pages meta0;
-
-	odb_ioflags flags;
-
-	enum hoststate state;
-
-	odb_buf *boundBuffer;
-
-	// where the cursor is sense the last successful call
-	// to odbp_seek. Will always be a multiple of ODB_PAGESIZE
-	odb_cursor cursor;
-} odb_desc;
 
 struct checkout_options {
 // note that all pages for a single checkout_data all belong to the same group.
@@ -77,9 +36,9 @@ struct checkout_frame {
 };
 
 odb_err _odb_open(const char *path
-				  , odb_ioflags flags
-				  , mode_t mode
-				  , odb_desc *desc) {
+                  , odb_ioflags flags
+                  , mode_t mode
+                  , odb_desc *desc) {
 
 	odb_err err;
 
@@ -125,62 +84,40 @@ odb_err _odb_open(const char *path
 		}
 	}
 
-	// prepare the lock on the magic number.
-	struct flock64 flock = {
-			.l_start = 0,
-			.l_type = F_RDLCK,
-			.l_whence = SEEK_SET,
-			.l_pid = 0,
-			.l_len = 2,
-	};
-
 	// If we just created the file, we are obligated to initialize the first
 	// descriptor block. We need to upgrade our magic number lock to a exclusive
 	// lock.
 	if (created) {
 		desc->unitialized = path;
-		flock.l_type = F_WRLCK;
 	}
-	if(fcntl64(desc->fd, F_SETLKW64, flock) == -1) {
-		return ODB_EERRNO;
-	}
-	flock.l_type = F_UNLCK;
 	if (created) {
 
 		// initialize the odb file. We are only obligated to initialize the
 		// first meta pages.
-		err = meta_volume_initialize(desc->fd);
+		err = volume_initialize(desc->fd);
 		if (err) {
-			fcntl64(desc->fd, F_SETLKW64, flock);
+			// we make sure that if the volume failed to initialize under the
+			// circumstance of cricital or if it already exist, make sure the
+			// bail-out call to odb-close doesn't delete the file.
+			switch (err) {
+			case ODB_EEXIST:
+			case ODB_ECRIT: desc->unitialized = 0;
+			default:
+				break;
+			}
 			return err;
 		}
 
 		// after we leave this if statement, we can continue on to load it as
 		// normal.
+		desc->unitialized = 0;
 	}
 
 	// map the first super block
-	desc->state  = ODB_SALLOC;
-	err = meta_load(desc->fd, 0, &desc->meta0);
-	if(err) {
-		fcntl64(desc->fd, F_SETLKW64, flock);
+	desc->state = ODB_SALLOC;
+	err = volume_load(desc);
+	if (err) {
 		return err;
-	}
-
-	if (desc->meta0.sdesc->meta.magic != ODB_SPEC_HEADER_MAGIC) {
-		fcntl64(desc->fd, F_SETLKW64, flock);
-		return ODB_ENOTDB;
-	}
-	desc->unitialized = 0;
-	fcntl64(desc->fd, F_SETLKW64, flock);
-
-	desc->state = ODB_SGROUP_LOAD;
-	// we use 2 different mappings for our first block when initializing the
-	// cursor sense odbp_seek will de-load the group_meta when it doesn't need
-	// it anymore and we don't want it de-loading our meta0.
-	err = meta_load(desc->fd, 0, &desc->cursor.group_meta);
-	if(err) {
-		return 0;
 	}
 
 	// set the cursor
@@ -210,16 +147,15 @@ odb_err odb_open(const char *file, odb_ioflags flags, odb_desc **o_descriptor) {
 
 
 void odb_close(odb_desc *descriptor) {
-	if(!descriptor) return;
+	if (!descriptor) return;
 	switch (descriptor->state) {
-	case ODB_SREADY:
-	case ODB_SPREP: meta_unload(descriptor->cursor.group_meta);
-	case ODB_SGROUP_LOAD: meta_unload(descriptor->meta0);
+	case ODB_SREADY: group_unload(descriptor, descriptor->cursor.loaded_group);
+	case ODB_SPREP: volume_unload(descriptor);
 	case ODB_SALLOC: close(descriptor->fd);
 	case ODB_SFILE:
 	case ODB_SNEW: break;
 	}
-	if(descriptor->unitialized) {
+	if (descriptor->unitialized) {
 		unlink(descriptor->unitialized);
 	}
 	free(descriptor);
@@ -238,34 +174,25 @@ static off64_t pid2off(odb_pid pid) {
 odb_err odbp_seek(odb_desc *desc, odb_bid block) {
 
 	odb_cursor cursor;
+	odb_err    err;
 	cursor.curosr_gid = block / ODB_SPEC_BLOCKS_PER_GROUP;
 	cursor.cursor_bid = block;
 	cursor.cursor_pid = bid2pid(block);
 	cursor.cursor_off = pid2off(cursor.cursor_pid);
 
-	odb_err err;
-
-	if(cursor.curosr_gid != desc->cursor.curosr_gid) {
-		// group has changed, load the next group's meta
-		err = meta_load(desc->fd, cursor.curosr_gid, &cursor.group_meta);
-		if(err) {
-			return err;
-		}
-	} else {
-		cursor.group_meta = desc->cursor.group_meta;
+	err = group_truncate(desc, cursor.curosr_gid,
+			block % ODB_SPEC_BLOCKS_PER_GROUP);
+	if (err) {
+		return err;
 	}
 
-	off64_t off = lseek64(desc->fd, cursor.cursor_off, SEEK_SET);
-	if (off == (off64_t) -1) {
-		log_errorf("failed to seek to position");
-		return ODB_EERRNO;
+	err = group_load(desc, cursor.curosr_gid, &cursor.loaded_group);
+	if (err) {
+		return err;
 	}
 
-	// if we happened to switch groups, de-load the old meta
-	if(cursor.curosr_gid != desc->cursor.curosr_gid) {
-		meta_unload(desc->cursor.group_meta);
-	}
-
+	// unload the previous group if there was one.
+	group_unload(desc, desc->cursor.loaded_group);
 
 	desc->cursor = cursor;
 	return 0;
@@ -273,6 +200,7 @@ odb_err odbp_seek(odb_desc *desc, odb_bid block) {
 
 odb_err odbp_bind_buffer(odb_desc *desc, odb_buf *buffer) {
 	desc->boundBuffer = buffer;
+	return 0;
 }
 
 odb_err odbp_checkout(odb_desc *desc, int bcount) {

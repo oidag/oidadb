@@ -5,7 +5,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "buffers.h"
+#include "pages.h"
 #include "errors.h"
 
 odb_err odbh_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {

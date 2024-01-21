@@ -94,6 +94,20 @@ the Group to represent its version. With the first two Version mapped
 to the Meta Pages and the remaining 1022 Versions mapped to the
 Blocks.
 
+** Purity
+ODB files are by definition pure outputs, that is if the same
+operations are performed on 2 newly created ODB files, both of those
+files will be exactly the same. This principle means that no where in
+a raw ODB file (not including user data) do we store time stamps,
+UUIDs, seedless randoms, ect.
+
+Purity does not include the unpreditable properties of
+multi-processing: if multiple processes perform the same operations on
+two seperate files, there's no guarentee withing the ODB specification
+that the order to which the processes' operations will be
+predictable. But again, if we're talking about just 1 thread and 1
+process, performing the same series of operations on 2 newly created
+ODB files, then those two files will be identical.
 * Descriptor Page
 As discussed in layout, the descriptor page has a super and group
 descriptor in a single 8KiB page. The Super Descriptor is required to
