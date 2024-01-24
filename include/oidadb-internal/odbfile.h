@@ -18,6 +18,8 @@
 #define ODB_SPEC_BLOCKS_PER_GROUP 1022
 #define ODB_SPEC_METAPAGES_PER_GROUP 2
 
+#define ODB_SPEC_FLAG_GROUP_INIT 0x01
+
 // we export these fields in its own struct just so we make sure that
 // its packed. As the meta structure should be portable.
 struct super_meta {
@@ -33,15 +35,31 @@ struct super_meta {
 // right after the superblock is
 struct super_descriptor {
 	struct super_meta meta;
-	uint32_t          groups_created;
-	uint32_t          groups_limit; /* -1 means no limit */
+
+	// groups_offset_last is set to the last group index to which the file had
+	// been truncated too. So a new database
+	// would have 0, but when a second group is created, this will be 1.
+	//
+	// groups_offset_last does not describe what groups have been initialized, just
+	// how much room had been made.
+	//
+	// groups_limit is the maximum amount of groups that can possibly exist in
+	// this db. In a block device, groups_offset_last and groups_limit will always
+	// be equal.
+	odb_gid groups_offset_last;
+	odb_gid groups_limit; /* (odb_gid)-1 means no limit */
 	/* all other space is reserved */
 };
 
-
 // the blockgroup
 struct group_descriptor {
-	uint32_t blocks_created;
+
+	// see ODB_SPEC_FLAG_GROUP_* constants
+	uint16_t flags;
+	uint16_t blocks_created;
+
+	odb_gid group_offset;
+
 
 	/* all other space is reserved */
 };

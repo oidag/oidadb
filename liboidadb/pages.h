@@ -27,7 +27,6 @@ typedef struct odb_cursor {
 	odb_pid    cursor_pid;
 	odb_bid    cursor_bid;
 	off64_t    cursor_off;
-	meta_pages loaded_group;
 } odb_cursor;
 
 typedef struct odb_buf {
@@ -53,6 +52,7 @@ typedef struct odb_desc {
 	const char *unitialized;
 
 	meta_pages meta0;
+	meta_pages group;
 
 	odb_ioflags flags;
 
@@ -92,31 +92,40 @@ void volume_unload(odb_desc *desc);
 /**
  * Will make sure that the group offset exists in the file. If the file is a
  * regular file and does not contain the group offset, then the file is truncated
- * long enough to include said group.
+ * long enough to include said group. Does not initialize the group
+ * (see group_load).
  *
  * You can also include any amount of blocks to initialize into the group if
- * they haven't already been.
+ * they haven't already been.*
  *
  * In a special block device, this function will only really make sure that
  * goff/boff don't exceed the size of the device.
  *
  * Handles process locking.
  */
-odb_err group_truncate(odb_desc *desc, odb_gid goff, odb_bid bcount);
+odb_err group_truncate(odb_desc *desc, odb_gid goff);
 
 /**
- * Loads the meta pages for the provided group. Does not touch the super
- * descriptor. Will initialize everything else if it hasn't been already.
+ * Loads the meta pages for the provided group offset into desc->group. If
+ * desc->group is non-null then it is unloaded. If the given group has not
+ * been initialized, then it will be. Make sure the group offset has been
+ * truncated to via group_truncate.
+ *
+ * Does not touch the super descriptor associated with the group.
+ *
+ * On error, desc->group is not touched at all.
  *
  * Handles process locking.
  */
-odb_err group_load(odb_desc *desc, odb_gid gid, meta_pages *o_group);
+odb_err group_load(odb_desc *desc, odb_gid goff);
 
 /**
- * If group is null, nothing happens.
+ * Will unload desc->group and set it to null.
+ * If group is already null, nothing happens.
  */
-void group_unload(odb_desc *desc, meta_pages group);
+void group_unload(odb_desc *desc);
 
+// All blocks_* methods require that cursor.loaded_group be valid
 
 /**
  * Will lock the given blocks so that no other process can modify them.
@@ -166,5 +175,6 @@ odb_err
 blocks_versions(odb_desc *desc, odb_bid bid, int blockc, odb_revision *o_verv);
 
 odb_err blocks_copy(odb_desc *desc, odb_bid bid, int blockc, void *o_blockv);
+
 
 #endif //OIDADB_PAGESI_H

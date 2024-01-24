@@ -149,7 +149,7 @@ odb_err odb_open(const char *file, odb_ioflags flags, odb_desc **o_descriptor) {
 void odb_close(odb_desc *descriptor) {
 	if (!descriptor) return;
 	switch (descriptor->state) {
-	case ODB_SREADY: group_unload(descriptor, descriptor->cursor.loaded_group);
+	case ODB_SREADY: group_unload(descriptor);
 	case ODB_SPREP: volume_unload(descriptor);
 	case ODB_SALLOC: close(descriptor->fd);
 	case ODB_SFILE:
@@ -180,19 +180,15 @@ odb_err odbp_seek(odb_desc *desc, odb_bid block) {
 	cursor.cursor_pid = bid2pid(block);
 	cursor.cursor_off = pid2off(cursor.cursor_pid);
 
-	err = group_truncate(desc, cursor.curosr_gid,
-			block % ODB_SPEC_BLOCKS_PER_GROUP);
+	err = group_truncate(desc, cursor.curosr_gid);
 	if (err) {
 		return err;
 	}
 
-	err = group_load(desc, cursor.curosr_gid, &cursor.loaded_group);
+	err = group_load(desc, cursor.curosr_gid);
 	if (err) {
 		return err;
 	}
-
-	// unload the previous group if there was one.
-	group_unload(desc, desc->cursor.loaded_group);
 
 	desc->cursor = cursor;
 	return 0;
