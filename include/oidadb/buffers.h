@@ -22,11 +22,6 @@ typedef enum odb_usage {
 
 struct odb_buffer_info {
 	uint32_t bcount;
-
-	// Usage denotes what this buffer do when a checkout is performed.
-	// It can be ODB_UVERSIONS to checkout versions, ODB_UBLOCKS to
-	// checkout blocks, or ODB_UVERSIONS | ODB_UBLOCKS to checkout both.
-	//odb_usage   usage;
 	odb_ioflags flags;
 };
 

@@ -78,6 +78,9 @@ typedef enum odb_err {
 	/// Bad exchange
 	ODB_EBADE,
 
+	/// Bad descriptor
+	ODB_EBADF,
+
 	/// Something happened to the active stream/pipe
 	ODB_EPIPE,
 

@@ -8,7 +8,7 @@
 typedef struct meta_pages {
 	struct super_descriptor *sdesc;
 	struct group_descriptor *gdesc;
-	odb_revision (*versionv)[ODB_SPEC_PAGES_PER_GROUP];
+	odb_revision *versionv; // [ODB_SPEC_PAGES_PER_GROUP]
 } meta_pages;
 
 enum hoststate {
@@ -24,9 +24,7 @@ enum hoststate {
 
 typedef struct odb_cursor {
 	odb_gid    curosr_gid;
-	odb_pid    cursor_pid;
 	odb_bid    cursor_bid;
-	off64_t    cursor_off;
 } odb_cursor;
 
 typedef struct odb_buf {
@@ -52,7 +50,7 @@ typedef struct odb_desc {
 	const char *unitialized;
 
 	meta_pages meta0;
-	meta_pages group;
+	meta_pages group; // todo: do we need this?
 
 	odb_ioflags flags;
 
@@ -116,14 +114,23 @@ odb_err group_truncate(odb_desc *desc, odb_gid goff);
  * On error, desc->group is not touched at all.
  *
  * Handles process locking.
+ *
+ * The -g variant does the same but you can manually choose the load other than
+ * desc (note: desc is const). Does not handle unloading already loaded pages,
+ * which makes it prone to memory leaks if not used properly with group_unloadg.
  */
 odb_err group_load(odb_desc *desc, odb_gid goff);
+odb_err group_loadg(const odb_desc *desc, odb_gid gid, meta_pages *o_mpages);
 
 /**
  * Will unload desc->group and set it to null.
- * If group is already null, nothing happens.
+ * If group is already null, desc is null, or already unloaded, nothing happens.
+ *
+ * the -g variant is mor cruel in that undefined behaviour will occur if called
+ * with the group already unloaded
  */
 void group_unload(odb_desc *desc);
+void group_unloadg(meta_pages *group);
 
 // All blocks_* methods require that cursor.loaded_group be valid
 
@@ -135,46 +142,34 @@ odb_err blocks_lock(odb_desc *desc, odb_bid bid, int blockc);
 void blocks_unlock(odb_desc *desc, odb_bid bid, int blockc);
 
 /**
- * will return ODB_EVERSION if there is a version mis-match between the proposed
- * vers and the current version of the given blocks.
+ * Will make sure versions are a match on each block, back up said block, then
+ * attempt to commit the block. If there is any error, all changes to all blocks
+ * are reverted.
  *
- * Does NOT handle process locking, see blocks_lock
- */
-odb_err blocks_match_versions(odb_desc *desc
-                              , odb_bid bid
-                              , int blockc
-                              , const odb_revision *vers);
-
-/**
- * Takes the given blocks and backs them up, so the next call to blocks_rollback
- * will revert any changes made by blocks_commit_attempt.
- *
- * Does NOT handle process locking, see blocks_lock
- */
-odb_err blocks_backup(odb_desc *desc, odb_bid bid, int blockc);
-
-odb_err blocks_rollback(odb_desc *desc, odb_bid bid, int blockc);
-
-/**
- * attempts to update all blocks provided in the bidv array with the associative
- * blockv array. If this function returns an error, you should definitely call
- * blocks_rollback. If successful, then all the blocks were successfully updated
+ * Will update cursor on success
  *
  * Does NOT handle process locking, see blocks_lock
  */
 odb_err blocks_commit_attempt(odb_desc *desc
                               , odb_bid bid
                               , int blockc
-                              , const void *blockv);
+                              , const void *blockv
+							  , const odb_revision *verv);
 
 /**
+ * Copies the amount of blocks blockc and their versions into o_blockv and their
+ * versions into o_versionv. The starting block will be desc->cursor.cursor_bid.
+ * If no error is returned, desc->cursor.cursor_bid is incremented by blockc.
  *
  * Does NOT handle process locking, see blocks_lock
  */
-odb_err
-blocks_versions(odb_desc *desc, odb_bid bid, int blockc, odb_revision *o_verv);
+odb_err blocks_copy(odb_desc *desc
+					, int blockc
+					, void *o_blockv
+					, odb_revision *o_versionv);
 
-odb_err blocks_copy(odb_desc *desc, odb_bid bid, int blockc, void *o_blockv);
-
+// utility
+void page_lock(int fd, odb_pid page, int xl);
+void page_unlock(int fd, odb_pid page);
 
 #endif //OIDADB_PAGESI_H

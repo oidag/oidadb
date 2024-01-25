@@ -161,12 +161,6 @@ void odb_close(odb_desc *descriptor) {
 	free(descriptor);
 }
 
-static odb_pid bid2pid(odb_bid bid) {
-	uint64_t group_index = bid / ODB_SPEC_BLOCKS_PER_GROUP;
-	uint64_t meta_pages  = (group_index + 1) * ODB_SPEC_METAPAGES_PER_GROUP;
-	return meta_pages + bid;
-}
-
 static off64_t pid2off(odb_pid pid) {
 	return (off64_t) pid * ODB_PAGESIZE;
 }
@@ -177,8 +171,6 @@ odb_err odbp_seek(odb_desc *desc, odb_bid block) {
 	odb_err    err;
 	cursor.curosr_gid = block / ODB_SPEC_BLOCKS_PER_GROUP;
 	cursor.cursor_bid = block;
-	cursor.cursor_pid = bid2pid(block);
-	cursor.cursor_off = pid2off(cursor.cursor_pid);
 
 	err = group_truncate(desc, cursor.curosr_gid);
 	if (err) {
@@ -225,13 +217,7 @@ odb_err odbp_checkout(odb_desc *desc, int bcount) {
 		return err;
 	}
 
-	err = blocks_versions(desc, bid_start, blockc, verv);
-	if (err) {
-		blocks_unlock(desc, bid_start, blockc);
-		return err;
-	}
-
-	err = blocks_copy(desc, bid_start, blockc, blockv);
+	err = blocks_copy(desc, blockc, blockv, verv);
 	blocks_unlock(desc, bid_start, blockc);
 	if (err) {
 		return err;
@@ -270,22 +256,9 @@ odb_err odbp_commit(odb_desc *desc, int bcount) {
 		return err;
 	}
 
-	err = blocks_match_versions(desc, bid_start, blockc, verv);
-	if (err) {
-		blocks_unlock(desc, bid_start, blockc);
-		return err;
-	}
-
-	err = blocks_backup(desc, bid_start, blockc);
-	if (err) {
-		blocks_unlock(desc, bid_start, blockc);
-		return err;
-	}
-
-	err = blocks_commit_attempt(desc, bid_start, blockc, blockv);
+	err = blocks_commit_attempt(desc, bid_start, blockc, blockv, verv);
 	blocks_unlock(desc, bid_start, blockc);
 	if (err) {
-		blocks_rollback(desc, bid_start, blockc);
 		return err;
 	}
 

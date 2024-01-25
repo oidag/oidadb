@@ -16,11 +16,8 @@ odb_err odbh_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 	buf->info = buf_info;
 	odb_err err = 0;
 
-	// Make a dummy map that has PROT_NONE. This will allocate
-	// space and thus, we can re-map using the addresses found
-	// in the pre-allocated space during checkouts.
 	buf->blockv = mmap(0, ODB_PAGESIZE * buf_info.bcount
-	                   , PROT_NONE
+	                   , PROT_READ | PROT_WRITE
 	                   , MAP_ANON | MAP_PRIVATE
 	                   , -1
 	                   , 0);

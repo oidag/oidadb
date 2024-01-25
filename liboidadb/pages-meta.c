@@ -9,7 +9,7 @@
 #include "errors.h"
 #include "errno.h"
 
-static void page_lock(int fd, odb_pid page, int xl) {
+void page_lock(int fd, odb_pid page, int xl) {
 	struct flock64 flock = {
 			.l_type = F_RDLCK,
 			.l_start = (off64_t) page * ODB_PAGESIZE,
@@ -26,7 +26,7 @@ static void page_lock(int fd, odb_pid page, int xl) {
 	}
 }
 
-static void page_unlock(int fd, odb_pid page) {
+void page_unlock(int fd, odb_pid page) {
 	struct flock64 flock = {
 			.l_type = F_UNLCK,
 			.l_start = (off64_t) page * ODB_PAGESIZE,
@@ -91,12 +91,13 @@ odb_err volume_initialize(int fd) {
 }
 
 // helper to group_load.
-static void group_initialize(struct group_descriptor *new_desc) {
+static void group_initialize(struct group_descriptor *new_desc, odb_gid goff) {
 	new_desc->flags |= ODB_SPEC_FLAG_GROUP_INIT;
+	new_desc->group_offset = goff;
 }
 
-odb_err group_load(odb_desc *desc, odb_gid gid) {
-
+// note: desc is const.
+odb_err group_loadg(const odb_desc *desc, odb_gid gid, struct meta_pages *o_mpages) {
 #ifdef EDB_FUCKUPS
 	if (desc->meta0.sdesc->groups_offset_last < gid) {
 		return log_critf("cannot load group, index does not exist");
@@ -139,14 +140,27 @@ odb_err group_load(odb_desc *desc, odb_gid gid) {
 		page_lock(fd, pid, 1);
 		if (!(*gflags & ODB_SPEC_FLAG_GROUP_INIT)) {
 			// yup, certainly not initialized, go ahead and do so.
-			group_initialize(newmetapages.gdesc);
+			group_initialize(newmetapages.gdesc, gid);
 		}
 		page_unlock(fd, pid);
 	}
 
 	// switch out the loaded group.
+	*o_mpages = newmetapages;
+	return 0;
+}
+
+odb_err group_load(odb_desc *desc, odb_gid gid) {
+
+	meta_pages ngroup;
+	odb_err err = group_loadg(desc, gid, &ngroup);
+	if(err) {
+		return err;
+	}
+
+	// switch out the loaded group.
 	group_unload(desc);
-	desc->group = newmetapages;
+	desc->group = ngroup;
 	return 0;
 }
 
@@ -203,6 +217,15 @@ odb_err group_truncate(odb_desc *desc, odb_gid goff) {
 	return 0;
 }
 
+void group_unloadg(meta_pages *group) {
+	int ret = munmap(group->sdesc, ODB_SPEC_SUPER_DESC_SIZE +
+	                              ODB_SPEC_GROUP_DESC_SIZE +
+	                              ODB_SPEC_VERSIONPAGE_SIZE);
+	if (ret == -1) {
+		log_critf("failed to munmap group");
+	}
+}
+
 void group_unload(odb_desc *desc) {
 	if (!desc) return;
 	meta_pages group = desc->group;
@@ -210,13 +233,9 @@ void group_unload(odb_desc *desc) {
 		log_debugf("mutliple calls to group_unload");
 		return;
 	}
-
-	int ret = munmap(group.sdesc, ODB_SPEC_SUPER_DESC_SIZE +
-	                              ODB_SPEC_GROUP_DESC_SIZE +
-	                              ODB_SPEC_VERSIONPAGE_SIZE);
-	if (ret == -1) {
-		log_critf("failed to munmap group");
-	}
+	group_unloadg(&group);
 	group.sdesc = 0;
+	group.gdesc = 0;
+	group.versionv = 0;
 }
 
