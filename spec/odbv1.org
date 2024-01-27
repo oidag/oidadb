@@ -69,7 +69,7 @@ With the "use" and checkout stuff. we can change the checkout/commit
 and stuff to operate through a socket instead of shared memory
 
 * ODB File
-** Layout/Definitions
+** Overview and Layout
 Inside of a OidaDB file (which can also be a block device) or
 "volume", as we call it, is broken up is into "pages". Pages are
 exactly 8192 bytes in length.
@@ -79,20 +79,23 @@ classified as 1024 subsequent pages. With the first 1024 pages
 belonging to Group 0, the next 1024 pages belonging to Group 1, and so
 forth.
 
-Inside each group, the first 2 pages are known as *Meta Pages*, the
-remaining 1022 pages are known as *Blocks* (aka User Pages).
+Inside each group, the first page is known the *Meta Pages*, the
+remaining 1022 pages are known as the content of that group.
 
-The first Meta Page in each group, known as the *Descriptor Page* is
-actully split up into 2 sections, each eactly 4096 bytes in
-length. The first section is the *Super Descriptor*, the second
-section is known as the *Group Descriptor*.
+The Meta Page in each group, known as the *Descriptor Page* is actully
+split up into 2 sections, each eactly 4096 bytes in length. The first
+section is the *Super Descriptor*, the second section is known as the
+*Group Descriptor*. The Group Descriptor details the contents of the
+group, also known as the [[Group Types][Group Type]]. As a quick overview, there's two
+main types of groups in a ODB file: Index Groups and Data Groups,
+index groups are just a list pointers to pages in data groups but also
+include a version.
 
-The second Meta Page in each group is known as the *Version
-Index*. The Version Index is then split up into 8 byte unsigned
-integers known as *Versions* (1024 in total) that map to each page in
-the Group to represent its version. With the first two Version mapped
-to the Meta Pages and the remaining 1022 Versions mapped to the
-Blocks.
+When you combine a Version with a page from a Data Group, you get what
+we call a *[[Blocks]]*. In otherwords, a given block has some data as well
+as a number describing the version of said data, everytime the data is
+changed, its version is incremeneted by 2 (for reasons why its
+incremeneted by 2 instead of 1, see [[Atomics]] chapter).
 
 ** Purity
 ODB files are by definition pure outputs, that is if the same
@@ -108,6 +111,227 @@ that the order to which the processes' operations will be
 predictable. But again, if we're talking about just 1 thread and 1
 process, performing the same series of operations on 2 newly created
 ODB files, then those two files will be identical.
+
+* Blocks
+Blocks are the fundemental element to the entire database. Those
+wanting to use ODB files will be storing and getting their data in and
+from blocks. What /exactly/ is inside of a given block is completely
+arbitrary. That is for the user to figure out, the database really
+doesn't care what you use the blocks for, just that you can read and
+write from and to them quickly and atomically.
+
+A block is defined as a single page of data that has a single version
+describing it. If that page of data changes, its version is updated,
+but the block ID never changes.
+
+** Block ID
+Each block in a given database has its own unique block id. The ID is
+synonmous with block offset, meaning block ID 0 is the first block of
+the database, block 1 is the second, and so on. When looking at index
+pages inside of an Index Group, you have a list of [[Index][indices]] that
+describe blocks. Itf we pretened that the index page we're looking at
+is the first index page of the first index group, we know that the
+first index is pointing to block ID 0.
+
+** Atomics
+Lets say we want to read the contents of block ID 0. So we go to the
+index page and find that block ID 0 is version $V_1$ and its data page
+is located at data page $P_1$. We follow $P_1$ and read it's data, but
+don't write anything. Now if we go back to that index page, we may
+notice that it's version has sense been updated to $V_2$ and its data
+page is now $P_2$ has completely been changed... what happened? What
+happened to that $P_1$ page we just read?
+
+Well, the way ODB files are designed is that everytime you update a
+block, you must create a completely new data page to hold the new
+updated data. And only /after/ you're sure that the new data page is
+fully written do you update the block's meta data (data page and
+version). This is so, if the system crashses before the meta data is
+written, then the changes you attempted to write are completely rolled
+back. This has also the added benifit of other process having the
+older data page mapped (see =mmap(2)=) do not have their copy of data
+changed. So going back to our scenario, we now see that our $P_1$ data
+page that contains our $V_1$ may actually still exist somewhere in the
+database, its just that the block is now pointing to a more up-to-date
+copy of the data.
+
+But those of you with a keen eye may have noticed a problem... if we
+only create data pages, and never update existing ones, that means
+eventually the database will fill up with old, outdated junk data from
+previous block versions. How do we know when a given data page is safe
+to re-use? For that we use our [[Trash List]].
+
+* Index Group
+
+An Index Group is what give us instrunctions as to where to find
+[[Blocks]] and their associated data and versions. An index group is full
+of index pages, and index pages contain indices (or indexes, if you
+hate the british). Indexes simply list the location of the data page
+as well as the version of the data.
+
+** Index Group Descriptor
+
+| Name         | Type        | Description                                            |
+|--------------+-------------+--------------------------------------------------------|
+| flags        | uint16_t    | See [[Group Flags]], the type mask will equal 0x4          |
+| rsvd0        | uint16_t    |                                                        |
+| group_offset | odb_gid     | This group's offset                                    |
+
+** Index Structure
+
+Indexs are simple. All pages are just the arrays of the following
+structure. Inside of an index page there is room for 512 total
+indexes per page.
+
+| Name      | Type        | Description       |
+|-----------+-------------+-------------------|
+| data_page | odb_pid     | [[Data Page Address]] |
+| block_ver | odb_version | block version     |
+
+** Compression of the index :MVP:
+In later versions of the database, users should be able to customize
+how the index structure. Specifically, it won't be a bad idea to
+downgrade the ~block_ver~ to only a 32 bit unsigned integer. 64 bits
+for a version seems a bit overkill, but we'll settle with 64 bits for
+simplicitly right now.
+
+** Static vs Active operation
+Sense a single index page can reference up to exatly 512 data pages,
+we know that 1 fully saturated index page requires exactly half a
+block group. However, When you look at an index page, but no software
+is currently acting upon the software, you are witnessing a /static/
+index: nothing is moving, everything is easy to understand. But in
+practice, with an operating or /active/ database we have to account
+for something not forseen in our static example.
+
+Remeber that when a new version of a block needs to be written, it
+needs to use a previously unused block to write the new version, and
+when that is fully written and synced up only then does it update the
+previous block's data page reference and mark the old page for trash?
+Well you see, in that breif period our block required at least 2
+different blocks.
+
+** Only 1 index group :MVP:
+The first group of a volume will be an index group. As of time of
+writting this, this will be the only index group of the volume. This
+limits our operational max database size to 8GiB. But in later
+versions, subsequent index groups will be implemented.
+
+* Data Group
+
+Data groups are pages of arbitrary user information. Each page in a
+given group can mean something entirely seperate. When looking at an
+individual data group, there's no realistic way you can deduce where
+each page is used. You must have the all the index pages on hand to
+deduce the use of a single data page.
+
+To add a bit more chaos, index pages address data pages by their page
+offset, which is completely agnostic to whatever group it is in. Thus,
+it is imparitive that software implementing odb files do not lack on
+the book-keeping: if a single data page is left without a index
+reference and is outside of the [[Trash List]], then that data page is
+effecitvely dead weight for the remainder of the database's lifetime
+unless extensive and intense secretion jobs are ran to find orphaned
+pages.
+
+In otherwords, at any given point, a static data page will either
+belong to a block, or, be in the trash list.
+
+** Data Group Descriptor
+
+| Name           | Type      | Description                                        |
+|----------------+-----------+----------------------------------------------------|
+| flags          | uint16_t  | See [[Group Flags]], the type mask will equal 0x0      |
+| rsvd0          | uint16_t  |                                                    |
+| group_offset   | odb_gid   | This group's offset                                |
+| trash_ref_last | [[Trash Ref][trash_ref]] | The last trash page of the data group or otherwise  |
+
+Note: we use a full =trash_ref= structure marking the last page of the
+trash linked list instead of just a normal =uint16_t= for the edge
+case that the last trash page is also the only trash page: we use the
+=trash_ref= to help the atomic operations needed to perform [[PoppingTrash List][Trash
+Popping]]. If you're reading this document chronologically, you have no
+idea what the hell I just said, so keep reading and come back to this
+paragaph and you'll understand it then.
+
+* Trash List
+The trash list is stored on a set of data pages within a data group
+that have been commandeered to be used as Trash Pages. Trash Pages
+contain references to data pages (within the same data group), so long
+that the data page is referenced in this matter, it is considered
+trash.
+
+A group's Trash List is a Last In First Out (LIFO) system. Where as
+when we add trash pages, we /push/ them to the list, and as we remove
+trash pages, we /pop/ them.
+
+** Trash Page
+A Trash Page is a special page that exists in a data group that lists
+out some of the pages in the data group that are consided trash, this
+is by definition any data page in the group that isn't a trash page
+itself nor referenced in any index group.
+
+As items are removed from a Trash Page, the references are nulled
+out. Once a trash page is completely empty, and the next time a new
+page is needed to be removed from the trash, the new empty trash page
+will then convert itself into a normal data page.
+
+Thus, for the edge case that all pages in a data group except for 1
+are not trash... that 1 page will actually be a Trash Page with no
+references on it. And the instant where another page is needed from
+that group, that last Trash Page sacrifices itself and converts to a
+data page and the [[Data Group Descriptor][Data Group's Descriptor]] =trash_ref_last= is marked
+as null.
+
+At no point can any Trash Ref be nulled out unless that Trash Ref is
+on the current last Trash Page of the group (meaning the Trash Page's
+=next= header is null).
+
+If a Trash Page fills up, the next time a page needs to be added to
+the list, it will add itself not as trash itself, but as a Trash
+Page. When this happens, make sure to update the =previous= / =next=
+references accordingly as well as the group's =trash_ref_last=.
+
+All trash pages are structured as follows:
+
+| Name       | Type             | Description                                                |
+|------------+------------------+------------------------------------------------------------|
+| previous   | uint16_t         | The data page offset pointing to the previous trash page   |
+| rsvd0      | uint16_t         | The same as previous but the next in the linked list       |
+| rsvd1      | uint32_t         |                                                            |
+| trash refs | [[Trash Ref][~trash_ref~]][681] | Normal trash references                                    |
+| next       | trash_ref        | The last trash ref is the reference to the next Trash Page |
+
+If =previous= or =next= happens to be =(uint16_t)-1=, that means there
+is no previous/next page respectively.
+
+*** Trash Ref
+After the header, it will contain an array of the following structure,
+known as a Trash Ref. The reason we use ~trash_ref~ instead of just a
+simple list of uint16_t offset of pages is because the ~trash_ref~
+structure is needed in order to atomically guarentee popping and
+pushing of new trash pages. We'll discose all that action in later
+chapters.
+
+| Name           | Type     | Description                                |
+|----------------+----------+--------------------------------------------|
+| data_page_off  | uint16_t | The offset of the datapage that is trashed |
+| rsvd0          | uint16_t |                                            |
+| back_reference | odb_bid  | The block ID                               |
+
+With the header being only 8 bytes in length, this leaves our page
+with 8,184 bytes of data for our array of the above structure. Our
+structure, being only 12 bytes long leaves us a total of 682 Trash
+Refs per Trash Page. However, the last trash ref will not point to a
+data page but a trash page. We do this the same reason we use a full
+~trash_ref~ structure in the group's descriptor: when the time comes
+to conver the Trash Page into a normal data page we need the full
+structure for atomic reasons.
+
+If =data_page_off= happens to be =(uint16_t)-1=, then that means it is
+an empty/null reference.
+
+
 * Descriptor Page
 As discussed in layout, the descriptor page has a super and group
 descriptor in a single 8KiB page. The Super Descriptor is required to
@@ -116,11 +340,116 @@ pages can optionally have the Super Descriptor as backups, but the
 primary source of truth is the first super descriptor.
 ** Super Descriptor
 
-| Name  | Type       | Description                                   |
-|-------+------------+-----------------------------------------------|
-| magic | uint8_t[2] | ODB Magic number, will always be {0xA6, 0xF0} |
+| Name        | Type       | Description                                   |
+|-------------+------------+-----------------------------------------------|
+| magic       | uint8_t[2] | ODB Magic number, will always be {0xA6, 0xF0} |
+| rsvd0       | uint16_t   |                                               |
+| rsvd1       | uint16_t   |                                               |
+| index_start | odb_gid    |                                               |
+| data_start  | odb_gid    |                                               |
 
-** Group Descriptor
+** Group Flags
+Group Flags is a 16 bit field with the following description of each
+bit.
+
+ - bool 0x01 - denoting the group has been initialized and is in use.
+ - mask 0x0C - group type denoting either (0x0) index group, (0x4) data group 
+
+
+* Block Reading
+** 1) sh-lock block indexes
+Place sh locks on the references you are wishing to read. You can
+place multiple sh locks at this time so long you do it in order of the
+block ids with the lowest being first and the largest being last.
+
+This will prevent any process from trying to update these blocks in
+the middle of you reading them.
+
+** 2) for each index: copy the version and block, then unlock
+For each block that we've locked, we scan through in the same order to
+which we locked them and take down the block's version as well as
+copying the datapage to a private buffer.
+
+In step 1 we locked all the blocks at the same time. But in this step
+we are actually going to remove the index locks 1-by-1. This allows
+for the case that if someone is trying to update, these same blocks,
+they don't have to wait until we're completely done, they can follow
+right behind us in updating said blocks sense we already copied the
+versions we needed.
+
+** Block Corruption TODO
+If a block version is ever odd (=version % 2 == 1=), then this means
+the a block update had been interupted and never
+completed. Technically, you can correctly assume =version - 1= is the
+correct version of the referenced data page. But, there is a chance
+that a page in the Trash List had been taken out to replace 
+
+
+* Block Updating
+This chapter will cover how to update the contents block in motion.
+
+** 1) xl-lock current block index(es)
+Place an xl lock on the block indexes you are about to update. Note,
+if you are planning to update multiple blocks, then you can place
+multiple locks at this time so long that the lock you place start with
+the lowest block id and work your way up to the highest.
+
+*defer*: Past this point, regardless of success or failure, unlock all
+of these blocks in the same order to which they were locked.
+
+** 2) version check
+When updating a series of blocks, you must make sure you applying an
+update to the version of blocks to which you expect to apply to. For
+example, in [[Block Reading]] we not only copied the block content, we
+also copied the block version. So if we had red the block content, and
+updated said content, we must make sure that when we save our changes
+via this update process we don't accidently clobber someone else's
+changes.
+
+*** 2.1) Merge
+If any of the blocks we locked do not match the version to which we
+expect to see, then unlock all the blocks (starting from lowest ID to
+the highest ID), and observe the new version of the blocks and resolve
+your changes with the newest versions.
+
+This means, in some cases, steps 1, 2, and 2.1 may repeat in cycle a
+few times before the blocks are successfully committed to the database
+if these blocks are commonly updated.
+
+** 3) increment the version of the blocks by 1
+This will mark the block as in the middle of an update sense its
+version is now odd.
+
+** 4) remove a page from trash list and write the new data to that page.
+Remove a data page from the trash list, its time to bring it back to
+life, see steps in [[Popping Trash List]] on how to do this.
+
+
+
+Write the new version of the block's data to this trash page.
+
+* Popping Trash List
+1. lock all the trash_ref in the trash list that you are about to
+   commit. If the last page of the trash list is a null page, then
+   that null page should have had a trash_ref referencing it, thus,
+   lock that trash_ref.
+2. update the trash_ref's back references to "about to commit" and back reference
+   the block id
+
+hmmmm what if the trash list runs out for the given group?
+
+- (can probably unlock the trash refs here sense we updated the to about to commit)?
+
+3. write to the trash pages what you need to do.
+4. finish your commit, except for the last version increment
+5. update the trash refs to completely removed from trash
+
+- (if we crash right here, we can see via the version that the trash
+  refs were switched out with the old versions, so all we need to
+  hmmmmmmmm... let me work on trash list chapter for better vocab.
+
+6. perform the final increment
+
 
 * Concurrency Control
 A single ODB file is assumed to be operated by an unlimited amount of
@@ -148,3 +477,21 @@ when opening a newly created odb file.
 
 Concurrently creating an ODB file from multiple different threads of
 the same process results in undefined behaviour.
+** Creating Groups
+
+ 1. The last group descriptor's "blocks_created" must equal 1022.
+ 2. Note down the current groups_created field.
+ 3. + XL lock on the first super descriptor's bock.
+ 4. Check the groups_created field, if it matches what you noted in
+    2., then continue. Otherwise, release the lock as a new group has
+    already been created sense you requested the XL lock.
+ 5. Append the new meta pages to the file.
+ 6. Incremenet groups_created.
+ 7. - XL lock
+
+There is no deleting groups. Once a group is created, it cannot be
+removed (during normal process-ready operation).
+
+In the future, when OidaDB operates as in block device, then this
+chapter is moot because all groups would already be initialized.
+
