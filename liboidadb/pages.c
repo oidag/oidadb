@@ -2,6 +2,7 @@
 
 #include "pages.h"
 #include "errors.h"
+#include "mmap.h"
 
 #include <oidadb-internal/odbfile.h>
 #include <oidadb/buffers.h>
@@ -9,7 +10,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
-#include <malloc.h>
 
 
 struct checkout_options {
@@ -102,8 +102,7 @@ odb_err _odb_open(const char *path
 			switch (err) {
 			case ODB_EEXIST:
 			case ODB_ECRIT: desc->unitialized = 0;
-			default:
-				break;
+			default: break;
 			}
 			return err;
 		}
@@ -135,7 +134,7 @@ odb_err _odb_open(const char *path
 // not thread/process safe when creating
 // otherwise, if file exists (is initialized) then this function is therad and process safe
 odb_err odb_open(const char *file, odb_ioflags flags, odb_desc **o_descriptor) {
-	odb_desc *desc = malloc(sizeof(odb_desc));
+	odb_desc *desc = odb_malloc(sizeof(odb_desc));
 	*o_descriptor = desc;
 	odb_err err = _odb_open(file, flags, 0777, desc);
 	if (err) {
@@ -149,7 +148,7 @@ odb_err odb_open(const char *file, odb_ioflags flags, odb_desc **o_descriptor) {
 void odb_close(odb_desc *descriptor) {
 	if (!descriptor) return;
 	switch (descriptor->state) {
-	case ODB_SREADY: group_unload(descriptor);
+	case ODB_SREADY:
 	case ODB_SPREP: volume_unload(descriptor);
 	case ODB_SALLOC: close(descriptor->fd);
 	case ODB_SFILE:
@@ -158,7 +157,7 @@ void odb_close(odb_desc *descriptor) {
 	if (descriptor->unitialized) {
 		unlink(descriptor->unitialized);
 	}
-	free(descriptor);
+	odb_free(descriptor);
 }
 
 static off64_t pid2off(odb_pid pid) {
@@ -169,18 +168,7 @@ odb_err odbp_seek(odb_desc *desc, odb_bid block) {
 
 	odb_cursor cursor;
 	odb_err    err;
-	cursor.curosr_gid = block / ODB_SPEC_BLOCKS_PER_GROUP;
 	cursor.cursor_bid = block;
-
-	err = group_truncate(desc, cursor.curosr_gid);
-	if (err) {
-		return err;
-	}
-
-	err = group_load(desc, cursor.curosr_gid);
-	if (err) {
-		return err;
-	}
 
 	desc->cursor = cursor;
 	return 0;
@@ -193,10 +181,17 @@ odb_err odbp_bind_buffer(odb_desc *desc, odb_buf *buffer) {
 
 odb_err odbp_checkout(odb_desc *desc, int bcount) {
 
+	odb_err err;
+
 	if (!desc->boundBuffer) {
 		return ODB_EBUFF;
 	}
 	odb_buf *buffer = desc->boundBuffer;
+
+	err = block_truncate(desc, desc->cursor.cursor_bid + bcount);
+	if (err) {
+		return err;
+	}
 
 	struct odb_buffer_info bufinf = buffer->info;
 
@@ -207,18 +202,22 @@ odb_err odbp_checkout(odb_desc *desc, int bcount) {
 
 	int          blockc    = bcount;
 	odb_bid      bid_start = desc->cursor.cursor_bid;
-	void         *blockv   = buffer->blockv;
-	odb_revision *verv     = buffer->revisionv;
-	odb_err      err;
+	void         *dpagev   = buffer->user_datam;
+	odb_revision *blockv   = buffer->user_versionv;
 
 
-	err = blocks_lock(desc, bid_start, blockc);
+	err = blocks_lock(desc, bid_start, blockc, 0);
 	if (err) {
 		return err;
 	}
 
-	err = blocks_copy(desc, blockc, blockv, verv);
+	void *buffer_group_descm = odb_mmap_alloc(1);
+	if (buffer_group_descm == MAP_FAILED) {
+		return odb_mmap_errno;
+	}
+	err = blocks_copy(desc, blockc, buffer_group_descm, dpagev, blockv);
 	blocks_unlock(desc, bid_start, blockc);
+	odb_munmap(buffer_group_descm, 1);
 	if (err) {
 		return err;
 	}
@@ -230,34 +229,55 @@ odb_err odbp_checkout(odb_desc *desc, int bcount) {
 // the conflict must merge itself. You can do this with pmerge.
 //
 // when commit sees a conflict it sees what pages need to be merged.
-odb_err odbp_commit(odb_desc *desc, int bcount) {
+odb_err odbp_commit(odb_desc *desc, int blockc) {
+
+	odb_err err;
 
 	if (!desc->boundBuffer) {
 		return ODB_EBUFF;
 	}
-	odb_buf *buffer = desc->boundBuffer;
-
-	struct odb_buffer_info bufinf = buffer->info;
+	odb_buf                *buffer = desc->boundBuffer;
+	struct odb_buffer_info bufinf  = buffer->info;
+	if (!(bufinf.flags & ODB_UCOMMITS)) {
+		return ODB_EINVAL;
+	}
 
 	// invals
-	if (bufinf.bcount < bcount) {
+	if (bufinf.bcount < blockc) {
 		return ODB_EBUFFSIZE;
 	}
 
-	int                blockc    = bcount;
-	odb_bid            bid_start = desc->cursor.cursor_bid;
-	const void         *blockv   = buffer->blockv;
-	const odb_revision *verv     = buffer->revisionv;
-
-	odb_err err;
-
-	err = blocks_lock(desc, bid_start, blockc);
+	err = block_truncate(desc, desc->cursor.cursor_bid + blockc);
 	if (err) {
 		return err;
 	}
 
-	err = blocks_commit_attempt(desc, bid_start, blockc, blockv, verv);
+	odb_bid bid_start = desc->cursor.cursor_bid;
+	int  buffer_group_descc  = descriptor_buffer_needed(bid_start, blockc);
+	void *buffer_group_descm = odb_mmap_alloc(buffer_group_descc);
+	if (buffer_group_descm == MAP_FAILED) {
+		return odb_mmap_errno;
+	}
+
+	struct block_commit_buffers commit_info = {
+			.block_start = bid_start,
+			.blockc = blockc,
+			.user_datam = buffer->user_datam,
+			.user_versionv = buffer->user_versionv,
+			.buffer_versionv = buffer->buffer_versionv,
+			.buffer_datam  = buffer->buffer_datam,
+			.buffer_group_descc = buffer_group_descc,
+			.buffer_group_descm = buffer_group_descm,
+	};
+
+	err = blocks_lock(desc, bid_start, blockc, 1);
+	if (err) {
+		odb_munmap(buffer_group_descm, buffer_group_descc);
+		return err;
+	}
+	err = blocks_commit_attempt(desc, commit_info);
 	blocks_unlock(desc, bid_start, blockc);
+	odb_munmap(buffer_group_descm, buffer_group_descc);
 	if (err) {
 		return err;
 	}

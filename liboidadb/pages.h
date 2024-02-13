@@ -1,15 +1,37 @@
 #ifndef OIDADB_PAGESI_H
 #define OIDADB_PAGESI_H
 
+#include "options.h"
+
 #include <oidadb/pages.h>
 #include <oidadb/buffers.h>
 #include <oidadb-internal/odbfile.h>
 
-typedef struct meta_pages {
-	struct super_descriptor *sdesc;
-	struct group_descriptor *gdesc;
-	odb_revision *versionv; // [ODB_SPEC_PAGES_PER_GROUP]
-} meta_pages;
+
+struct block_commit_buffers {
+	odb_bid block_start;
+	int     blockc;
+
+	// incoming data to be committed
+	const odb_datapage *restrict user_datam;
+	const odb_revision *restrict user_versionv;
+
+	// If blocks_commit_attempt returns ODB_EVERSION then this will be
+	// set to all the current versions of the blocks.
+	// If the ODB_ENONE is returned then this will be set to the new
+	// (updated) versions.
+	odb_revision *restrict buffer_versionv;
+
+	// used as a buffer when loading in and out of pages. You just have to
+	// make sure this is the same length as user_datam.
+	odb_datapage *restrict buffer_datam;
+
+	// group descriptor buffer.. see descriptor_buffer_needed
+	int buffer_group_descc;
+	struct odb_block_group_desc *restrict buffer_group_descm;
+
+
+};
 
 enum hoststate {
 	ODB_SNEW = 0,
@@ -23,23 +45,31 @@ enum hoststate {
 };
 
 typedef struct odb_cursor {
-	odb_gid    curosr_gid;
-	odb_bid    cursor_bid;
+	odb_gid curosr_gid;
+	odb_bid cursor_bid;
 } odb_cursor;
 
 typedef struct odb_buf {
 	struct odb_buffer_info info;
 
-	// bidv will never be nil and will always be filled with the block ids
-	// associative to revsionv and blockv.
-	//
-	// if info->usage is ODB_UBLOCKS then blockv will be mapped. Otherwise, with
-	// ODB_UVERIONS, revisionsv will be mapped.
-	//
-	// all arrays will have info.bcount elements.
-	//odb_bid      *bidv;
-	odb_revision *revisionv;
-	void         *blockv;
+	/*
+	 * These are privately-mapped.
+	 */
+	odb_revision *user_versionv;
+	odb_datapage *user_datam;
+
+	/**
+	 * The following are only needed when committing (ODB_UCOMMITS)
+	 *
+	 *  - buffer_version - needed when committing. equal length to user_versionv.
+	 *    When committing (or in the future, signaled) will have updated versions
+	 *    of the current blocks
+	 *  - buffer_data - used for committing. equal size ot user_datam. will be used
+	 *    to hold the existing data maps.
+	 *  - buffer_group_desc - buffer to hold group descriptor pages inside
+	 */
+	odb_revision *buffer_versionv;
+	odb_datapage *buffer_datam;
 
 } odb_buf;
 
@@ -48,9 +78,6 @@ typedef struct odb_desc {
 
 	// special flag set to 1
 	const char *unitialized;
-
-	meta_pages meta0;
-	meta_pages group; // todo: do we need this?
 
 	odb_ioflags flags;
 
@@ -88,88 +115,94 @@ odb_err volume_load(odb_desc *desc);
 void volume_unload(odb_desc *desc);
 
 /**
- * Will make sure that the group offset exists in the file. If the file is a
- * regular file and does not contain the group offset, then the file is truncated
+ * Will make sure that the block offset exists in the file. If the file is a
+ * regular file and does not contain the block offset, then the file is truncated
  * long enough to include said group. Does not initialize the group
  * (see group_load).
  *
  * You can also include any amount of blocks to initialize into the group if
- * they haven't already been.*
- *
- * In a special block device, this function will only really make sure that
- * goff/boff don't exceed the size of the device.
+ * they haven't already been.
  *
  * Handles process locking.
  */
-odb_err group_truncate(odb_desc *desc, odb_gid goff);
+odb_err block_truncate(odb_desc *desc, odb_bid goff);
 
 /**
- * Loads the meta pages for the provided group offset into desc->group. If
- * desc->group is non-null then it is unloaded. If the given group has not
- * been initialized, then it will be. Make sure the group offset has been
- * truncated to via group_truncate.
- *
- * Does not touch the super descriptor associated with the group.
- *
- * On error, desc->group is not touched at all.
+ * Loads the descriptor page for the provided group offset in the location of o_map.
+ * (map is assumed to be pre-allocated)
+ * If the given group has not been initialized, then it will be. Make sure the
+ * group offset has been truncated to via block_truncate.
  *
  * Handles process locking.
  *
- * The -g variant does the same but you can manually choose the load other than
- * desc (note: desc is const). Does not handle unloading already loaded pages,
- * which makes it prone to memory leaks if not used properly with group_unloadg.
+ * Note: desc is const
  */
-odb_err group_load(odb_desc *desc, odb_gid goff);
-odb_err group_loadg(const odb_desc *desc, odb_gid gid, meta_pages *o_mpages);
-
-/**
- * Will unload desc->group and set it to null.
- * If group is already null, desc is null, or already unloaded, nothing happens.
- *
- * the -g variant is mor cruel in that undefined behaviour will occur if called
- * with the group already unloaded
- */
-void group_unload(odb_desc *desc);
-void group_unloadg(meta_pages *group);
-
-// All blocks_* methods require that cursor.loaded_group be valid
+odb_err group_loadg(const odb_desc *desc
+                    , odb_gid gid
+                    , struct odb_block_group_desc *o_group_descm);
 
 /**
  * Will lock the given blocks so that no other process can modify them.
  */
-odb_err blocks_lock(odb_desc *desc, odb_bid bid, int blockc);
+odb_err blocks_lock(odb_desc *desc, odb_bid bid, int blockc, int xl);
 
 void blocks_unlock(odb_desc *desc, odb_bid bid, int blockc);
 
 /**
- * Will make sure versions are a match on each block, back up said block, then
- * attempt to commit the block. If there is any error, all changes to all blocks
- * are reverted.
+ * Will make sure versions are a match on each block, then
+ * attempt to commit the blocks. If there's a version mis-match, ODB_EVERSION
+ * is returned promptly.
  *
- * Will update cursor on success
+ * If there is any error, then no changes are applied to the database.
  *
- * Does NOT handle process locking, see blocks_lock
+ * Does NOT handle process locking, see blocks_lock.
+ *
+ * See block_commit_buffers for more info.
+ *
+ * Note: desc is const.
  */
-odb_err blocks_commit_attempt(odb_desc *desc
-                              , odb_bid bid
-                              , int blockc
-                              , const void *blockv
-							  , const odb_revision *verv);
+odb_err blocks_commit_attempt(const odb_desc *desc
+                              , struct block_commit_buffers commit);
 
 /**
  * Copies the amount of blocks blockc and their versions into o_blockv and their
  * versions into o_versionv. The starting block will be desc->cursor.cursor_bid.
  * If no error is returned, desc->cursor.cursor_bid is incremented by blockc.
  *
+ * If o_blockv is null, then the blocks are not loaded. Good for when you only
+ * want to load the versions.
+ *
+ * blocks_copy only needs 1 page for buff_group_descm
+ *
  * Does NOT handle process locking, see blocks_lock
  */
 odb_err blocks_copy(odb_desc *desc
-					, int blockc
-					, void *o_blockv
-					, odb_revision *o_versionv);
+                    , int blockc
+                    , struct odb_block_group_desc *buff_group_descm
+                    , odb_datapage *o_dpagev
+                    , odb_revision *o_blockv);
 
 // utility
 void page_lock(int fd, odb_pid page, int xl);
+
 void page_unlock(int fd, odb_pid page);
+
+/**
+ * descriptor_buffer_needed is a small helper function that will calculate the
+ * maximum number of block description pages that are needed to be loaded during
+ * the commit process.
+ *
+ * For example, when committing lets say 8 continuous blocks, you may think
+ * you'll need to load but 1 group descriptor, however, there is a chance you
+ * need to load 2 sense the first 4 blocks can be at the tail-end of a group and
+ * the next 4 blocks will be at the start of the next group.
+ *
+ * Likewise, if you are committing 1024 (which is 1 more block than a single
+ * group can hold) blocks you'll only ever need 2 groups. As the first
+ * block will be the last one in group 1, and the remaining 1023 blocks fit
+ * into the second group entirely. Only when you commit 1025 blocks do you
+ * need 3 descriptor blocks.
+ */
+int descriptor_buffer_needed(odb_bid block_start, int len);
 
 #endif //OIDADB_PAGESI_H
