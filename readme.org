@@ -63,6 +63,40 @@ setting the enviroment variable: ~build=anotherbuildfolder make~
 CMake is used exclusively for local developing. All packaging,
 releasing, and serious testing is always done through make.
 
+** Array conventions
+
+If we are dealing with arrays, we have some special naming conventions
+to make things a bit easier to understand. Take the below example of a
+structure:
+
+#+BEGIN_SRC c
+struct items {
+
+    int   itemc;
+	int   itemq;
+	item *itemv;
+	item *itemm;
+
+};
+#+END_SRC
+
+As you can see we name everything that deals with an array of objects
+the same, but with different suffixes depending on its function:
+
+ - =-c= - Array count, this is the amount of valid elements in the
+   array.
+ - =-q= - Array capacity, sometimes arrays are allocated beyond the
+   amount they are currently holding to allow for growth. capacities
+   will always be larger or equal to counts. Most cases, the capacity
+   value is not needed as the count will only be needed.
+ - =-v= - Normal array pointer. This is the pointer to where you can
+   find the array of objects.
+ - =-m= - this is the the same thing as =-v= except the pointer is
+   page-aligned. This means this pointer can be used as the first
+   argument with ~mmap(2)~ utilizing =MAP_FIXED=. I can't think of any
+   practical reason you'd have both =-v= and =-m= for a given array,
+   so the above example is unrealistic in that sense.
+
 ** TODO odbm - remove this chapter
 The (o)ida(db) (m)onitor. OpenGL graphical interface for monitoring
 oidadb files.
