@@ -8,21 +8,15 @@
 typedef enum odb_usage {
 
 	/**
-	 * Buffer will be an array of odb_version when mapped.
+	 * Buffer will be used to preform commits
 	 */
-	ODB_UVERSIONS = 0x0001,
-
-	/**
-	 * buffer will be an array of odb_block when mapped
-	 */
-	ODB_UBLOCKS = 0x0002,
-
+	ODB_UCOMMITS = 0x0001,
 } odb_usage;
 
 
 struct odb_buffer_info {
 	uint32_t bcount;
-	odb_ioflags flags;
+	odb_usage flags;
 };
 
 typedef struct odb_buf odb_buf;

@@ -57,8 +57,8 @@ export void odb_close(odb_desc *desc);
  * commit requires that the bound buffer be ODB_UBLOCKS
  */
 export odb_err odbp_seek(odb_desc *desc, odb_bid block);
-export odb_err odbp_checkout(odb_desc *desc, int bcount);
-export odb_err odbp_commit(odb_desc *desc, int bcount);
+export odb_err odbp_checkout(odb_desc *desc, int blockc);
+export odb_err odbp_commit(odb_desc *desc, int blockc);
 
 
 

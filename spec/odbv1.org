@@ -68,35 +68,44 @@ Once again, you can operate outside the checkout.
 With the "use" and checkout stuff. we can change the checkout/commit
 and stuff to operate through a socket instead of shared memory
 
+* This Specification
+** Reserved Fields
+Various parts in this specification you'll see some fields labelled
+for reserved use. These fields are labelled as ~rsvd0~, ~rsvd1~,
+~rsvd2~, ect. These are here to denote fields that I'm not sure what
+to do with at this time. In practice, you - as the implementor - can
+technically use these fields however you want. If you have some crazy
+idea that you'd like to implement using these reserved fields, then be
+my guest. Just don't be surprised when a later version of this
+specification uses them for something else.
+
+Otherwise, always initialize reserved fields as 0's.
+
+* Limitations
+ - There can only be a maximum of 128 processes that perform
+   /concurrent/ work on a given database. An unlimited amount of
+   processes can have the database open, however, only 128 can perform
+   commits at a time.
 * ---- Static ----
 * ODB File
 ** Overview and Layout
-Inside of a OidaDB file (which can also be a block device) or
-"volume", as we call it, is broken up is into "pages". Pages are
-exactly 8192 bytes in length.
+Inside of a OidaDB file or *volume*, as we call it, is broken up is
+into *pages* of exactly 8192 bytes in length.
 
-An OidaDB's pages are then spit up into *Groups*. A Group is
-classified as 1024 subsequent pages. With the first 1024 pages
-belonging to Group 0, the next 1024 pages belonging to Group 1, and so
-forth.
+A volume's pages are then spit up into *Groups*. A Group is classified
+as 1024 pages. With the first 1024 pages belonging to Group 0, the
+next 1024 pages belonging to Group 1, and so forth. Hense, a full
+group is exactly 8MiB.
 
-Inside each group, the first page is known the *Meta Pages*, the
-remaining 1022 pages are known as the content of that group.
+Inside each group, the first page is known the *Group Descriptor*, the
+remaining 1023 pages are known as the content of that group. The Group
+Descriptor details the contents of the group, known as the [[Group Types][Group
+Type]].
 
-The Meta Page in each group, known as the *Descriptor Page* is actully
-split up into 2 sections, each eactly 4096 bytes in length. The first
-section is the *Super Descriptor*, the second section is known as the
-*Group Descriptor*. The Group Descriptor details the contents of the
-group, also known as the [[Group Types][Group Type]]. As a quick overview, there's two
-main types of groups in a ODB file: Index Groups and Data Groups,
-index groups are just a list pointers to pages in data groups but also
-include a version.
-
-When you combine a Version with a page from a Data Group, you get what
+When you combine a version with a page from a data group, you get what
 we call a *[[Blocks]]*. In otherwords, a given block has some data as well
 as a number describing the version of said data, everytime the data is
-changed, its version is incremeneted by 2 (for reasons why its
-incremeneted by 2 instead of 1, see [[Atomics]] chapter).
+changed, its version is changed.
 
 ** Purity
 ODB files are by definition pure outputs, that is if the same
@@ -113,6 +122,22 @@ predictable. But again, if we're talking about just 1 thread and 1
 process, performing the same series of operations on 2 newly created
 ODB files, then those two files will be identical.
 
+** Not save to use on a Special Block Device :MVP:
+As of now, performing operations on ODB files assume that the
+underlying filesystem does what's needed to make sure that calls to
+=sync(2)= family functions allow for atomic-writes or rollbacks in
+cases of crash.
+
+Although, in the future, I would like to implement a simple journaling
+system as well as nessacary checksums to make it so that a database
+can be mounted on a special block device (be its own files system).
+* Groups
+** Group Flags
+Group Flags is a 16 bit field with the following description of each
+bit.
+
+ - bool 0x01 - denoting the group has been initialized and is in use.
+ - mask 0x0C - group type denoting either (0x0) index group, (0x4) data group 
 * Blocks
 Blocks are the fundemental element to the entire database. Those
 wanting to use ODB files will be storing and getting their data in and
@@ -128,11 +153,16 @@ but the block ID never changes.
 ** Block ID
 Each block in a given database has its own unique block id. The ID is
 synonmous with block offset, meaning block ID 0 is the first block of
-the database, block 1 is the second, and so on. When looking at index
-pages inside of an Index Group, you have a list of [[Index][indices]] that
-describe blocks. Itf we pretened that the index page we're looking at
-is the first index page of the first index group, we know that the
-first index is pointing to block ID 0.
+the database, block 1 is the second, and so on.
+
+Rather the user of the database be proactive or reactive to using
+Block IDs is not defined here. Meaning that if you wish to utilize
+"hard-coded" block IDs, that is up to you. Portability dictates you
+should probably have a reactive-approach, the same way when you
+allocate memory in an operating system you don't exactly know what the
+resulting address will be. Likewise, in some applications, using
+hard-coded block IDs (or hard-coded address in our memory-allocation
+analogy) may have some use to you.
 
 ** Atomics
 Lets say we want to read the contents of block ID 0. So we go to the
@@ -156,222 +186,70 @@ page that contains our $V_1$ may actually still exist somewhere in the
 database, its just that the block is now pointing to a more up-to-date
 copy of the data.
 
-But those of you with a keen eye may have noticed a problem... if we
-only create data pages, and never update existing ones, that means
-eventually the database will fill up with old, outdated junk data from
-previous block versions. How do we know when a given data page is safe
-to re-use? For that we use our [[Trash List]].
 
-* Index Group
+* Block Group
 
-An Index Group is what give us instrunctions as to where to find
-[[Blocks]] and their associated data and versions. An index group is full
-of index pages, and index pages contain indices (or indexes, if you
-hate the british). Indexes simply list the location of the data page
-as well as the version of the data.
+A Block Group is what give us instrunctions as to where to find [[Blocks]]
+and their associated data and versions. A block group's descriptor
+page has a list of all blocks and all versions, the remaining 1023
+pages are known as *Data Pages*. Let's start by looking at the group's
+descriptor.
 
-** Index Group Descriptor
+** Block Group Descriptor
 
-| Name         | Type        | Description                                            |
-|--------------+-------------+--------------------------------------------------------|
-| flags        | uint16_t    | See [[Group Flags]], the type mask will equal 0x4          |
-| rsvd0        | uint16_t    |                                                        |
-| group_offset | odb_gid     | This group's offset                                    |
+| Name   | Type               | Description                                     |
+|--------+--------------------+-------------------------------------------------|
+| magic  | uint8_t[2]         | ODB Magic number, will always be ~{0xA6, 0xF0}~ |
+| flags  | uint16_t           | See [[Group Flags]], the type mask will equal 0x4   |
+| rsvd0  | uint32_t           |                                                 |
+| blocks | struct block[1023] | see [[Block]]                                       |
 
-** Index Structure
+** Block
+| Name          | Type     | Description       |
+|---------------+----------+-------------------|
+| data_page_off | uint16_t | [[Data Page Address]] |
+| rsvd0         | uint16_t |                   |
+| block_ver     | uint32_t | [[Block Version]]     |
 
-Indexs are simple. All pages are just the arrays of the following
-structure. Inside of an index page there is room for 512 total
-indexes per page.
+We store our ~data_page_off~ as a mere =uint16_t= because we are
+listing the offset from the start of the data group rather than
+listing the =data_page= offset from the start of the volume.
 
-| Name      | Type        | Description       |
-|-----------+-------------+-------------------|
-| data_page | odb_pid     | [[Data Page Address]] |
-| block_ver | odb_version | block version     |
+** TODO Journal
 
-** Compression of the index :MVP:
-In later versions of the database, users should be able to customize
-how the index structure. Specifically, it won't be a bad idea to
-downgrade the ~block_ver~ to only a 32 bit unsigned integer. 64 bits
-for a version seems a bit overkill, but we'll settle with 64 bits for
-simplicitly right now.
+(the following is just an idea, nothing to implement)
 
-** Static vs Active operation
-Sense a single index page can reference up to exatly 512 data pages,
-we know that 1 fully saturated index page requires exactly half a
-block group. However, When you look at an index page, but no software
-is currently acting upon the software, you are witnessing a /static/
-index: nothing is moving, everything is easy to understand. But in
-practice, with an operating or /active/ database we have to account
-for something not forseen in our static example.
+Every group has a journal which keeps track of the current commits
+being performed on the blocks within the group. Before a commit
+starts, the details of the commit are written into the journal, and
+only after the commit is complete is it removed from the journal. If
+the commit were to crash half way through, then depending on the
+commit's state (we'll talk about commit state's later) the database
+can rollback the commit, or in some cases, continue to complete it.
 
-Remeber that when a new version of a block needs to be written, it
-needs to use a previously unused block to write the new version, and
-when that is fully written and synced up only then does it update the
-previous block's data page reference and mark the old page for trash?
-Well you see, in that breif period our block required at least 2
-different blocks.
+You may notice that there is a finite amount of entries of the
+journal. This means there is a maximum amount of concurrent commits
+that can exist at any one time. It's assumed you're going to run into
+I/O limitations far before you have /that/ many CPUs on a single
+machine waiting around for journal space.
 
-** Only 1 index group :MVP:
-The first group of a volume will be an index group. As of time of
-writting this, this will be the only index group of the volume. This
-limits our operational max database size to 8GiB. But in later
-versions, subsequent index groups will be implemented.
+TODO - we are going to be update multiple blocks at the same time that
+are not sequencial. not enough space to use a journal for that. We
+need to do inline with the blocks.
 
-* Data Group
+| Name         | Type     | Description                                                           |
+|--------------+----------+-----------------------------------------------------------------------|
+| commit_state | uint8_t  | See [[Commit State]]                                                      |
+| commit_name  | uint8_t  | See below                                                             |
+| block_len    | uint16_t | Amount of blocks being committed after and including block_start      |
+| block_start  | uint32_t | Starting offset of blocks that are being committed for this operation |
 
-Data groups are pages of arbitrary user information. Each page in a
-given group can mean something entirely seperate. When looking at an
-individual data group, there's no realistic way you can deduce where
-each page is used. You must have the all the index pages on hand to
-deduce the use of a single data page.
 
-To add a bit more chaos, index pages address data pages by their page
-offset, which is completely agnostic to whatever group it is in. Thus,
-it is imparitive that software implementing odb files do not lack on
-the book-keeping: if a single data page is left without a index
-reference and is outside of the [[Trash List]], then that data page is
-effecitvely dead weight for the remainder of the database's lifetime
-unless extensive and intense secretion jobs are ran to find orphaned
-pages.
+| Name       | Type              | Description                                   |
+|------------+-------------------+-----------------------------------------------|
+| group_off  | odb_gid           | The data page associated with this index page |
 
-In otherwords, at any given point, a static data page will either
-belong to a block, or, be in the trash list.
-
-** Data Group Descriptor
-
-| Name            | Type      | Description                                   |
-|-----------------+-----------+-----------------------------------------------|
-| flags           | uint16_t  | See [[Group Flags]], the type mask will equal 0x0 |
-| rsvd0           | uint16_t  |                                               |
-| group_offset    | odb_gid   | This group's offset                           |
-| trash_ref_last  | [[Trash Ref][trash_ref]] | [[=trash_ref_last=]]                              |
-
-*** =trash_ref_last=
-
-Note: If you're reading this document chronologically, you will have
-no idea what I'm about to talk about, so keep reading and come back to
-this section and you'll understand it then.
-
-The group descriptor in a data group has the =trash_ref_last= field
-for multiple reasons depending on the state of the trash list. Its
-primary function is to supply the data page offset from the start of
-the group denoting the last trash page in the group's [[Trash List]] (see
-field =data_page_off= for this use).
-
-There is a edge case where there is but 1 trash page left in the
-group, and that one trash page has no more references, in such case,
-=trash_ref_last= is used as a normal =trash_ref= in the fact that it
-can be used to sacrifice the last trash page. The same way that a
-trash page is removed by utilizing the last trash reference of the
-previous trash page, but in our case we use =trash_ref_last= when
-there is no "previous trash page". (See [[Popping Trash List]])
-
-The final case is where there is no more trash left in the group at
-all (100% of all data pages are completely used). In which case,
-=trash_ref_last='s =data_page_off= will be =(uint16_t)-1=. This means
-anyone in search of trash pages must search elsewhere. See Popping
-Trash List for more details on what to do here.
-
-* Trash List
-The trash list is stored on a set of data pages within a data group
-that have been commandeered to be used as Trash Pages. Trash Pages
-contain references to data pages (within the same data group), so long
-that the data page is referenced in this matter, it is considered
-trash.
-
-A group's Trash List is a Last In First Out (LIFO) system. Where as
-when we add trash pages, we /push/ them to the list, and as we remove
-trash pages, we /pop/ them.
-
-** Trash Page
-A Trash Page is a special page that exists in a data group that lists
-out some of the pages in the data group that are consided trash, this
-is by definition any data page in the group that isn't a trash page
-itself nor referenced in any index group.
-
-As items are removed from a Trash Page, the references are nulled
-out. Once a trash page is completely empty, and the next time a new
-page is needed to be removed from the trash, the new empty trash page
-will then convert itself into a normal data page.
-
-Thus, for the edge case that all pages in a data group except for 1
-are not trash... that 1 page will actually be a Trash Page with no
-references on it. And the instant where another page is needed from
-that group, that last Trash Page sacrifices itself and converts to a
-data page and the [[Data Group Descriptor][Data Group's Descriptor]] =trash_ref_last= is marked
-as null.
-
-At no point can any Trash Ref be nulled out unless that Trash Ref is
-on the current last Trash Page of the group (meaning the Trash Page's
-=next= header is null).
-
-If a Trash Page fills up, the next time a page needs to be added to
-the list, it will add itself not as trash itself, but as a Trash
-Page. When this happens, make sure to update the =previous= / =next=
-references accordingly as well as the group's =trash_ref_last=.
-
-All trash pages are structured as follows:
-
-| Name       | Type             | Description                                                |
-|------------+------------------+------------------------------------------------------------|
-| previous   | uint16_t         | The data page offset pointing to the previous trash page   |
-| rsvd0      | uint16_t         | The same as previous but the next in the linked list       |
-| rsvd1      | uint32_t         |                                                            |
-| trash refs | [[Trash Ref][~trash_ref~]][681] | Normal trash references                                    |
-| next       | trash_ref        | The last trash ref is the reference to the next Trash Page |
-
-If =previous= or =next= happens to be =(uint16_t)-1=, that means there
-is no previous/next page respectively.
-
-*** Trash Ref
-After the header, it will contain an array of the following structure,
-known as a Trash Ref. The reason we use ~trash_ref~ instead of just a
-simple list of uint16_t offset of pages is because the ~trash_ref~
-structure is needed in order to atomically guarentee popping and
-pushing of new trash pages. We'll discose all that action in later
-chapters.
-
-| Name           | Type     | Description                                              |
-|----------------+----------+----------------------------------------------------------|
-| data_page_off  | uint16_t | The offset of the datapage that is trashed               |
-| rsvd0          | uint16_t |                                                          |
-| back_reference | odb_bid  | The block ID, or, a group ID denoting next in trash list |
-
-With the header being only 8 bytes in length, this leaves our page
-with 8,184 bytes of data for our array of the above structure. Our
-structure, being only 12 bytes long leaves us a total of 682 Trash
-Refs per Trash Page. However, the last trash ref will not point to a
-data page but a trash page. We do this the same reason we use a full
-~trash_ref~ structure in the group's descriptor: when the time comes
-to conver the Trash Page into a normal data page we need the full
-structure for atomic reasons.
-
-If =data_page_off= happens to be =(uint16_t)-1=, then that means it is
-an empty/null reference.
-
-* Descriptor Page
-As discussed in layout, the descriptor page has a super and group
-descriptor in a single 8KiB page. The Super Descriptor is required to
-be on the first Descriptor page of the volume. All other Descriptor
-pages can optionally have the Super Descriptor as backups, but the
-primary source of truth is the first super descriptor.
-** Super Descriptor
-
-| Name         | Type       | Description                                   |
-|--------------+------------+-----------------------------------------------|
-| magic        | uint8_t[2] | ODB Magic number, will always be {0xA6, 0xF0} |
-| rsvd0        | uint16_t   |                                               |
-| rsvd1        | uint16_t   |                                               |
-| index_start  | odb_gid    |                                               |
-| data_start   | odb_gid    |                                               |
-
-** Group Flags
-Group Flags is a 16 bit field with the following description of each
-bit.
-
- - bool 0x01 - denoting the group has been initialized and is in use.
- - mask 0x0C - group type denoting either (0x0) index group, (0x4) data group 
+| rsvd0      | uint64_t[95]      |                                               |
 
 * ---- In Motion ----
 At this point, we have an understanding of every single byte inside of
@@ -442,7 +320,6 @@ Try-exclusive locking (TXL) is where we try to install an XL lock on
 something, but we have a back-up plan in the case that such lock
 *fails*, such as if there's already an XL/SH lock there.
 
-
 * Block Reading
 ** 1) sh-lock block indexes
 Place sh locks on the references you are wishing to read. You can
@@ -464,21 +341,22 @@ they don't have to wait until we're completely done, they can follow
 right behind us in updating said blocks sense we already copied the
 versions we needed.
 
-** Block Corruption TODO
-If a block version is ever odd (=version % 2 == 1=), then this means
-the a block update had been interupted and never
-completed. Technically, you can correctly assume =version - 1= is the
-correct version of the referenced data page. But, there is a chance
-that a page in the Trash List had been taken out to replace 
+** TODO Block Corruption
+If a block version is ever corrupted, then this means the a block
+update had been interupted and never completed. Technically, you can
+correctly assume =version - 1= is the correct version of the
+referenced data page. But, there is a chance that a page in the Trash
+List had been taken out to replace
 
-* Block Updating
+* Committing
 This chapter will cover how to update the contents block in motion.
 
 ** 1) xl-lock current block index(es)
 Place an xl lock on the block indexes you are about to update. Note,
 if you are planning to update multiple blocks, then you can place
 multiple locks at this time so long that the lock you place start with
-the lowest block id and work your way up to the highest.
+the lowest block id and work your way up to the highest. You can lock
+multiple blocks from multiple index pages/index groups.
 
 *defer*: Past this point, regardless of success or failure, unlock all
 of these blocks in the same order to which they were locked.
@@ -487,10 +365,10 @@ of these blocks in the same order to which they were locked.
 When updating a series of blocks, you must make sure you applying an
 update to the version of blocks to which you expect to apply to. For
 example, in [[Block Reading]] we not only copied the block content, we
-also copied the block version. So if we had red the block content, and
-updated said content, we must make sure that when we save our changes
-via this update process we don't accidently clobber someone else's
-changes.
+also copied the block version. So if we had read the block content,
+and updated said content, we must make sure that when we save our
+changes via this update process we don't accidently clobber someone
+else's changes.
 
 *** 2.1) Merge
 If any of the blocks we locked do not match the version to which we
@@ -502,219 +380,28 @@ This means, in some cases, steps 1, 2, and 2.1 may repeat in cycle a
 few times before the blocks are successfully committed to the database
 if these blocks are commonly updated.
 
-** 3) add the BLOCK_VERSION_COMMIT_INTENT flag to the version
-This will mark the block as in the middle of an update sense its
-version is now odd.
+** 3) mmap all blocks from disk to memory
+With all the block indexes xl locked, you can mmap all of them to
+memory (or use a cache here). This means you have 2 bands of memory:
+one for the changes you wish to apply, and another for the current
+versions. Thus, in order to perform any commit, it is requires you
+have 2x memory of the size of the commit.
 
-** 4) allocate data pages from the trash list, adding the
-Remove a data page from the trash list, its time to bring it back to
-life, see steps in [[Popping Trash List]] on how to do this.
+Furthermore, make sure you have the relevant descriptor pages mmaped
+so that you can update the versions as well.
 
+** 4) increment versions and memory transfer
 
-** Pushing Trash List
-When committing blocks, this requires both a push and pop to the trash
-list. When operating with the trash list, the key to maintaining
-atomic, concurrent, isolated, and persistent behaviour all is utilized
-by the [[Trash Ref]] structure. In otherwords, forget about where the
-trash ref structure is, rather it be in the super destructor, the
-trash page, the previous trash page, ect., perfoming trash list
-operations require a Trash Ref structure to be located somewhere.
+With xl locks placed on all the referneces, all the destination data
+pages mmaped, all the destination descriptors mmaped, and you have the
+source versions and updates in memory, apply the changes by copying
+the source to the destinations. Make sure as you go through, you
+increment the versions of the blocks.
 
-Coming into Pushing into the Trash List, you should already be on the
-final steps into a [[Block Updating]] operation.
+Do not make any calls to ~munmap~, ~msync~, ect. until the copying is
+fully complete. This will utilize the filesystem and OS to keep
+everything atomic when moving from memory to disk.
 
-
-* Popping Trash List
-Here we need to find some new space for our updated version of our
-blocks to be written too. And although the [[Trash List]] is a per-group
-construct, to find a trashed data page, we may have to explore
-multiple data page groups, and possibiliy initilize some more groups.
-
-For each block, we follow the data page address and get the group
-descriptor of where ever that page may be. Starting with the group
-descriptor's [[=trash_ref_last=]] field, we perform the following:
-
-** 1) Place an SH lock on group descriptor's =trash_ref_last= field, read it
-The group descriptor's =trash_ref_last= field is read frequently, and
-rarely is it written too. So despite us getting an SH lock, remember
-that we may need to elevate this to a XL lock. But, we hope that we
-don't so we start with the SH lock.
-
-After we read the =trash_ref_last= field we can make the following
-judgements:
-
- 1. Is this group completely full with no trash (~.data_page_off = -1~)?
- 2. Is the group desc. reference busy (~.back_reference != 0~)?
- 3. Is the group desc. reference ready (none of the above are true)?
-
-*** 1.1) group is completely full :MVP:
-If you happen to find yourself needing more trash data pages for up
-coming commits, and no trash is currently found in the same data group
-to which the old versions of data pages were located, then you must
-find a new data page group with trash in it.
-
-This can be done by first releasing the SH lock you place on
-=trash_ref_last= in step 1. Then, starting at the first data group (as
-pointed to by the super descriptor), go back to step 1 on the new
-group. If you continue to run out of space on this data group as well,
-then move on to the next group (as pointed to by the group
-descriptor). This algorithem is dumb, and not too efficient, but it
-will be in effect for the V1. The circumstance that this slows down
-the database should be exceptionally rare, and almost never should
-this cause any performace page-fault wise because frankly, many - if
-not all - data group descriptors should be constantly loaded into
-memory during the operational life of the database.
-
-*** 1.2) reference is busy :MVP:
-So at first glance, it may seem we just pass by this reference and
-assume another process is currently using it. However, there is
-actually a problem with reading a busy reference: how do we have a
-lock on a reference that is supposed be currently XL locked by another
-process (see step 2.3)? This means one thing, a process that was in
-the middle of performing a trash pop had crashed, and did not complete
-the trash cycle.
-
-For the MVP: So what we do here is simply bail out of the whole commit
-and return a critical error. Letting the user that the database needs
-to be cleaned.
-
-*** 1.3) reference ready
-If the =trash_ref_last= reference is ready, that means whatever is
-pointing to is a valid trash page. What we do here is weave lock
-between this current =trash_ref_last= SH lock (we currently have) as
-well as the ~next~ reference of the trash page it's pointing to. So
-after releasing our lock on =trash_ref_last= and with our lock on the
-~next~ reference of the trash page, we follow that trash page
-reference to step 2.
-
-** 2) Scan the trash page
-We scan the contents of the trash page, starting from the end of the
-page (not including the ~next~ reference) to the beginning of the
-trash page (not including the ~previous~ page). For each reference we
-intend to scan, we first attempt to place a TXL lock on that
-reference. If the TXL lock fails, then we just assume another process
-is about to use that reference for its own purpose and continue to the
-next one. If the lock succeeds, we read the contents of the reference,
-what we read on each reference dictates what we do next (note: this
-entire time we still retain the SH lock on the ~next~ reference we
-aquired in step 1.3).
-
- 1. Is the reference null (~.data_page_off = -1~)
- 2. Is the reference busy (~.back_reference != 0~)?
- 3. Is the reference ready (none of the above are true)?
-
-There is another case: and that is we've scanned the entire trash page
-with no luck: they're all either already locked or just not useful to
-us. If that's the case we can move to read the ~previous~ field which
-will point us to either the previous trash page, or, the ~previous~
-will also be null. In the former case, we weave-lock between our
-current trash page's ~next~ reference and the previous's page's ~next~
-reference and repeate step 2. In the later case, we unlock our current
-page's ~next~ SH lock and move to step 1.2 with the assumption that
-we have already released the SH lock that was placed on the group's
-=trash_ref_last=.
-
-*** 2.1) null reference
-A null reference means that this reference has already been consumed
-or was not yet used. Either way it is completely useless to us, we
-treat this as if our TXL lock had failed, that is, we unlock it, skip
-over it, and continue on.
-
-*** 2.2) busy reference
-See 1.2.
-
-*** 2.3) ready reference
-If we have read a ready reference: we've found a reference to a data
-page that is currently in the trash list. What we do is release the SH
-lock we have on this trash page's ~next~ reference but retain our XL
-lock that we aquired on this specific reference. We then write to the
-trash ref's ~.back_reference~ field: setting it to the block ID we are
-using this reference for. At this point, this block is considered to
-be in a 'soft allocated' state. This state means that we have this
-particular block allocated, but that doesn't mean we have all the
-blocks for the given commit allocated.
-
-Whilest retaining this XL lock on the reference, continue to scan the
-trash page as defined by step 2 here (meaning continue to scan toward
-the beginning, do not restart the scan when you reach this step
-otherwise you'll end up rescanning references that you've already soft
-allocated).
-
-Once all blocks are in the soft allocated state, you can continue to step 3.
-
-** 3) Setting the =BLOCK_VERSION_COMMIT_ALLOCATED=, writting to each block
-At this point, you have have allocated all the trash data pages needed
-for all the blocks in the commit. Meaning you have XL locks on trash
-refs around the volume.
-
-With this, you set the version of the commit to
-=BLOCK_VERSION_COMMIT_ALLOCATED=. You now go through each block and
-its respective data page and write out the new version of data (do not
-update the block's data page reference yet!)
-
-** 4) Setting the =BLOCK_VERSION_COMMIT_WROTE=
-Once all blocks in the commit have their respective trash pages'
-content updated with the new version of data, you can set the commit
-version to =BLOCK_VERSION_COMMIT_WROTE=.
-
-Now going in order of the XL locks aquired on the trash refs to which
-they were aquired (hense, the same order of the block IDs). We set the
-trash reference to null (=-1=).
-
-TODO:
-
- - update the case where the trash refs are null but back reference is
-   not null. This should be okay, there would be no point in removing
-   the back reference and can help recover data if we crash in the
-   =BLOCK_VERSION_COMMIT_WROTE= state.
- - remove the XL locks on the trash refs, and, make sure we do house
-   keeping on the way out (if the page is completely null refs then
-   remove the page... should we do this on the way out or the way back
-   in when we get to throwing away the old pages?)
-
-* Concurrency Control
-A single ODB file is assumed to be operated by an unlimited amount of
-processes at a given time. And each one of those processes can have
-their own threads, so there's a lot to consider here. So lets start at
-the beginning.
-
-** Creating/Opening an ODB file
-When creating a fresh ODB file, you're obliaged to write the first
-set of Meta Pages before the file can be opened up by subsequent
-processes. To prevent the condition to which multiple processes are
-attempting to create the same file, we always create odb files using
-the =O_EXCL= flag with =open(2)=.
-
-Once we have created a odb file, we still need to ward off other
-processes from trying to load our file until the first Meta Pages
-is complete. So, once we've created an odb file, we immediately place
-a =F_WRLCK= advisory lock using =fcntl(2)= on the first 2 bytes of the
-file (soon to be the magic number), we set up the first Descriptor
-Page and then only after we release the =F_WRLCK=. Conversely, when
-opening an odb file, we first place a =F_RDLCK= on said file's first 2
-bytes, read the magic number and make sure its valid, then relase the
-lock. This will ensure the file will always be properly initialized
-when opening a newly created odb file.
-
-Concurrently creating an ODB file from multiple different threads of
-the same process results in undefined behaviour.
-** Creating Groups
-
- 1. The last group descriptor's "blocks_created" must equal 1022.
- 2. Note down the current groups_created field.
- 3. + XL lock on the first super descriptor's bock.
- 4. Check the groups_created field, if it matches what you noted in
-    2., then continue. Otherwise, release the lock as a new group has
-    already been created sense you requested the XL lock.
- 5. Append the new meta pages to the file.
- 6. Incremenet groups_created.
- 7. - XL lock
-
-There is no deleting groups. Once a group is created, it cannot be
-removed (during normal process-ready operation).
-
-In the future, when OidaDB operates as in block device, then this
-chapter is moot because all groups would already be initialized.
-
-
-
+Only when everything has been copied and versions have been updated
+and any calls to syncing the disk, should you then unlock all
+references as defined in the defer statement in step 1.
