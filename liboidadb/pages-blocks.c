@@ -74,16 +74,17 @@ void blocks_unlock(odb_desc *desc, odb_bid bid, int blockc) {
  * @param group_off 0 = first group of volume
  * @param block_off 0 = first block of group, max of ODB_SPEC_BLOCKS_PER_GROUP - 1
  * @param blockc amount of blocks to copy, max of ODB_SPEC_BLOCKS_PER_GROUP
- * @param o_blockv output pointer to write blocks to
+ * @param o_blockv output pointer to write blocks to. If null, blocks are not
+ *                 loaded
  * @param o_versionv output pointer to write block versions to
  */
 static odb_err blocks_copy_from_group(const odb_desc *desc
-                                      , meta_pages group
+                                      , const struct odb_block_group_desc *groupm
                                       , odb_gid group_off
-									  , int block_off
-									  , int blockc
-									  , void *o_blockv
-									  , odb_revision *o_versionv) {
+                                      , int block_off
+                                      , int blockc
+                                      , odb_datapage *o_blockv
+                                      , odb_revision *o_versionv) {
 #ifdef EDB_FUCKUPS
 	// invals
 	if (blockc > ODB_SPEC_BLOCKS_PER_GROUP) {
@@ -94,11 +95,11 @@ static odb_err blocks_copy_from_group(const odb_desc *desc
 	}
 #endif
 
-	odb_err err = 0;
-	int fd = desc->fd;
+	odb_err err               = 0;
+	int     fd                = desc->fd;
 	// convert the block offset to a page offset, we just need to add the
 	// meta pages.
-	int block_page_offset = ODB_SPEC_METAPAGES_PER_GROUP + block_off;
+	int     block_page_offset = ODB_SPEC_METAPAGES_PER_GROUP + block_off;
 
 	// later: implement my own page caching using read(2) here fails to
 	//  utilize proper copy-on-write behaviour. But, we cannot use mmap due
@@ -107,28 +108,37 @@ static odb_err blocks_copy_from_group(const odb_desc *desc
 	//  But I won't let this slow me down, I'll just use reads for now, it'll
 	//  eat up ram, but we can fix it eventually without messing with the API
 
-	// copy the blocks
+	if (o_blockv) {
+		// copy the blocks
+		if (lseek64(fd
+		            , ((off64_t) group_off * ODB_SPEC_PAGES_PER_GROUP
+		               + (off64_t) block_page_offset)
+		              * ODB_PAGESIZE
+		            , SEEK_SET) == -1) {
+			err = log_critf("failed call to lseek");
+			return err;
+		}
+		if (read(fd
+		         , o_blockv
+		         , blockc * ODB_BLOCKSIZE) == -1) {
+			switch (errno) {
+			case EBADF: err = ODB_EBADF;
+			default: err    = log_critf("failed call to read");
+			}
+			return err;
+		}
+	}
+
+	// copy the versions
 	if (lseek64(fd
-	            , ((off64_t) group_off * ODB_SPEC_PAGES_PER_GROUP
-	               + (off64_t) block_page_offset)
+	            , ((off64_t) group_off * ODB_SPEC_PAGES_PER_GROUP)
 	              * ODB_PAGESIZE
 	            , SEEK_SET) == -1) {
 		err = log_critf("failed call to lseek");
 		return err;
 	}
-	if (read(fd
-	         , o_blockv
-	         , blockc * ODB_BLOCKSIZE) == -1) {
-		switch (errno) {
-		case EBADF: err = ODB_EBADF;
-		default: err = log_critf("failed call to read");
-		}
-		return err;
-	}
-
-	// copy the versions
 	for (int i = 0; i < blockc; i++) {
-		o_versionv[i] = group.versionv[block_page_offset + i];
+		o_versionv[i] = groupm->blocks[block_page_offset + i].block_ver;
 	}
 
 	return 0;
@@ -136,25 +146,26 @@ static odb_err blocks_copy_from_group(const odb_desc *desc
 
 odb_err blocks_copy(odb_desc *desc
                     , int blockc
-                    , void *o_blockv
-                    , odb_revision *o_versionv) {
-	odb_err err = 0;
+                    , struct odb_block_group_desc *restrict buff_group_descm
+                    , odb_datapage *restrict o_dpagev
+                    , odb_revision *restrict o_blockv) {
+	odb_err err;
 
 	odb_bid block_start = desc->cursor.cursor_bid;
-	odb_bid block_end   = block_start + blockc;
 
 	int     blocks_copied = 0;
 	odb_gid group_start   = bid2gid(block_start);
-	odb_gid group_end     = bid2gid(block_end);
+	odb_gid group_end     = group_start + descriptor_buffer_needed(block_start, blockc);
 
 	// starting_group_block: if they wanted to copy blocks that start in the
 	// middle of the group.
-	int        blockoff_group = (int)(block_start % ODB_SPEC_BLOCKS_PER_GROUP);
+	int blockoff_group = (int) (block_start % ODB_SPEC_BLOCKS_PER_GROUP);
 
-	meta_pages group;
+	void *o_blockv_adjusted;
+
 	for (odb_gid group_off = group_start; group_off <= group_end; group_off++) {
-		err = group_loadg(desc, group_off, &group);
-		if(err) {
+		err = group_loadg(desc, group_off, buff_group_descm);
+		if (err) {
 			break;
 		}
 
@@ -165,15 +176,20 @@ odb_err blocks_copy(odb_desc *desc
 			blocks_in_group = ODB_SPEC_BLOCKS_PER_GROUP;
 		}
 
+		if (o_dpagev) {
+			o_blockv_adjusted = o_dpagev + blocks_copied * ODB_BLOCKSIZE;
+		} else {
+			o_blockv_adjusted = 0;
+		}
+
 		err = blocks_copy_from_group(desc
-		                       , group
-		                       , group_off
-		                       , blockoff_group
-		                       , blocks_in_group
-		                       , o_blockv + blocks_copied * ODB_BLOCKSIZE
-							   , &o_versionv[blocks_copied]);
-		if(err) {
-			group_unloadg(&group);
+		                             , buff_group_descm
+		                             , group_off
+		                             , blockoff_group
+		                             , blocks_in_group
+		                             , o_blockv_adjusted
+		                             , &o_blockv[blocks_copied]);
+		if (err) {
 			break;
 		}
 		blocks_copied += blocks_in_group;
@@ -181,21 +197,30 @@ odb_err blocks_copy(odb_desc *desc
 		// If we're moving to the next group, we start on block 0 of the
 		// next group. Also load that next group.
 		blockoff_group = 0;
-		group_unloadg(&group);
 	}
 
-	if(err) {
+
+
+	if (err) {
+		return err;
 		// don't update the cursor
-	} else {
-		desc->cursor.cursor_bid += blockc;
 	}
-	return err;
+
+#ifdef EDB_FUCKUPS
+	if (blocks_copied != blockc) {
+		return log_critf("block count mis-match");
+	}
+#endif
+
+	// todo: remove the cursor?
+	//desc->cursor.cursor_bid += blockc;
+	return 0;
 }
 
 
-int descriptor_buffer_needed(odb_bid block_start, int len) {
+int descriptor_buffer_needed(odb_bid block_start, int blockc) {
 	odb_gid group_start = bid2gid(block_start);
-	odb_gid group_end   = bid2gid(block_start + len);
+	odb_gid group_end   = bid2gid(block_start + blockc);
 	return (int) (group_end - group_start) + 1;
 }
 
@@ -405,4 +430,5 @@ odb_err blocks_commit_attempt(const odb_desc *desc
 
 	// done
 	odb_free(bmap.blockv);
+	return 0;
 }
