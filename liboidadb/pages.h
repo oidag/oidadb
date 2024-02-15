@@ -165,11 +165,11 @@ odb_err blocks_commit_attempt(const odb_desc *desc
                               , struct block_commit_buffers commit);
 
 /**
- * Copies the amount of blocks blockc and their versions into o_blockv and their
+ * Copies the amount of blocks blockc and their data into o_dpagev and their
  * versions into o_versionv. The starting block will be desc->cursor.cursor_bid.
  * If no error is returned, desc->cursor.cursor_bid is incremented by blockc.
  *
- * If o_blockv is null, then the blocks are not loaded. Good for when you only
+ * If o_dpagev is null, then the blocks are not loaded. Good for when you only
  * want to load the versions.
  *
  * blocks_copy only needs 1 page for buff_group_descm
@@ -178,9 +178,9 @@ odb_err blocks_commit_attempt(const odb_desc *desc
  */
 odb_err blocks_copy(odb_desc *desc
                     , int blockc
-                    , struct odb_block_group_desc *buff_group_descm
-                    , odb_datapage *o_dpagev
-                    , odb_revision *o_blockv);
+                    , struct odb_block_group_desc *restrict buff_group_descm
+                    , odb_datapage *restrict o_dpagev
+                    , odb_revision *restrict o_blockv);
 
 // utility
 void page_lock(int fd, odb_pid page, int xl);
@@ -203,6 +203,6 @@ void page_unlock(int fd, odb_pid page);
  * into the second group entirely. Only when you commit 1025 blocks do you
  * need 3 descriptor blocks.
  */
-int descriptor_buffer_needed(odb_bid block_start, int len);
+int descriptor_buffer_needed(odb_bid block_start, int blockc);
 
 #endif //OIDADB_PAGESI_H
