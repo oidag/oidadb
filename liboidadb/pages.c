@@ -160,14 +160,9 @@ void odb_close(odb_desc *descriptor) {
 	odb_free(descriptor);
 }
 
-static off64_t pid2off(odb_pid pid) {
-	return (off64_t) pid * ODB_PAGESIZE;
-}
-
 odb_err odbp_seek(odb_desc *desc, odb_bid block) {
 
 	odb_cursor cursor;
-	odb_err    err;
 	cursor.cursor_bid = block;
 
 	desc->cursor = cursor;

@@ -37,7 +37,7 @@ typedef uint64_t odb_revision;
 typedef uint64_t odb_pid;
 typedef uint64_t odb_bid;
 typedef uint64_t odb_gid; // group
-const odb_bid ODB_BID_END = 0xFFFFFFFFFFFFFFFF;
+static const odb_bid ODB_BID_END = 0xFFFFFFFFFFFFFFFF;
 
 export odb_err odb_open(const char *file, odb_ioflags flags, odb_desc **o_descriptor);
 export void odb_close(odb_desc *desc);

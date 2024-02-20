@@ -20,7 +20,6 @@ odb_err odbh_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 
 	*o_buf = buf;
 	buf->info = buf_info;
-	odb_err err = 0;
 
 	buf->user_datam = odb_mmap(0
 	                           , buf_info.bcount

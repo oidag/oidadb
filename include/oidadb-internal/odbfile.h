@@ -15,6 +15,7 @@
 #define ODB_SPEC_METAPAGES_PER_GROUP 1
 
 #define ODB_SPEC_FLAG_GROUP_INIT 0x01
+#define ODB_SPEC_FLAG_BLOCK_GROUP 0x04
 
 
 struct odb_block {

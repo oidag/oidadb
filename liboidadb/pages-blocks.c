@@ -315,21 +315,16 @@ static odb_err data_map(const odb_desc *desc
 
 	int     blockc      = bmap->blockc;
 	odb_bid block_start = bmap->block_start;
-	odb_bid block_end   = block_start + blockc;
 
 	unsigned int blocks_mapped = 0;
 	odb_gid      group_start   = bid2gid(block_start);
-	odb_gid group_end     = bid2gid(block_end);
 	int     groupc        = bmap->groupc;
-	//bmap->groupc =
 
 	// starting_group_block: if they wanted to copy blocks that start in the
 	// middle of the group.
 	int blockoff_group = (int) (block_start % ODB_SPEC_BLOCKS_PER_GROUP);
 
-	void *o_blockv_adjusted;
 
-	struct odb_block_group_desc *group_ptr;
 	for (int group_index = 0; group_index < groupc; group_index++) {
 
 		// The blocks in the group to which we must copy will either be whatever
