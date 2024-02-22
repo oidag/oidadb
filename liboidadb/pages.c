@@ -62,13 +62,10 @@ odb_err _odb_open(const char *path
 		open_flags = O_RDONLY;
 	}
 	if (flags & ODB_PWRITE) {
-		open_flags = O_WRONLY;
+		open_flags = O_RDWR;
 	}
 	if (flags & ODB_PCREAT) {
 		open_flags |= O_CREAT | O_EXCL;
-	}
-	if ((flags & (ODB_PWRITE | ODB_PREAD)) == (ODB_PWRITE | ODB_PREAD)) {
-		open_flags = O_RDWR;
 	}
 	open_flags |= O_CLOEXEC | O_LARGEFILE | O_SYNC;
 

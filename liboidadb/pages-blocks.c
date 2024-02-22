@@ -51,7 +51,8 @@ static odb_gid bid2gid(odb_bid bid) {
 }
 
 odb_err blocks_lock(odb_desc *desc, odb_bid bid, int blockc, int xl) {
-	for (; bid < blockc + bid; bid++) {
+	odb_bid block_end = blockc + bid;
+	for (; bid < block_end; bid++) {
 		odb_pid pid = bid2pid(bid);
 		page_lock(desc->fd, pid, xl);
 	}
@@ -59,7 +60,8 @@ odb_err blocks_lock(odb_desc *desc, odb_bid bid, int blockc, int xl) {
 }
 
 void blocks_unlock(odb_desc *desc, odb_bid bid, int blockc) {
-	for (; bid < blockc + bid; bid++) {
+	odb_bid block_end = blockc + bid;
+	for (; bid < block_end; bid++) {
 		odb_pid pid = bid2pid(bid);
 		page_unlock(desc->fd, pid);
 	}
@@ -138,7 +140,7 @@ static odb_err blocks_copy_from_group(const odb_desc *desc
 		return err;
 	}
 	for (int i = 0; i < blockc; i++) {
-		o_versionv[i] = groupm->blocks[block_page_offset + i].block_ver;
+		o_versionv[i] = groupm->blocks[block_off + i].block_ver;
 	}
 
 	return 0;
@@ -163,7 +165,7 @@ odb_err blocks_copy(odb_desc *desc
 
 	void *o_blockv_adjusted;
 
-	for (odb_gid group_off = group_start; group_off <= group_end; group_off++) {
+	for (odb_gid group_off = group_start; group_off < group_end; group_off++) {
 		err = group_loadg(desc, group_off, buff_group_descm);
 		if (err) {
 			break;
@@ -220,7 +222,8 @@ odb_err blocks_copy(odb_desc *desc
 
 int descriptor_buffer_needed(odb_bid block_start, int blockc) {
 	odb_gid group_start = bid2gid(block_start);
-	odb_gid group_end   = bid2gid(block_start + blockc);
+	odb_bid block_end   = block_start + blockc - 1;
+	odb_gid group_end   = bid2gid(block_end);
 	return (int) (group_end - group_start) + 1;
 }
 
@@ -272,7 +275,7 @@ static odb_err group_map(const odb_desc *desc
 		}
 
 		for (int block_index = blockoff_group;
-		     block_index < blocks_in_group; block_index++) {
+		     block_index < blockoff_group+blocks_in_group; block_index++) {
 			bmap->blockv[blocks_copied] = &group_ptr->blocks[block_index];
 			blocks_copied++;
 		}
@@ -336,12 +339,16 @@ static odb_err data_map(const odb_desc *desc
 		// map all the pages in this group
 		odb_datapage *dest_addr = bmap->data_pagem +
 		                          ODB_PAGESIZE * blocks_mapped;
+		odb_gid current_group          = group_start + group_index;
+		odb_pid first_data_page_offset = current_group * ODB_SPEC_PAGES_PER_GROUP
+		                                 + ODB_SPEC_METAPAGES_PER_GROUP
+		                                 + blockoff_group;
 		if (odb_mmap(dest_addr
 		             , blocks_in_group
 		             , PROT_WRITE
 		             , MAP_SHARED | MAP_FIXED
 		             , desc->fd
-		             , group_start + group_index + blockoff_group) == MAP_FAILED) {
+		             , first_data_page_offset) == MAP_FAILED) {
 			return odb_mmap_errno;
 		}
 
@@ -414,8 +421,8 @@ odb_err blocks_commit_attempt(const odb_desc *desc
 	for (int i = 0; i < blockc; i++) {
 
 		// copy the page over
-		odb_datapage       *dest = bmap.data_pagem + ODB_PAGESIZE * i;
-		const odb_datapage *src  = commit.user_datam + ODB_PAGESIZE * i;
+		void       *dest = (void *)bmap.data_pagem + ODB_PAGESIZE * i;
+		const void *src  = (void *)commit.user_datam + ODB_PAGESIZE * i;
 		memcpy(dest, src, ODB_PAGESIZE);
 
 		// update the version
