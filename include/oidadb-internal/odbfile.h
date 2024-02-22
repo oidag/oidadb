@@ -30,7 +30,7 @@ struct odb_block_group_desc {
 
 	// see ODB_SPEC_FLAG_GROUP_* constants
 	uint16_t flags;
-	uint64_t rsvd0;
+	uint32_t rsvd0;
 
 	struct odb_block blocks[1023];
 

@@ -50,6 +50,16 @@ static odb_gid bid2gid(odb_bid bid) {
 	return group_index;
 }
 
+unsigned int static blocks_remaining_in_group(unsigned int blockc
+								 , unsigned int blocks_mapped
+								 , unsigned int blockoff_group) {
+	unsigned int blocks_in_group = blockc - blocks_mapped;
+	if (blockoff_group + blocks_in_group > ODB_SPEC_BLOCKS_PER_GROUP) {
+		blocks_in_group = ODB_SPEC_BLOCKS_PER_GROUP - blockoff_group;
+	}
+	return blocks_in_group;
+}
+
 odb_err blocks_lock(odb_desc *desc, odb_bid bid, int blockc, int xl) {
 	odb_bid block_end = blockc + bid;
 	for (; bid < block_end; bid++) {
@@ -173,10 +183,9 @@ odb_err blocks_copy(odb_desc *desc
 
 		// The blocks in the group to which we must copy will either be whatever
 		// is left to copy, or, whatever is left in the group.
-		int blocks_in_group = blockc - blocks_copied;
-		if (blocks_in_group > ODB_SPEC_BLOCKS_PER_GROUP) {
-			blocks_in_group = ODB_SPEC_BLOCKS_PER_GROUP;
-		}
+		unsigned int blocks_in_group = blocks_remaining_in_group(blockc
+		                                                         , blocks_copied
+		                                                         , blockoff_group);
 
 		if (o_dpagev) {
 			o_blockv_adjusted = o_dpagev + blocks_copied * ODB_BLOCKSIZE;
@@ -261,7 +270,7 @@ static odb_err group_map(const odb_desc *desc
 	struct odb_block_group_desc *group_ptr;
 	for (int                group_index = 0;
 	     group_index < groupc; group_index++) {
-		group_ptr = (((void *) bmap->groupm) + group_index * PAGE_SIZE);
+		group_ptr = (((void *) bmap->groupm) + group_index * ODB_PAGESIZE);
 		err       = group_loadg(desc, group_start + group_index, group_ptr);
 		if (err) {
 			break;
@@ -269,10 +278,9 @@ static odb_err group_map(const odb_desc *desc
 
 		// The blocks in the group to which we must copy will either be whatever
 		// is left to copy, or, whatever is left in the group.
-		int blocks_in_group = blockc - blocks_copied;
-		if (blocks_in_group > ODB_SPEC_BLOCKS_PER_GROUP) {
-			blocks_in_group = ODB_SPEC_BLOCKS_PER_GROUP;
-		}
+		unsigned int blocks_in_group = blocks_remaining_in_group(blockc
+		                                                         , blocks_copied
+		                                                         , blockoff_group);
 
 		for (int block_index = blockoff_group;
 		     block_index < blockoff_group+blocks_in_group; block_index++) {
@@ -332,10 +340,9 @@ static odb_err data_map(const odb_desc *desc
 
 		// The blocks in the group to which we must copy will either be whatever
 		// is left to copy, or, whatever is left in the group.
-		unsigned int blocks_in_group = blockc - blocks_mapped;
-		if (blocks_in_group > ODB_SPEC_BLOCKS_PER_GROUP) {
-			blocks_in_group = ODB_SPEC_BLOCKS_PER_GROUP;
-		}
+		unsigned int blocks_in_group = blocks_remaining_in_group(blockc
+				, blocks_mapped
+				, blockoff_group);
 		// map all the pages in this group
 		odb_datapage *dest_addr = bmap->data_pagem +
 		                          ODB_PAGESIZE * blocks_mapped;

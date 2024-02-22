@@ -142,6 +142,24 @@ void test_main() {
 		}
 	}
 
+	// just a big fat crazy operation
+	for(int i = 0; i < 2046; i++) {
+		if ((err = odbp_seek(desc, i))) {
+			test_error("seek5");
+			return;
+		}
+
+		if ((err = odbp_checkout(desc, 11))) {
+			test_error("checkout5");
+			return;
+		}
+
+		if ((err = odbp_commit(desc, 8))) {
+			test_error("commit5");
+			return;
+		}
+	}
+
 	odbh_buffer_free(buf);
 	odb_close(desc);
 }
