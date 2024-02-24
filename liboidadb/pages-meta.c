@@ -170,23 +170,23 @@ odb_err group_loadg(const odb_desc *desc
 
 odb_err block_truncate(odb_desc *desc, odb_bid block_off) {
 	int     fd = desc->fd;
-	odb_gid goff;
-	odb_pid needed_page_offset, current_page_count;
+	odb_pid needed_page_count, current_page_count;
 	off64_t size;
 	size = lseek64(fd, 0, SEEK_END);
 
-
-	goff               = block_off / ODB_SPEC_BLOCKS_PER_GROUP;
-	needed_page_offset = goff * ODB_SPEC_PAGES_PER_GROUP
-	                     + (block_off % ODB_SPEC_BLOCKS_PER_GROUP)
-	                     + ((goff + 1) * ODB_SPEC_METAPAGES_PER_GROUP);
-
+	needed_page_count = bid2pid(block_off);
 	current_page_count = (size / ODB_PAGESIZE);
-
 
 	// first, check if we need to initialize any new groups.
 
-	if (needed_page_offset >= current_page_count) {
+	if (needed_page_count > current_page_count) {
+
+		// if we need extra space, but we don't have write permission, then
+		// there's nothing we can do.
+
+		if(!(desc->flags & ODB_PWRITE)) {
+			return ODB_ENOSPACE;
+		}
 
 		// so we need to truncate some extra space. But, another process could
 		// have already done so sense we called the lseek64. So we need to lock
@@ -196,12 +196,12 @@ odb_err block_truncate(odb_desc *desc, odb_bid block_off) {
 		size               = page_lock_eof(fd, 1);
 		current_page_count = (size / ODB_PAGESIZE);
 
-		if (needed_page_offset < current_page_count) {
+		if (needed_page_count <= current_page_count) {
 			page_unlock_eof(fd, size);
 			return 0;
 		}
 
-		off64_t newSize = (off64_t) needed_page_offset * ODB_PAGESIZE;
+		off64_t newSize = (off64_t) needed_page_count * ODB_PAGESIZE;
 		int     err     = ftruncate64(fd, newSize);
 		page_unlock_eof(fd, size);
 		if (err == -1) {

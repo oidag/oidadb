@@ -180,7 +180,7 @@ odb_err odbp_checkout(odb_desc *desc, int bcount) {
 	}
 	odb_buf *buffer = desc->boundBuffer;
 
-	err = block_truncate(desc, desc->cursor.cursor_bid + bcount);
+	err = block_truncate(desc, desc->cursor.cursor_bid + bcount - 1);
 	if (err) {
 		return err;
 	}
@@ -239,7 +239,7 @@ odb_err odbp_commit(odb_desc *desc, int blockc) {
 		return ODB_EBUFFSIZE;
 	}
 
-	err = block_truncate(desc, desc->cursor.cursor_bid + blockc);
+	err = block_truncate(desc, desc->cursor.cursor_bid + blockc - 1);
 	if (err) {
 		return err;
 	}

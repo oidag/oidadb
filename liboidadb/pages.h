@@ -187,6 +187,8 @@ void page_lock(int fd, odb_pid page, int xl);
 
 void page_unlock(int fd, odb_pid page);
 
+odb_pid bid2pid(odb_bid bid);
+
 /**
  * descriptor_buffer_needed is a small helper function that will calculate the
  * maximum number of block description pages that are needed to be loaded during

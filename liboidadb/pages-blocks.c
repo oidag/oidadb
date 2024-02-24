@@ -39,10 +39,10 @@ struct blockmap {
 	int _groups_loaded;
 };
 
-static odb_pid bid2pid(odb_bid bid) {
-	uint64_t group_index = bid / ODB_SPEC_BLOCKS_PER_GROUP;
-	uint64_t meta_pages  = (group_index + 1) * ODB_SPEC_METAPAGES_PER_GROUP;
-	return meta_pages + bid;
+odb_pid bid2pid(odb_bid bid) {
+	uint64_t full_groups          = bid / ODB_SPEC_BLOCKS_PER_GROUP;
+	uint64_t blocks_in_last_group = (bid % ODB_SPEC_BLOCKS_PER_GROUP) + 1;
+	return (full_groups * ODB_SPEC_PAGES_PER_GROUP) + blocks_in_last_group + ODB_SPEC_METAPAGES_PER_GROUP;
 }
 
 static odb_gid bid2gid(odb_bid bid) {
