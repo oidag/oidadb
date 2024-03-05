@@ -41,8 +41,14 @@ struct blockmap {
 
 odb_pid bid2pid(odb_bid bid) {
 	uint64_t full_groups          = bid / ODB_SPEC_BLOCKS_PER_GROUP;
-	uint64_t blocks_in_last_group = (bid % ODB_SPEC_BLOCKS_PER_GROUP) + 1;
-	return (full_groups * ODB_SPEC_PAGES_PER_GROUP) + blocks_in_last_group + ODB_SPEC_METAPAGES_PER_GROUP;
+	uint64_t blocks_in_last_group = (bid % ODB_SPEC_BLOCKS_PER_GROUP);
+	uint64_t pid = (full_groups * ODB_SPEC_PAGES_PER_GROUP) + blocks_in_last_group + ODB_SPEC_METAPAGES_PER_GROUP;
+#ifdef EDB_FUCKUPS
+	if (!(pid % ODB_SPEC_PAGES_PER_GROUP)) {
+		log_critf("block locking mis-calculation: points to group page");
+	}
+#endif
+	return pid;
 }
 
 static odb_gid bid2gid(odb_bid bid) {

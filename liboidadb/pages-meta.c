@@ -174,7 +174,7 @@ odb_err block_truncate(odb_desc *desc, odb_bid block_off) {
 	off64_t size;
 	size = lseek64(fd, 0, SEEK_END);
 
-	needed_page_count = bid2pid(block_off);
+	needed_page_count = bid2pid(block_off) + 1;
 	current_page_count = (size / ODB_PAGESIZE);
 
 	// first, check if we need to initialize any new groups.
