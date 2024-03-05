@@ -71,6 +71,12 @@ typedef struct odb_buf {
 	odb_revision *buffer_versionv;
 	odb_datapage *buffer_datam;
 
+	/**
+	 * map_statev is an array of uint32_t with each bit describing the
+	 * associative page found in user_datam. Thus bit 0 represents page 0.
+	 * The length of map_statev is (info->bcount / 32)+1.
+	 */
+	uint32_t *map_statev;
 } odb_buf;
 
 typedef struct odb_desc {

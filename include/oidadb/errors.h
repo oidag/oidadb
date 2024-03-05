@@ -100,6 +100,10 @@ typedef enum odb_err {
 
 	// whatever happened was because of the user.
 	ODB_EUSER,
+
+	ODB_EMAPPED,
+
+	ODB_ENMAP,
 } odb_err;
 
 export const char *odb_errstr(odb_err error);
