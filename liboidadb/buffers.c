@@ -125,7 +125,7 @@ odb_err odbh_buffer_free(odb_buf *buffer) {
 }
 
 odb_err odbh_buffer_versions(odb_buf *buffer
-                             , const odb_revision **o_verv) {
+                             , odb_revision **o_verv) {
 	*o_verv = buffer->user_versionv;
 	return 0;
 }

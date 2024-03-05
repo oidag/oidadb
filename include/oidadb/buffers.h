@@ -70,15 +70,18 @@ export odb_err odbh_buffer_unmap(odb_buf *buffer
 
 
 /**
- Sets o_verv to point to a read-only array of all the versions of the blocks
+ Sets o_verv to point to a array of all the versions of the blocks
  that have been checked out. This array is owned by the buffer so don't try
  to free it or anything freaky like that.
 
  These versions are associative to the data pages you get when using the map
  functions and only change when checkouts are performed with this buffer.
+
+ You can set the versions to be whatever you want via this array, these will
+ be the versions that are used when committing.
  */
 export odb_err odbh_buffer_versions(odb_buf *buffer
-									, const odb_revision **o_verv);
+									, odb_revision **o_verv);
 
 /**
  *
