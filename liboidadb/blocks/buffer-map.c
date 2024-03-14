@@ -2,7 +2,7 @@
 #include "blocks.h"
 
 
-odb_err odbh_buffer_map(odb_buf *buffer
+odb_err odbv_buffer_map(odb_buf *buffer
                         , void **mdata
                         , unsigned int boff
                         , unsigned int blockc) {
@@ -34,7 +34,7 @@ odb_err odbh_buffer_map(odb_buf *buffer
 	return 0;
 }
 
-odb_err odbh_buffer_unmap(odb_buf *buffer
+odb_err odbv_buffer_unmap(odb_buf *buffer
                           , unsigned int boff
                           , unsigned int blockc) {
 

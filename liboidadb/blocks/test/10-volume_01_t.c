@@ -32,12 +32,12 @@ void test_main() {
 	};
 	odb_buf *buf;
 
-	if((err = odbh_buffer_new(binf, &buf))) {
+	if((err = odb_buffer_new(binf, &buf))) {
 		test_error("buffer new");
 		return;
 	}
 
-	if((err = odbp_bind_buffer(desc, buf))) {
+	if((err = odbb_bind_buffer(desc, buf))) {
 		test_error("bind buffer");
 		return;
 	}
@@ -46,19 +46,19 @@ void test_main() {
 
 	for(int i = 0; i < 1024; i++) {
 
-		if ((err = odbp_seek(desc, i))) {
+		if ((err = odbb_seek(desc, i))) {
 			test_error("seek0");
 			return;
 		}
 
-		if ((err = odbp_checkout(desc, buffer_size))) {
+		if ((err = odbb_checkout(desc, buffer_size))) {
 			test_error("checkout0");
 			return;
 		}
 
 		// map the first half of the buffer and write stuff to it.
 		char *pagedata;
-		if((err = odbh_buffer_map(buf, (void **) &pagedata, 0, buffer_size/2))) {
+		if((err = odbv_buffer_map(buf, (void **) &pagedata, 0, buffer_size / 2))) {
 			test_error("map0");
 			return;
 		}
@@ -69,7 +69,8 @@ void test_main() {
 			pagedata[j]++;
 		}
 		// map the second half
-		if((err = odbh_buffer_map(buf, (void **) &pagedata, buffer_size/2, buffer_size - buffer_size/2))) {
+		if((err = odbv_buffer_map(buf, (void **) &pagedata, buffer_size / 2,
+				buffer_size - buffer_size / 2))) {
 			test_error("2map0");
 			return;
 		}
@@ -80,14 +81,15 @@ void test_main() {
 			pagedata[j]++;
 		}
 		// unmap both halves
-		if((err = odbh_buffer_unmap(buf, 0, buffer_size))) {
+		if((err = odbv_buffer_unmap(buf, 0, buffer_size))) {
 			test_error("unmap0");
 			return;
 		}
 
 		if (i == 1023) {
 			// last iteration... mark the last page
-			if((err = odbh_buffer_map(buf, (void **) &pagedata, buffer_size-1, 1))) {
+			if((err = odbv_buffer_map(buf, (void **) &pagedata, buffer_size - 1
+			                          , 1))) {
 				test_error("3map0");
 				return;
 			}
@@ -95,14 +97,14 @@ void test_main() {
 				pagedata[j] = '@';
 
 			}
-			if((err = odbh_buffer_unmap(buf, buffer_size-1, 1))) {
+			if((err = odbv_buffer_unmap(buf, buffer_size - 1, 1))) {
 				test_error("2unmap0");
 				return;
 			}
 		}
 
 		// commit the changes
-		if ((err = odbp_commit(desc, buffer_size))) {
+		if ((err = odbb_commit(desc, buffer_size))) {
 			test_error("commit0");
 			return;
 		}
@@ -113,7 +115,7 @@ void test_main() {
 
 	// close the database completely.
 
-	if ((err = odbh_buffer_free(buf))) {
+	if ((err = odb_buffer_free(buf))) {
 		test_error("close0");
 		return;
 	}
@@ -127,30 +129,30 @@ void test_main() {
 	}
 	// set buffer to not have commits
 	binf.flags &= ~ODB_UCOMMITS;
-	if((err = odbh_buffer_new(binf, &buf))) {
+	if((err = odb_buffer_new(binf, &buf))) {
 		test_error("buffer new1");
 		return;
 	}
-	if((err = odbp_bind_buffer(desc, buf))) {
+	if((err = odbb_bind_buffer(desc, buf))) {
 		test_error("bind buffer1");
 		return;
 	}
 
 	// read some data and make sure its the expected value.
 	for(int i = 0; i < 1024; i++) {
-		if ((err = odbp_seek(desc, i))) {
+		if ((err = odbb_seek(desc, i))) {
 			test_error("seek1");
 			return;
 		}
 
-		if ((err = odbp_checkout(desc, buffer_size))) {
+		if ((err = odbb_checkout(desc, buffer_size))) {
 			test_error("checkout1");
 			return;
 		}
 
 		char *pagedata;
 
-		if((err = odbh_buffer_map(buf, (void **) &pagedata, 0, buffer_size))) {
+		if((err = odbv_buffer_map(buf, (void **) &pagedata, 0, buffer_size))) {
 			test_error("map1");
 			return;
 		}
@@ -177,12 +179,12 @@ void test_main() {
 			}
 		}
 
-		if((err = odbh_buffer_unmap(buf, 0, buffer_size))) {
+		if((err = odbv_buffer_unmap(buf, 0, buffer_size))) {
 			test_error("map1");
 			return;
 		}
 	}
 
-	odbh_buffer_free(buf);
+	odb_buffer_free(buf);
 	odb_close(desc);
 }

@@ -17,13 +17,8 @@ minimum version all the way up to 4.8)
 ** Use of External Code
 OidaDB requires the following libraries to operate:
 
- - pthreads
- - libc (w/ =_GNU_SOURCE= due to use of non-POSIX Open file
-   description locks, see =man fcntl=)
+ - libc
 
-** Use of CPUs
-** Use of Memory
-** Use of Disk
 ** Use of External Processes (systemd, dbus, ect)
 As of now, OidaDB is but a library. It is not an executable. So unless
 I plan to incorporate a front-end specification to this manual, OidaDB
@@ -70,27 +65,16 @@ our rule:
       instant any email is updated in the user table (up-/down-stream
       relationship).
 
-** Encrypted Pages
 * System Communication
 Here I'll let you in on the architecture of OidaDB and how the various
 modules and softwares talk to eachother. I won't talk about exactly
 what it is that's communicated, just the medium to how it is
 communicated.
 
-** Intra-host
-Host processes typcially like to keep all the processing "in
-house". That is, likes to use threads instead of processes. These are
-known as workers, which we'll cover in detail later. 
-
-So with the use of threads, intra-host communication comes down to
-managing multiple threads with intra-process concurrency control.
-
 ** Inner-process/Intra-node
 Inside of a given node we have a host process and 1-to-many handle
 processes. The handle processes connect to the host and communicate
-via shared memory. The module that handles this communication known as
-=edbs=, which is one of the few bits of code shared between host and
-handle.
+via shared memory.
 
  - See also: =man shm_overview=
 
@@ -135,6 +119,3 @@ But there's key terminology you should at least know of:
 See Also:
 
  - [[https://github.com/torvalds/linux/blob/master/Documentation/locking/locktypes.rst][Linux Locking definitions]]
-
-*** Clutch Locks
-todo

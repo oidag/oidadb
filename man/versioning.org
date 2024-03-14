@@ -1,0 +1,36 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: OidaDB Versioning
+
+OidaDB uses the standard 3-number =MAJOR.MINOR.REVISION= system. Each
+component does actually describe a lot about the product. Each time
+OidaDB is compiled, tested, and signed off by everyone involved is a
+release made. A release requires an accompanying version to go with
+it. But remember, that not all versions are releases, these versions
+are known as beta releases.
+
+* Major
+
+The major version is rarely incremented. The major version that is
+placed on a OidaDB release denotes what OidaDB files it is compatible
+with. When the major version is incremented, then that means the new
+software is not compatible with oidadb files made with previous
+major versions.
+
+In other words: incrementing Major versions means its OK to break
+backward-compatibility.
+
+* Minor
+
+The minor version or also known as the "feature" version is
+incremented everytime more features are added to the same major
+version. When minor versions are incremented, backward-compatibility
+is guaranteed with OidaDB files created with previous versions.
+
+* Revisions
+
+The revision version is simply patches to previous versions of the
+software that share the same major and minor versions: no new features
+are added, backward compatibility is not affected. You should always
+make sure you're using the highest revision for a given major/minor
+combination as changes in newer revisions are seen as objective
+improvements rather than changes.

@@ -22,12 +22,12 @@ struct odb_buffer_info {
 typedef struct odb_buf odb_buf;
 
 
-export odb_err odbp_bind_buffer(odb_desc *desc, odb_buf *buffer);
+export odb_err odbb_bind_buffer(odb_desc *desc, odb_buf *buffer);
 
 
 // flags for odbh_buffer_new
-export odb_err odbh_buffer_new(struct odb_buffer_info buf_info
-		, odb_buf **o_buf);
+export odb_err odb_buffer_new(struct odb_buffer_info buf_info
+                              , odb_buf **o_buf);
 
 /**
  * the mapping functions here are synomomous to the mmap(2) family.
@@ -59,14 +59,14 @@ mdata will point to a output pointer to which will be set to the address of
 
 
  */
-export odb_err odbh_buffer_map(odb_buf *buffer
+export odb_err odbv_buffer_map(odb_buf *buffer
                                , void **mdata
                                , unsigned int boff
                                , unsigned int blockc);
 
-export odb_err odbh_buffer_unmap(odb_buf *buffer
-								 , unsigned int boff
-								 , unsigned int blockc);
+export odb_err odbv_buffer_unmap(odb_buf *buffer
+                                 , unsigned int boff
+                                 , unsigned int blockc);
 
 
 /**
@@ -80,8 +80,8 @@ export odb_err odbh_buffer_unmap(odb_buf *buffer
  You can set the versions to be whatever you want via this array, these will
  be the versions that are used when committing.
  */
-export odb_err odbh_buffer_versions(odb_buf *buffer
-									, odb_revision **o_verv);
+export odb_err odbv_buffer_versions(odb_buf *buffer
+                                    , odb_revision **o_verv);
 
 /**
  *
@@ -92,16 +92,15 @@ export odb_err odbh_buffer_versions(odb_buf *buffer
 
  ODB_EBUFF - buffer does not have ODB_UCOMMITS flag.
 
- */
 export odb_err odbh_buffer_versions_current(odb_buf *buffer
                                             , const odb_revision **o_verv);
-
+*/
 
 /**
  * Will automatically unmap any outstanding map, though not very efficiently.
  * It's recommended that you manually do your unmapping for better performance.
  */
-export odb_err odbh_buffer_free(odb_buf *buffer);
+export odb_err odb_buffer_free(odb_buf *buffer);
 
 
 #endif

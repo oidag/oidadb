@@ -17,7 +17,7 @@
  - all symbols that are 3 characters in length after "odb" are
    typedefs of integers. For example: =odb_err=, =odb_sid=, =odb_eid=,
    ect. all symbols that end in =_t= are also typedefs of integers.
- - All function prottypes that are typedef'd will end in =_cb= for
+ - All function prototypes that are typedef'd will end in =_cb= for
    callbacks.
  - Structures are not typedef'd with the exception of
    private/incomplete structures. For example: =odbh=.
@@ -33,8 +33,6 @@
  - Manual pages talking about functions are pretty strait
    forward. Manual pages talking about structures or types, however,
    typically go in much more depth and can be an intensive read.
-
-** TODO refactor all _t structs to just use structs with no typedef.
 
 * Clarifications
 

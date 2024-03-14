@@ -118,7 +118,7 @@ odb_err _odb_open(const char *path
 
 	// set the cursor
 	desc->state = ODB_SPREP;
-	err = odbp_seek(desc, 0);
+	err = odbb_seek(desc, 0);
 	if (err) {
 		return err;
 	}
@@ -157,7 +157,7 @@ void odb_close(odb_desc *descriptor) {
 	odb_free(descriptor);
 }
 
-odb_err odbp_seek(odb_desc *desc, odb_bid block) {
+odb_err odbb_seek(odb_desc *desc, odb_bid block) {
 
 	odb_cursor cursor;
 	cursor.cursor_bid = block;
@@ -166,12 +166,12 @@ odb_err odbp_seek(odb_desc *desc, odb_bid block) {
 	return 0;
 }
 
-odb_err odbp_bind_buffer(odb_desc *desc, odb_buf *buffer) {
+odb_err odbb_bind_buffer(odb_desc *desc, odb_buf *buffer) {
 	desc->boundBuffer = buffer;
 	return 0;
 }
 
-odb_err odbp_checkout(odb_desc *desc, int bcount) {
+odb_err odbb_checkout(odb_desc *desc, int blockc) {
 
 	odb_err err;
 
@@ -180,7 +180,7 @@ odb_err odbp_checkout(odb_desc *desc, int bcount) {
 	}
 	odb_buf *buffer = desc->boundBuffer;
 
-	err = block_truncate(desc, desc->cursor.cursor_bid + bcount - 1);
+	err = block_truncate(desc, desc->cursor.cursor_bid + blockc - 1);
 	if (err) {
 		return err;
 	}
@@ -188,11 +188,11 @@ odb_err odbp_checkout(odb_desc *desc, int bcount) {
 	struct odb_buffer_info bufinf = buffer->info;
 
 	// invals
-	if (bufinf.bcount < bcount) {
+	if (bufinf.bcount < blockc) {
 		return ODB_EBUFFSIZE;
 	}
 
-	int          blockc    = bcount;
+	int          blockc    = blockc;
 	odb_bid      bid_start = desc->cursor.cursor_bid;
 	void         *dpagev   = buffer->user_datam;
 	odb_revision *blockv   = buffer->user_versionv;
@@ -221,7 +221,7 @@ odb_err odbp_checkout(odb_desc *desc, int bcount) {
 // the conflict must merge itself. You can do this with pmerge.
 //
 // when commit sees a conflict it sees what pages need to be merged.
-odb_err odbp_commit(odb_desc *desc, int blockc) {
+odb_err odbb_commit(odb_desc *desc, int blockc) {
 
 	odb_err err;
 

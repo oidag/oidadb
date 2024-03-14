@@ -10,12 +10,13 @@ With that being said, to create a new database see [[See Also][odb_create]]. Thi
 will create the file itself (or use an existing file in some cases)
 and initialize that file to be a oidadb database.
 
-And to delete a database... well you can just delete the file.
+And to delete a database... well you can just delete the file. But
+note that deleting a database file while processes are still working
+with it will result in undefined behaviour.
 
 * Contents
 
- 1. [[./odb_create.org][=odb_create=]] - Generating new OidaDB Files
- 2. [[./odb_createparams.org][=odb_createparams=]] - Configuring new OidaDB Files
+ 1. [[./odb_open.org][=odb_open=]] - Generating new OidaDB Files
 
 * The OidaDB File
 ** Specification
@@ -23,7 +24,3 @@ Every single byte that goes from and to OidaDB database will always be
 associated to a file. This file, for intents and purposes, /is/ the
 database. If you wish to make backups of your database, you'd only
 need to copy this database file to a safe destination.
-** Lenting
-* See Also
- - [[./odb_host.org][=odb_host=]]
- - [[./odb_handle.org][=odb_handle=]]

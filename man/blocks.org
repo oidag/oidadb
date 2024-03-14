@@ -1,0 +1,46 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: Blocks
+
+The most fundamental part of OidaDB databases are *Blocks*. Blocks are
+simple to define: A single block represents 8KiB of data that is
+associated with a version of that data. Every block has a *BlockID*
+(also known as block offset sense BlockID 0 is a valid Block ID). With
+a given BlockID, you can then access the aforementioned 8KiB of data,
+and save that information so long that submit the modified the data
+with the current version.
+
+* Atomics
+
+ODB Blocks make use of a simple versioning system to implement atomic
+(/A.C.I.D./) principles.
+
+At any given point, a block will have 2 things: data and a version. If
+you want to read the blocks data, you simply copy the data to a buffer
+and that's that. However, if you want to write data, then you must
+submit your modified data as well as the *current* version. If you
+submit the correct current version, then the data is updated and the
+database will increment the version of the block. But, if you submit
+the incorrect version then the database rejects your modifications in
+the assumption that the data you had modified was outdated by a write
+operation by another user.
+
+If you'd like to modify multiple blocks at a time, then you must
+submit your modified block data as well as the correct block versions
+for said block. If anyone of those submitted block versions are not
+current, then the entire write operation is thrown out.
+
+See [[./odbb_commit.org][~odbb_commit~]] for comprehensive detail.
+
+* Use of Buffers
+
+See [[./buffers.org][Buffers]] for more detail.
+
+* Contents
+
+Notice we use the odb-*b* (block) notation for these methods.
+
+ - [[./odbb_seek.org][~odbb_seek~]]
+ - [[./odbb_checkout.org][~odbb_checkout~]]
+ - [[./odbb_commit.org][~odbb_commit~]] 
+ 
+

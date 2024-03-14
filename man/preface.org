@@ -15,7 +15,10 @@ This manual is not inclusive of exercises: it will stricktly be
 technical documentation. Thus, there will not be anything like a
 "quick start guide", as that would be classified as an excersise.
 * Manual Version
-Unfinished.
+
+This manual is for *version 1.0* of oidadb. See [[./versioning.org][Versioning]] for more
+detail.
+
 * Audience
 This manual is mainly written for those with
 
@@ -48,14 +51,3 @@ side by side.
 
 Its worth noting that Feynman didn't make physics. But I did make
 OidaDB. So a lot of information is perscribed by my perspective.
-* OidaDB and Conventional SQL Differences
-** Good Applications
-Talk about what types of applicaitons can utilize oidadb to its
-fullest, and how.
-** Bad Applications
-Talk about what oidadb shouldn't be used for.
-** Naming Symatics
-Is this database relational or non-relation? The answer is:
-yes. OidaDB doesn't exist on this specturm.
-** Queries
-** Streams vs Transactions

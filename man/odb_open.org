@@ -1,0 +1,54 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_host - Hosting OidaDB Files
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odb_open (const char *path, odb_ioflags flags, odb_desc **o_desc);
+odb_err odb_close(odb_desc *desc);
+
+#+END_SRC
+
+* Description
+
+The =odb_open= family opens a descriptor for a database. Once a
+database descriptor is opened, make sure to close it via
+=odb_close=. Operating system file descriptors will have their
+close-on-exec flag set if applicable.
+
+~odb_close~ is safe to be called if the descriptor is null.
+
+flags is a OR'd combiniation of the following:
+
+** =ODB_PREAD= 
+Open the database for reading. Requires that the calling process has
+permission to access the underlying medium in read-only-mode.
+
+** =ODB_PWRITE=
+Open the database with writting. Must include =ODB_PREAD= as well.
+
+** =ODB_PCREAT=
+Only when the file does not exists, initialize a new one. If the file
+already exists, then =ODB_EEXIST= will be returned.
+
+
+* Threading
+
+If your process is running multiple threads, do not attempt to open
+multiple descriptors on the same file. Limit 1 open descriptor
+per-file per-process.
+
+* Errors
+
+In all returned errors, if ~ODB_PCREAT~ was given, the function will
+try to make sure that the file will be removed if it infact was
+created but encountered a later error.
+
+ - ~ODB_EINVAL~ - path is empty or ~ODB_PWRITE~ given without ~ODB_PREAD~
+ - ~ODB_ENOENT~ - file does not exist (and ~ODB_PCREAT~ was not given)
+ - ~ODB_EEXIST~ - file already exists (~ODB_PCREAT~ was given)
+ - ~ODB_EERRNO~ - unexpected error with ~open(2)~, see ~errno~.
+ - ~ODB_ECRIT~
+
+* See Also

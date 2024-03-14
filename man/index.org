@@ -192,7 +192,7 @@ packages. Although, a tar file is provided for any other 64-bit linux
 system: provided you know what you're doing in terms of how to install
 it.
 
- - See all downloads [[https://oidadb.com/releases/][here]].
+ - See all downloads [[https://oidag.com/oidadb/releases/][here]].
 
 Below I'll provide some easy "is it on?" check code for the various
 supported languages. (See also: [[./common-lang.org][Language bindings & Symbols]])
@@ -276,47 +276,22 @@ fun main() {
  3. [[./hardware.org][Hardware]] - Information regarding OidaDB and its use of hardware.
  4. [[./common-lang.org][Language bindings & Symbols]] - Naming conventions, standards,
     paradigms, ect. Really helpful to allow you to code faster.
- 5. [[./elements.org][OidaDB Elements]] - The fundemental building blocks of every OidaDB
-    database
-    1. [[./odb_elm_jobs.org][Jobs]]
-	2. [[./odb_elm_objects][Objects]]
-	3. [[./odb_elm_structs.org][Structures]]
-	4. [[./odb_elm_entities.org][Index & Entities]]
-	5. Dynamics - /coming soon/
-	6. Lookups - /coming soon/
-	7. [[./odb_elm_events.org][Events]]
- 6. [[./errors.org][Errors]] - 50% of your job is handling errors; the other 50% is
+ 5. [[./errors.org][Errors]] - 50% of your job is handling errors; the other 50% is
     making them. Here we discuss the importance of errors and OidaDB
     paradigm thereof.
     1. [[./odb_errstr.org][=odb_errstr=]]
-	2. [[./odb_log.org][=odb_log=]]
- 7. [[./database.org][Database Creation/Deletion]] - All the info about creating and
+ 6. [[./database.org][Database Creation/Deletion]] - All the info about creating and
     deleting databases. Also information on how the options to
     confiugre OidaDB databases.
-    1. [[./odb_create.org][=odb_create=]]
-    2. [[./odb_createparams.org][=struct odb_createparams=]]
- 8. [[./handles.org][Database Hosts/Handles]] - Once an OidaDB is create and prepared,
-    the next step is to host it. Then, connect to that host and
-    establish /Handles/ to start perform operations.
-    1. [[./odb_host.org][=odb_host=]]
-    2. [[./odb_hostconfig.org][=struct odb_hostconfig=]]
-    3. [[./odb_hostpoll.org][=odb_hostpoll=]]
-    4. [[./odb_handle.org][=odb_handle=]]
- 9. [[./odbh.org][The OidaDB Handle]]
-    1. [[./odbh_tune.org][=odbh_tune=]]- Real-time handle configuration
-    2. [[./odbh_index.org][=odbh_index=]]
-	3. [[./odbh_structs.org][=odbh_structs=]]
-    4. [[./odbh_job.org][=odbh_job=]]
-    5. [[./odbh_jobdesc_t.org][=odbh_jobdesc_t=]] - List of jobs and how to execute them
-	6. [[./odbh_poll.org][=odbh_poll=]]
-	7. =odbh_eventtype_t=
- 10. Routines - /coming soon/
- 11. [[./telemetry.org][Telementry]] - Analyze the meta-operation of an OidaDB
-     database. Detect pitfalls your software may be suffering from and
-     find redundancies in your system.
-    1. [[./odbtelem.org][=odbtelem.org=]]
-	2. [[./odbtelem_attach.org][=odbtelem_attach=]]
-	3. [[./odbtelem_poll.org][=odbtelem_poll=]]
-	4. =odbtelem_image= - /coming soon/
-	5. [[./odbtelem_bind.org][=odbtelem_bind=]]
+    1. [[./odb_open.org][=odb_open=]]
+ 7. [[./buffers.org][Buffers]] - TODO
+    1. [[./odb_buffer_new.org][~odb_buffer_new~]]
+	2. [[./odbb_bind_buffer.org][~odbb_bind_buffer~]]
+	3. [[./odbv_buffer_map.org][~odbv_buffer_map~]]
+	4. [[./odbv_buffer_versions.org][~odbv_buffer_versions~]]
+ 8. [[./blocks.org][Blocks]] - The fundemental building blocks of every OidaDB
+    database.
+	1. [[./odbb_seek.org][~odbb_seek~]]
+	2. [[./odbb_checkout.org][~odbb_checkout~]]
+	3. [[./odbb_commit.org][~odbb_commit~]]
 

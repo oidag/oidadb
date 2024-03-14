@@ -8,7 +8,7 @@
 #include "errors.h"
 #include "mmap.h"
 
-odb_err odbh_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
+odb_err odb_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 
 	odb_buf *buf = odb_malloc(sizeof(odb_buf));
 	if(!buf) {
@@ -31,13 +31,13 @@ odb_err odbh_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 
 	if (buf->user_datam == MAP_FAILED) {
 		buf->user_datam = 0; /* due to how odbh_buffer_free works */
-		odbh_buffer_free(buf);
+		odb_buffer_free(buf);
 		return odb_mmap_errno;
 	}
 
 	buf->user_versionv = odb_malloc(sizeof(odb_revision) * buf_info.bcount);
 	if (!buf->user_versionv) {
-		odbh_buffer_free(buf);
+		odb_buffer_free(buf);
 		return odb_mmap_errno;
 	}
 	memset(buf->user_versionv, 0, sizeof(odb_revision) * buf_info.bcount);
@@ -46,7 +46,7 @@ odb_err odbh_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 
 		buf->buffer_versionv = odb_malloc(sizeof(odb_revision) * buf_info.bcount);
 		if (!buf->buffer_versionv) {
-			odbh_buffer_free(buf);
+			odb_buffer_free(buf);
 			return odb_mmap_errno;
 		}
 		memset(buf->buffer_versionv, 0, sizeof(odb_revision) * buf_info.bcount);
@@ -60,7 +60,7 @@ odb_err odbh_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 
 		if (buf->buffer_datam == MAP_FAILED) {
 			buf->buffer_datam = 0; /* due to how odbh_buffer_free works */
-			odbh_buffer_free(buf);
+			odb_buffer_free(buf);
 			return odb_mmap_errno;
 		}
 	}
@@ -68,7 +68,7 @@ odb_err odbh_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 	// note we must do this last because of how buffer_free works.
 	buf->map_statev = odb_malloc(sizeof(uint32_t) * ((buf_info.bcount/32)+1));
 	if (!buf->map_statev) {
-		odbh_buffer_free(buf);
+		odb_buffer_free(buf);
 		return odb_mmap_errno;
 	}
 	memset(buf->map_statev, 0, sizeof(uint32_t) * ((buf_info.bcount/32)+1));
@@ -77,7 +77,7 @@ odb_err odbh_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 	return 0;
 }
 
-odb_err odbh_buffer_free(odb_buf *buffer) {
+odb_err odb_buffer_free(odb_buf *buffer) {
 	if(buffer == 0) {
 		log_debugf("attempt to free null buffer");
 		return 0;
@@ -95,7 +95,7 @@ odb_err odbh_buffer_free(odb_buf *buffer) {
 			}
 			for (int j = 0; j < 32; j++) {
 				if((statemask >> j) & 1) {
-					odb_err merr = odbh_buffer_unmap(buffer, i * 32 + j, 1);
+					odb_err merr = odbv_buffer_unmap(buffer, i * 32 + j, 1);
 					if (merr) {
 						err = log_critf("failed to unmap something that should have been mapped (merr %d)", merr);
 					}
@@ -125,7 +125,7 @@ odb_err odbh_buffer_free(odb_buf *buffer) {
 	return err;
 }
 
-odb_err odbh_buffer_versions(odb_buf *buffer
+odb_err odbv_buffer_versions(odb_buf *buffer
                              , odb_revision **o_verv) {
 	*o_verv = buffer->user_versionv;
 	return 0;
