@@ -14,7 +14,7 @@
 
 #include "common.h"
 #include "errors.h"
-#include "pages.h"
+#include "blocks.h"
 
 #include <stdint.h>
 #include <syslog.h>

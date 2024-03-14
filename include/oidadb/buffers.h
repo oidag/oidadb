@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "errors.h"
-#include "pages.h"
+#include "blocks.h"
 
 typedef enum odb_usage {
 

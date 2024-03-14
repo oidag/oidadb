@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD 17)
 
 # liboidadb.so
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "build-cmake")
-add_subdirectory(liboidadb)
+add_subdirectory(liboidadb/blocks)
 #add_subdirectory(odbs)
 
 # liboidadb
