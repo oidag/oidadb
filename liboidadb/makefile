@@ -1,7 +1,7 @@
 build        := $(if $(build),$(build),build)
 
 # Library source code
-lib_src := $(wildcard *.c)
+lib_src := $(wildcard blocks/*.c)
 
 # RELEASE BUILDS
 # note: debug/test builds are done with cmake, not this makefile
@@ -20,7 +20,6 @@ $(build)/liboidadb.so: $(lib_obj_release)
 
 # Testing
 test:
-	@mkdir -p $(build)/test
-	build=../$(build)/test $(MAKE) -C test
+	$(MAKE) -C blocks/test
 
-.PHONEY: test
+.PHONY: test

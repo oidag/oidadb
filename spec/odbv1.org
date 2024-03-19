@@ -186,7 +186,6 @@ page that contains our $V_1$ may actually still exist somewhere in the
 database, its just that the block is now pointing to a more up-to-date
 copy of the data.
 
-
 * Block Group
 
 A Block Group is what give us instrunctions as to where to find [[Blocks]]

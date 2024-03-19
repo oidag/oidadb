@@ -1,5 +1,5 @@
 #+SETUPFILE: ./0orgsetup.org
-#+TITLE: odb_host - Hosting OidaDB Files
+#+TITLE: odb_open - Opening OidaDB Files
 
 * Synopsis
 #+BEGIN_SRC c

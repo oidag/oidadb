@@ -284,7 +284,7 @@ fun main() {
     deleting databases. Also information on how the options to
     confiugre OidaDB databases.
     1. [[./odb_open.org][=odb_open=]]
- 7. [[./buffers.org][Buffers]] - TODO
+ 7. [[./buffers.org][Buffers]]
     1. [[./odb_buffer_new.org][~odb_buffer_new~]]
 	2. [[./odbb_bind_buffer.org][~odbb_bind_buffer~]]
 	3. [[./odbv_buffer_map.org][~odbv_buffer_map~]]
@@ -292,6 +292,6 @@ fun main() {
  8. [[./blocks.org][Blocks]] - The fundemental building blocks of every OidaDB
     database.
 	1. [[./odbb_seek.org][~odbb_seek~]]
-	2. [[./odbb_checkout.org][~odbb_checkout~]] TODO
+	2. [[./odbb_checkout.org][~odbb_checkout~]]
 	3. [[./odbb_commit.org][~odbb_commit~]]
 

@@ -6,7 +6,7 @@ simple file IO. A single database is stored in a single file. So
 creating a database is will intern create a file. And deleting a
 database will intern delete said file.
 
-With that being said, to create a new database see [[See Also][odb_create]]. This
+With that being said, to create a new database see odb_create This
 will create the file itself (or use an existing file in some cases)
 and initialize that file to be a oidadb database.
 

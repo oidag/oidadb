@@ -1,62 +1,77 @@
 * OidaDB
-OidaDB is a project to reinvent the modern database. Supporting dynamic typing,
-geospatial R-Trees, arbitrary B-Trees, hardware accelerated queries, horizontal
-scalling, Machine Learning and AI interfacing, and much, much, much more.
+OidaDB is a project to reinvent the modern database. Supporting
+dynamic typing, geospatial R-Trees, arbitrary B-Trees, hardware
+accelerated queries, horizontal scalling, Machine Learning and AI
+interfacing, and much, much, much more.
 
-OidaDB "v0" was recently built tested and now OidaGroup inteneds to approach the
-"v1" of the database. v1 will have much of the same expectations although with
-a unique (patent pending) layered design.
+OidaDB "v0" was recently built tested and now OidaGroup inteneds to
+approach the "v1" of the database. v1 will have much of the same
+expectations although with a unique (patent pending) layered design.
 
- - [[./spec/odbv0.org][See Version 1 file specification]]
+** Specification
+
+ - [[./spec/odbv0.org][See Version v0 file specification]]
  - [[./spec/locking.org][...And its companion process locking structure]]
+ - [[./spec/odbv1.org][Finally, the the v1 specification]]
 
-* My rules for c programming
+** Product
 
+OidaDB, at the end of the day, is just a library (=liboidadb.so=). It
+is not a stand-alone executable unlike many other database
+software. Software /you/ build will link against this library and
+/that/ software will become the "host" depending on how you use this
+database.
+
+* Building
+
+Building the library, documentation, and other support software is
+done via makefile for releasing builds. But Cmake is used for a easier
+development cycle with jetbrains products, so these 2 build systems
+exist in parallel for now. With that being said, use the makefiles to
+start out with. How the makefiles function is sharply defined in
+[[Developing]] but as a quick overview:
+
+ - All build products are put in folders with the sacred name of
+   =build/=.
+ - This repository has more than just the library to worry about, so
+   multiple folders have makefiles inside of them.
+
+Now to the actual commands (you can execute these in any order, no
+difference):
+
+ - testing the library - ~make test~
+ - building the library - ~make liboidadb/build/liboidadb.so~
+ - packaging the manual - ~make man/build/man.tar.xz~
+
+/Note: there's a chance that the above commands are out of date if/
+/they're not working, see =makefile= in the repo's root for an exact/
+/break down of the build targets/
+
+* Developing
+** C source repository conventions
  - all files that are in the same directory are files that are known
-   to share a /Domain/. A given Domain can be designated a [[BuildTargets][Build Target]].
- - all files that begin with the same string of characters in the same
-   Domain are known as a /Namespace/. All Namespaces have a single
-   =.h= file that can be included outside of the Namespace.
-   - Optionally, some Namespaces may have =.h= files that contain the
-     same prefix as the master header, followed by a dash (-) and some
-     other stuff. This is callled a =Subnamespace=. (ie:
-     =edbs-jobs.h=)
- - A Domain inside of another Domain (a directory inside of a
-   parent directory) is known as a /Child Domain/.
+   to share a *Namespace*.
+ - A Namespace can add a header file into =include/oidadb-internal= so
+   they can export their symbols to be used by other Namespaces, or,
+   =include/oidadb= to export their symbols to the library at whole
+   (with much scrutaniy).
+ - All other header files (that are not named after the directory)
+   are known as utility headers, or private headers. These files
+   cannot be included in any file outside of the namespace.
  - At no point should a =.c= file include another =.c= file.
- - Files that end with =_u.h= are known as utility headers, or private
-   headers. These files cannot be included in any file outside of the
-   namespace.
- - All symbols in non-utility headers must begin with the same prefix
-   as the rest of the Subnamespace. (Ie: =edbd_*= =edba_*=)
  - Each namespace may have its own rules as to what other namespaces
    its allowed to include so keep your eyes open.
 
-** Build Targets
-
-A given domain is a build target if it has a makefile, and the
-directory must contain one of the following:
-
- - =main.c= - this is an executable build target.
- - =*_main.c= - In some cases, a Domain may have multiple executables
-   that can be generated, in this case each files with the =_main.c=
-   suffix can be treated as a seperate entry point for the compiler,
-   given that the compiler not include any of the other =_main.c=
-   files.
- - =include/= - this is a library build target. Inside this folder are
-   header files to be distributed.
- - =*_t.c= - This is a test, not met to be packaged in any way
-
 ** makefiles
 
-Every build target directory has a makefile. These makefiles are
-designed to run independantly, cd into the directory and run
-=make=. The makefile at the top level is designed to run all of them
-and perform repository-wide targets.
+You'll see =makefile= laid out throughout the repository. Makefiles
+will typically execute their immeidiate subdirectories' makefiles. All
+makefiles must follow these standard rules:
 
-All files generated by all make files must be done inside a
-non-tracked =build= folder. All makefiles can have this overridded by
-setting the enviroment variable: ~build=anotherbuildfolder make~
+ - makefiles must be designed to run independantly: in otherwords, a
+   given makefile is agnostic to its depth in the repository.
+ - All files generated by all make files must be done inside a sacred
+   =build= folder of the same directory.
 
 ** CMake
 
@@ -97,15 +112,7 @@ the same, but with different suffixes depending on its function:
    practical reason you'd have both =-v= and =-m= for a given array,
    so the above example is unrealistic in that sense.
 
-** TODO odbm - remove this chapter
-The (o)ida(db) (m)onitor. OpenGL graphical interface for monitoring
-oidadb files.
-
- - apt install libgl1-mesa-dev xorg-dev
- - what ever deps are in go.src/go.module
-
-
-* =make test=
+** =make test=
 
 To test OidaDB, you must only need to run =make test=. This will do the following:
 
@@ -145,21 +152,17 @@ equal. The purpose is to prove that the same jobs will always provide
 the same changes to the file. And the databases' only difference is
 their unique db id.
 
-* Development/Debug builds
+** Development/Debug builds
 Right now all development and debug builds are handled through
 CMake. This is because the tool I use to develop and test is the clion
 IDE, and clion is retarded with makefiles so I'm forced to use cmake.
-* =make release= - Release Builds
+** =make release= - Release Builds
 Non-debug, release, live, whatever builds are handled through
 makefile. Run =make release= to attempt to build, test, and package a
 release.
+
 * Links
   - Kanban: https://oidadb.youtrack.cloud/
-
-  TODO: list dependances... see makelist.txt
-  also: https://github.com/jtsiomb/libdrawtext
-
-
 
 * Dependencies
 Here I will list what packages you need to develop this project as

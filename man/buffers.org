@@ -1,0 +1,34 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: OidaDB Buffers
+
+OidaDB's API is set up so that you can create and utilize buffers
+through the system rather than allocate and control the memory on your
+own. It is simiular to how OpenGL or Vulkan is structured in the sense
+that when you create these buffers, their exact behaviour is
+open-ended sense the most optimial use of buffers will defer on too
+many factors worth talking about.
+
+With that being said: buffers need to be created to move data in and
+out of the database.
+
+* Binding buffers
+
+While a database is being operated through a descriptor, it has an
+internal pointer that is null by default or set to point to a buffer
+to which data will flow to and from. Updating this pointer is called
+"binding". See [[./odbb_bind_buffer.org][~odbb_bind_buffer~]].
+
+* Mapping buffers
+
+Just because you create a buffer, and copy blocks into that buffer,
+that doesn't mean that you are ready to modify this data, or even read
+it. To perform those tasks, you must *map* the buffer. Mapping the
+buffer means getting the blocks in the memory of your local process so
+you can modify the data like you would with any other data.
+
+* Contents
+
+ - [[./odb_buffer_new.org][~odb_buffer_new~]]
+ - [[./odbb_bind_buffer.org][~odbb_bind_buffer~]]
+ - [[./odbv_buffer_map.org][~odbv_buffer_map~]]
+ - [[./odbv_buffer_versions.org][~odbv_buffer_versions~]]

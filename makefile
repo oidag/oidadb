@@ -1,6 +1,6 @@
 build        := $(if $(build),$(build),build)
 
-
+default: liboidadb/build/liboidadb.so
 
 # Testing
 test:
@@ -8,7 +8,6 @@ test:
 
 # the library
 liboidadb/build/liboidadb.so:
-	@mkdir -p `dirname $@`
 	$(MAKE) build/liboidadb.so -C liboidadb
 
 # odb (s)hell
@@ -16,8 +15,8 @@ odbs/build/odbs:
 	$(MAKE) build/odbs -C odbs.src
 
 # The manual
-man/build/man:
-	$(MAKE) build/man -C man	
+man/build/man.tar.xz:
+	$(MAKE) build/man.tar.xz -C man	
 
 
 # PACKAGING
@@ -72,4 +71,4 @@ build/publish-index.html:  spec/publish-index.m4.html build/metrics.m4
 clean:
 	-rm -r build
 
-.PHONY: .force clean manual test release build
+.PHONY: .force clean manual test release build doc
