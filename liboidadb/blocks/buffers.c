@@ -10,6 +10,13 @@
 
 odb_err odb_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 
+	if(!o_buf || buf_info.bcount == 0) {
+		return ODB_EINVAL;
+	}
+	if(buf_info.flags != 0 && buf_info.flags != ODB_UCOMMITS) {
+		return ODB_EINVAL;
+	}
+
 	odb_buf *buf = odb_malloc(sizeof(odb_buf));
 	if(!buf) {
 		return odb_mmap_errno;
@@ -35,21 +42,21 @@ odb_err odb_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 		return odb_mmap_errno;
 	}
 
-	buf->user_versionv = odb_malloc(sizeof(odb_revision) * buf_info.bcount);
+	buf->user_versionv = odb_malloc(sizeof(odb_ver) * buf_info.bcount);
 	if (!buf->user_versionv) {
 		odb_buffer_free(buf);
 		return odb_mmap_errno;
 	}
-	memset(buf->user_versionv, 0, sizeof(odb_revision) * buf_info.bcount);
+	memset(buf->user_versionv, 0, sizeof(odb_ver) * buf_info.bcount);
 
 	if (buf->info.flags & ODB_UCOMMITS) {
 
-		buf->buffer_versionv = odb_malloc(sizeof(odb_revision) * buf_info.bcount);
+		buf->buffer_versionv = odb_malloc(sizeof(odb_ver) * buf_info.bcount);
 		if (!buf->buffer_versionv) {
 			odb_buffer_free(buf);
 			return odb_mmap_errno;
 		}
-		memset(buf->buffer_versionv, 0, sizeof(odb_revision) * buf_info.bcount);
+		memset(buf->buffer_versionv, 0, sizeof(odb_ver) * buf_info.bcount);
 
 		buf->buffer_datam = odb_mmap(0
 		                             , buf_info.bcount
@@ -126,13 +133,13 @@ odb_err odb_buffer_free(odb_buf *buffer) {
 }
 
 odb_err odbv_buffer_versions(odb_buf *buffer
-                             , odb_revision **o_verv) {
+                             , odb_ver **o_verv) {
 	*o_verv = buffer->user_versionv;
 	return 0;
 }
 
 odb_err odbh_buffer_versions_current(odb_buf *buffer
-                                     , const odb_revision **o_verv) {
+                                     , const odb_ver **o_verv) {
 	if (!(buffer->info.flags & ODB_UCOMMITS)) {
 		return ODB_EBUFF;
 	}

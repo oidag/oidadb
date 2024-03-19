@@ -43,4 +43,3 @@ impossible to get.
 * See Also
 
  - [[./odb_errstr.org][=odb_errstr=]]
- - [[./logs.org][Logs]]

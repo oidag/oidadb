@@ -161,7 +161,7 @@ odb_err group_loadg(const odb_desc *desc
 	if ((buff_group_descm->magic[0] != (uint8_t[2]) ODB_SPEC_HEADER_MAGIC[0]
 	    || buff_group_descm->magic[1] != (uint8_t[2]) ODB_SPEC_HEADER_MAGIC[1])
 		|| !(buff_group_descm->flags & ODB_SPEC_FLAG_BLOCK_GROUP)) {
-		return ODB_EVERSION;
+		return ODB_ENOTDB;
 	}
 
 	// switch out the loaded group.

@@ -1,0 +1,36 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbb_seek - set the descriptor's cursor in the database.
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odbb_seek(odb_desc *desc, odb_bid block);
+#+END_SRC
+
+* Description
+
+This function sets the descriptor's cursor to the block that will be
+the start of the next call to ~odbb_checkout~ or ~odbb_commit~.
+
+Note that, as stated in previous chapters, OidaDB operates inside of a
+file. And if you seek to a position beyond the current size of the
+file, then this call will still return successfully. Only when you
+call ~odbb_checkout~ or ~odbb_commit~ will the file size be modified
+to match the cursor's position along with any blocks that are needed
+to fulfill the call.
+
+
+* Threading
+
+Not thread safe per-buffer.
+
+* Errors
+
+None.
+
+* See Also
+
+ - [[./odbb_checkout.org][~odbb_checkout~]]
+ - [[./odbb_commit.org][~odbb_commit~]]
+ - [[./blocks.org][Blocks]]

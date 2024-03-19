@@ -1,0 +1,30 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbb_bind_buffer - update the descriptor's bound buffer
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odbb_bind_buffer(odb_desc *desc, odb_buf *buffer);
+
+#+END_SRC
+
+* Description
+
+This method is used to update the descriptor's internal state as to
+which buffer will be used in subsequent ~odbb_checkout~ and
+~odbb_commit~ operations.
+
+* Threading
+
+Not thread safe per-descriptor.
+
+* Errors
+
+None
+
+* See Also
+ - [[./odbb_seek.org][~odbb_seek~]]
+ - [[./odbb_checkout.org][~odbb_checkout~]]
+ - [[./odbb_commit.org][~odbb_commit~]]
+ - [[./buffers.org][Buffers]]

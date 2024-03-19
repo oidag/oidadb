@@ -25,7 +25,7 @@ typedef uint64_t odb_rid;
 typedef uint64_t odb_pid;
 ///\}
 
-typedef uint64_t odb_revision;
+typedef uint64_t odb_ver;
 
 // odbh is incomplete and a private structure.
 typedef struct odbh odbh;

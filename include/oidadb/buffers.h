@@ -81,7 +81,7 @@ export odb_err odbv_buffer_unmap(odb_buf *buffer
  be the versions that are used when committing.
  */
 export odb_err odbv_buffer_versions(odb_buf *buffer
-                                    , odb_revision **o_verv);
+                                    , odb_ver **o_verv);
 
 /**
  *

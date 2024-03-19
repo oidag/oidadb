@@ -1,0 +1,34 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbv_buffer_map, odbv_buffer_unmap - map buffer memory to user memory
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odbv_buffer_versions(odb_buf *buffer, odb_ver **o_versionv)
+#+END_SRC
+
+* Description
+
+This function simply returns a pointer (via ~o_versionv~) that points
+to an array of versions that are associative to the blocks that were
+copied into the buffer via [[./odbb_checkout.org][~odbb_checkout~]]. This array is owned by the
+buffer so don't try to free it or anything freaky like that.
+
+You can set the versions to be whatever you want via this array, these
+will be the versions that are used when committing. But mind you, the
+only time you should be setting these versions is when merging
+conflicts (when [[./odbb_commit.org][~odbb_commit~]] returns ODB_EVERSION).
+
+
+* Threading
+
+Not thread safe per-buffer.
+
+* Errors
+
+None.
+
+* See Also
+
+ - [[./buffers.org][Buffers]]

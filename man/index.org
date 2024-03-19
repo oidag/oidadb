@@ -292,6 +292,6 @@ fun main() {
  8. [[./blocks.org][Blocks]] - The fundemental building blocks of every OidaDB
     database.
 	1. [[./odbb_seek.org][~odbb_seek~]]
-	2. [[./odbb_checkout.org][~odbb_checkout~]]
+	2. [[./odbb_checkout.org][~odbb_checkout~]] TODO
 	3. [[./odbb_commit.org][~odbb_commit~]]
 

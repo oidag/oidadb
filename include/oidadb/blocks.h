@@ -28,8 +28,8 @@ typedef enum odb_ioflags {
 // odb_open_file - is way faster than upstream, but only works with block devices
 
 typedef struct odb_desc odb_desc;
-typedef void odb_page;
-typedef uint64_t odb_revision;
+typedef void     odb_page;
+typedef uint64_t odb_ver;
 
 
 // page vs block: a page is more primitive. another name for a block is a "user

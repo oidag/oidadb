@@ -27,7 +27,7 @@ struct checkout_data {
 
 	// (private vars)
 	// the array of version of each page when we checked it out (associative).
-	const odb_revision *version;
+	const odb_ver *version;
 };
 
 struct checkout_frame {
@@ -192,10 +192,9 @@ odb_err odbb_checkout(odb_desc *desc, int blockc) {
 		return ODB_EBUFFSIZE;
 	}
 
-	int          blockc    = blockc;
 	odb_bid      bid_start = desc->cursor.cursor_bid;
-	void         *dpagev   = buffer->user_datam;
-	odb_revision *blockv   = buffer->user_versionv;
+	void    *dpagev = buffer->user_datam;
+	odb_ver *blockv = buffer->user_versionv;
 
 
 	err = blocks_lock(desc, bid_start, blockc, 0);
@@ -225,13 +224,17 @@ odb_err odbb_commit(odb_desc *desc, int blockc) {
 
 	odb_err err;
 
+	if(!(desc->flags & ODB_PWRITE)) {
+		return ODB_EBADF;
+	}
+
 	if (!desc->boundBuffer) {
 		return ODB_EBUFF;
 	}
 	odb_buf                *buffer = desc->boundBuffer;
 	struct odb_buffer_info bufinf  = buffer->info;
 	if (!(bufinf.flags & ODB_UCOMMITS)) {
-		return ODB_EINVAL;
+		return ODB_EBUFF;
 	}
 
 	// invals

@@ -1,0 +1,49 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbb_checkout - copy blocks and versions from the database into a buffer
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odbb_commit(odb_desc *desc, int blockc);
+#+END_SRC
+
+* Description
+
+Attempt to commit changes to the blocks by submitting user blocks and
+versions from the current bound buffer to the descriptor's offset.
+
+If the block versions of the submitted region of the buffer does not
+match what's current, ~ODB_EVERSION~ is returned. Otherwise, the
+blocks are committed and the versions are incremented by 1.
+
+For clarity, if this function returns non-0, then the database has
+not been touched. Only a successful return means that the database has
+been updated.
+
+* Threading
+
+Not thread safe per-descriptor.
+
+* Errors
+
+ - ~ODB_EINVAL~ - =blockc= is 0
+ - ~ODB_EVERSION~ - submitted block versions of 1 or many of the
+   blocks are not current
+ - ~ODB_EBUFF~ - no buffer currently bound, or does not have
+   ~ODB_UCOMMITS~ flag.
+ - ~ODB_EBADF~ - descriptor does not have write permissions
+ - ~ODB_EBUFFSIZE~ - The amount of blocks you wish to copy (~blockc~)
+   will not fit in the current bound buffer.
+ - ~ODB_ENOTDB~ - Part or all the database does not have the OidaDB
+   signature / magic number.
+ - ~ODB_EBADF~ - read(2) system call returned ~EBADF~ when copying
+   data to buffer.
+ - ~ODB_ENOMEM~ - Not enough (host) memory to perform operation
+ - ~ODB_ECRIT~
+
+
+* See Also
+
+ - [[./odbb_checkout.org][~odbb_checkout~]]
+ - [[./blocks.org][Blocks]]

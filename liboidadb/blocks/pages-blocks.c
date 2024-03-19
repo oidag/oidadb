@@ -102,7 +102,7 @@ static odb_err blocks_copy_from_group(const odb_desc *desc
                                       , int block_off
                                       , int blockc
                                       , odb_datapage *o_blockv
-                                      , odb_revision *o_versionv) {
+                                      , odb_ver *o_versionv) {
 #ifdef EDB_FUCKUPS
 	// invals
 	if (blockc > ODB_SPEC_BLOCKS_PER_GROUP) {
@@ -166,7 +166,7 @@ odb_err blocks_copy(odb_desc *desc
                     , int blockc
                     , struct odb_block_group_desc *restrict buff_group_descm
                     , odb_datapage *restrict o_dpagev
-                    , odb_revision *restrict o_blockv) {
+                    , odb_ver *restrict o_blockv) {
 	odb_err err;
 
 	odb_bid block_start = desc->cursor.cursor_bid;
@@ -229,8 +229,6 @@ odb_err blocks_copy(odb_desc *desc
 	}
 #endif
 
-	// todo: remove the cursor?
-	//desc->cursor.cursor_bid += blockc;
 	return 0;
 }
 

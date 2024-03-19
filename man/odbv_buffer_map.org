@@ -1,0 +1,64 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbv_buffer_map, odbv_buffer_unmap - map buffer memory to user memory
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odbv_buffer_map(odb_buf *buffer
+                               , void **mdata
+                               , unsigned int boff
+                               , unsigned int blockc);
+
+odb_err odbv_buffer_unmap(odb_buf *buffer
+                                 , unsigned int boff
+                                 , unsigned int blockc);
+
+#+END_SRC
+
+* Description
+
+~odbv_buffer_map~ takes the provided buffer and maps the memory to the
+user's memory and updates ~mdata~ to point to said memory. The memory
+that is mapped is done so in regards to block offset ~boff~ of the
+buffer and will map ~blockc~ amount of blocks from that offset. Once
+in user memory, you can make whatever modifications you need too and
+then when ready, call ~odbv_buffer_unmap~ to apply the changes to the
+buffer. In some cases, when you modify the user memory, the database
+memory is also modified and thus does not need to wait for
+~odbv_buffer_unmap~ for changes to reflect in the database's buffer.
+
+For clearity, the memory that ~mdata~ will point to upon success will
+be managed by the library. Do not try to free it or unmap it manually.
+
+When a buffer area is mapped, that region of the buffer is marked as
+mapped and cannot be mapped again until it is unmapped. This behaviour
+is process-wide so multithreaded applications should be careful not to
+double-map a region.
+
+mdata will point to a output pointer to which will be set to the address of
+the mapped data. It will always be page-aligned.
+
+You may notice that these mapping functions here are synomomous to the
+~mmap(2)~ family. With that being said, the mapped data is equivalent
+to ~MAP_PRIVATE~. Modifications made to mapped memory are not
+reflected in the database only until a commit is performed. No
+protection is added to this memory (read/write/execute are all
+granted). Lastly, know that a ~MAP_FIXED~-equivalent is not possible.
+
+* Threading
+
+Not thread safe per-buffer.
+
+* Errors
+
+ - ~ODB_EOUTBOUNDS~ - the combination of ~boff~ and ~blockc~ would
+   exceed the bounds of the buffer.
+ - ~ODB_EMAPPED~ (~odbv_buffer_map~) - one or many blocks in the
+   specified region is already mapped.
+ - ~ODB_ENMAP~ (~odbv_buffer_unmap~) - one or many blocks in the
+   specified region is not already mapped.
+
+* See Also
+
+ - [[./buffers.org][Buffers]]

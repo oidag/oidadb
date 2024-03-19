@@ -1,0 +1,44 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odbb_checkout - copy blocks and versions from the database into a buffer
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+odb_err odbb_checkout(odb_desc *desc, int blockc);
+#+END_SRC
+
+* Description
+
+~odbb_checkout~ copies blocks from the database into the currently
+bound buffer starting at the block set by ~odbb_seek~. This operation
+requires that the database be open with read permissions.
+
+
+* Threading
+
+Not thread safe per-descriptor.
+
+* Errors
+
+ - ~ODB_EBUFF~ - no buffer currently bound
+ - ~ODB_EBUFFSIZE~ - The amount of blocks you wish to copy (~blockc~)
+   will not fit in the current bound buffer.
+ - ~ODB_ENOSPACE~ - Provided that you don't have write access to the
+   database: the cursor position plus the blockc would leave you into
+   a block ID that is outside the current database size. If you /do/
+   have write access, then when this error signifies that the file
+   system itself has refused to extend the file's size to the needed
+   length.
+ - ~ODB_ENOTDB~ - Part or all the database does not have the OidaDB
+   signature / magic number.
+ - ~ODB_EBADF~ - read(2) system call returned ~EBADF~ when copying
+   data to buffer.
+ - ~ODB_ENOMEM~ - Not enough (host) memory to perform operation
+ - ~ODB_ECRIT~
+
+
+* See Also
+
+ - [[./odbb_commit.org][~odbb_commit~]]
+ - [[./blocks.org][Blocks]]

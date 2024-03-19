@@ -1,0 +1,53 @@
+#+SETUPFILE: ./0orgsetup.org
+#+TITLE: odb_buffer_new - Creating/freeing a buffer
+
+* Synopsis
+#+BEGIN_SRC c
+#include <oidadb/oidadb.h>
+
+typedef struct odb_buf odb_buf; /* incomplete structure */
+
+struct odb_buffer_info {
+	uint32_t bcount; /* Block count / buffer size in blocks */
+	odb_usage flags; /* See description */
+};
+
+odb_err odb_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buffer);
+odb_err odb_buffer_free(odb_buf *buffer);
+
+
+#+END_SRC
+
+* Description
+
+~odb_buffer_new~ creates a buffer within the database with the
+provided parameters in ~buf_info~ and outputs the buffer into the
+destination pointer ~o_buffer~.
+
+~buf_info.flags~ is a bit-wise OR combination of the following:
+
+ - ~ODB_UCOMMITS~ - This buffer can be used when performing commits.
+
+~odb_buffer_free~ takes an existing buffer and frees its
+resources. Will automatically unmap any outstanding maps, though not
+very efficiently: it's recommended that you manually do your unmapping
+for better performance.
+
+
+* Threading
+
+~odb_buffer_new~ is thread-safe. ~odb_buffer_free~ is not thread-safe
+per-buffer.
+
+* Errors
+
+ - ~ODB_EINVAL~ - either ~o_buffer~ is null, ~buf_info.bcount~ is 0,
+   or ~buf_info.flags~ is invalid.
+ - ~ODB_ENOMEM~ - host machine does not have memory available to
+   create this buffer.
+ - ~ODB_ECRIT~ - unknown error when allocating memory
+
+* See Also
+ - [[./odbb_bind_buffer.org][~odbb_bind_buffer~]]
+ - [[./odbv_buffer_map.org][~odbv_buffer_map~]]
+ - [[./buffers.org][Buffers]]

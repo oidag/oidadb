@@ -15,6 +15,7 @@
 #include "common.h"
 #include "errors.h"
 #include "blocks.h"
+#include "buffers.h"
 
 #include <stdint.h>
 #include <syslog.h>

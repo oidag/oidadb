@@ -14,13 +14,13 @@ struct block_commit_buffers {
 
 	// incoming data to be committed
 	const odb_datapage *restrict user_datam;
-	const odb_revision *restrict user_versionv;
+	const odb_ver      *restrict user_versionv;
 
 	// If blocks_commit_attempt returns ODB_EVERSION then this will be
 	// set to all the current versions of the blocks.
 	// If the ODB_ENONE is returned then this will be set to the new
 	// (updated) versions.
-	odb_revision *restrict buffer_versionv;
+	odb_ver *restrict buffer_versionv;
 
 	// used as a buffer when loading in and out of pages. You just have to
 	// make sure this is the same length as user_datam.
@@ -55,7 +55,7 @@ typedef struct odb_buf {
 	/*
 	 * These are privately-mapped.
 	 */
-	odb_revision *user_versionv;
+	odb_ver      *user_versionv;
 	odb_datapage *user_datam;
 
 	/**
@@ -68,7 +68,7 @@ typedef struct odb_buf {
 	 *    to hold the existing data maps.
 	 *  - buffer_group_desc - buffer to hold group descriptor pages inside
 	 */
-	odb_revision *buffer_versionv;
+	odb_ver      *buffer_versionv;
 	odb_datapage *buffer_datam;
 
 	/**
@@ -186,7 +186,7 @@ odb_err blocks_copy(odb_desc *desc
                     , int blockc
                     , struct odb_block_group_desc *restrict buff_group_descm
                     , odb_datapage *restrict o_dpagev
-                    , odb_revision *restrict o_blockv);
+                    , odb_ver *restrict o_blockv);
 
 // utility
 void page_lock(int fd, odb_pid page, int xl);
