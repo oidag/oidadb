@@ -1,0 +1,19 @@
+lock type	Avg lock time (usec)	threads-pre-process	processes		testc	total locks performed			
+F_OFD_SETLKW	30.66	12	1		50000	600000			
+F_SETLKW	3.06*	12	1		50000	600000	Using a single process and multiple threads without using F_OFD will no block, they are just as effective as no-ops.		
+F_OFD_SETLKW	30.04	1	12		50000	600000			
+F_SETLKW	31.25	1	12		50000	600000			
+F_OFD_SETLKW	30.6	6	2		50000	600000			
+F_OFD_SETLKW	30.39	2	6		50000	600000			
+F_OFD_SETLKW	32.64	4	3		500000	6000000			
+F_OFD_SETLKW	32	1	12		500000	6000000			
+F_OFD_SETLKW	31.76	12	1		500000	6000000			
+mutex	1.53	12	1		5000000	60000000	cpu was nice and warm (this is good)		
+shm-mutex	1.21	1	12		5000000	60000000	cpu was nice and warm (this is good)		
+mutex	0.03*	12	1		500000	6000000	non-shm-mutex is useless		
+no-op.	0.028*					0			
+flock	25.23	1	12		500000	6000000			
+flock	26.36	12	1		500000	6000000			
+shm-mutex	2.24	4	3		500000	6000000			
+F_OFD_SETLKW w/ usleep(10)	719	4	3		50000	600000		721	717
+shm-mutex w/ usleep(10)	505	4	3		50000	600000		596	525
