@@ -1,0 +1,160 @@
+#+SETUPFILE: ~/.emacs.d/themes/stylish_white.theme
+#+TITLE: OidaDB Element-Block V1 Specification
+#+AUTHOR: Kevin Marschke
+
+* Introduction
+
+This specification is an extension to [[./odb-core.org][The OidaDB Core storage
+scheme]].
+
+This specification defines how to utilize a given block to store an
+array of data elements of a fixed size - or just *Elements* - as well
+as how to handle with merge issues of these Blocks.
+
+** Code Name, Version 1
+
+This specification will be code name =odb_elm1= with the =1= being
+"version 1". As I write this I'm not even anticipating version 2, I
+just know there's probably going to be a different way of doing
+things.
+
+
+** Overview
+
+As a quick recap, the "Volume" level is the file: all we know that is
+a file is just a huge collection of bytes... simple as that. Adding
+the "Block" specification we take that Volume and break it down into
+Blocks... inside those Blocks we just have arbitrary bytes. Finally,
+adding this specification we can take some (but not all, at our
+discretion) of those blocks and break them up into smaller parts.
+
+=Elements: [       |-|-|-|-|       |--|--|         ]=
+=Blocks:   [-------|-------|-------|-------|-------]=
+=Volume:   [---------------------------------------]=
+
+In the above example, you can see we are using 2 blocks in our volume
+for Element Block, with the second having elements that don't evenly
+fit into the block. All the other blocks we can use for whatever we
+want as this specification does not imply that that all blocks of the
+volume are elements.
+
+* Required Definitions
+
+To define a block as an element block, the following must be provided,
+for this information is not stored within the block(s) themselves:
+
+ - =user_size= - the size of data all elements will have
+ - =block_size= - in the ODB environment, this will be 0x2000/8192.
+
+** Limitations
+
+ - =user_size= cannot be larger than =block_size + sizeof(uint32_t)=
+
+* Element Block
+
+In a Element Block, we break the block down into 2 sections: the
+Descriptor array and the Data array. These two arrays are associative (meaning a
+given index of one array pairs with the element of the same index in
+the other array).
+
+The length of both arrays are equal to the maximum amount of elements
+we can fit into this block. Provided that the data for each element is
+equal to =user_size=, we add =sizeof(uint32_t)= (needed to store the
+version) to represent the true size of a each element.
+
+ - ~element_count = block_size / (user_size + sizeof(uint32_t))~
+
+** Descriptor
+
+The descriptor section is broken down into an array of the follow
+structure that is =element_count= in length.
+
+| Name    | Type     | Description                           |
+|---------+----------+---------------------------------------|
+| version | uint32_t | the version of the data found in [[Data]] |
+
+Each element in a Element Block has its own version. This version
+behaves the exact same way as Blocks do: that is every time the
+element is committed, the version increments.
+
+When 2 REA blocks are conflicting during a commit, this allows us to
+break down the blocks into their elements and hopefully resolve the
+conflict if 2 separate elements had only changed versions, otherwise
+detect if the same element had been updated differently, see
+[[Committing]] for details
+
+** Data
+
+Immediately after the Descriptor, the array of user data follows, with
+each element of the user array being exactly =user_size= in length.
+
+| Name      | Type               | Description                           |
+|-----------+--------------------+---------------------------------------|
+| user_data | uint8_t[user_size] | The arbitrary user data of fixed size |
+
+Note that if we break down a block into these elements and the size of
+the block is not divisible by the size of the element then there will
+be a little bit of "white space" at the bottom of the block. This
+white space will unfortunately be "dead bytes". So its encouraged to
+make sure your elements divide a block evenly.
+
+* Asynchrony
+Asynchronous controls inherit whatever is necessary to read/write the
+container block of the elements. Those are defined in the
+specification above this one.
+
+* Element Reading
+
+In order to read/copy the contents of a given element. No special
+concurrency control is needed. Simply copy the block the same way the
+odb-core.org had specified.
+
+* Committing
+
+When committing changes to an element block - provided that the
+current version and new version of the block are both Element Blocks -
+you just need to follow all the steps laid out in [[./odb-core.org]] to
+commit a block.
+
+However, when making multiple commits to elements, we will have the
+decision as to /when/ to execute the block-level commit: such as after
+each element-commit or after we get done with all of our
+element-commits... this is up to you.
+
+But for each successful element-commit, we increment the element's
+version by 1. A element-commit can fail if the user attempts to commit
+an element with a version not equal to the current version: in such
+case it is left up to the user to resolve it. This behavior is
+inherited from the core.
+
+Note that concurrency controls needed to change other block types
+to/from Element Blocks are not defined in this specification.
+
+** Block-Commit Merge Conflict Strategy
+
+If a Element Block commit results in a merge conflict, we can resolve
+the block by comparing the current block and new block, breaking it
+down into it's elements, and comparing each element's versions.
+
+We do this by when we
+
+  1. When we first checkout the block, copy all original versions into
+     a read-only buffer and set that aside... we'll label these
+     /checkout versions/.
+  2. Let the user run their Element-Commits (rather it be one or many,
+     doesn't matter).
+  3. Our checked out Element Block now has our new versions due to the
+     user's Element-Commits, we'll call these /commit versions/
+  4. We then decide to do a Block-Commit, if there's a conflict we
+     copy the latest version of the block, which has the latest set of
+     element versions known as /upstream versions/
+  5. Follow the below graph on a version-by-version basis
+
+| equal versions             | different versions | solution                                                        |
+|----------------------------+--------------------+-----------------------------------------------------------------|
+| checkout, commit, upstream |                    | element is left unchanged                                       |
+| checkout, commit           | upstream           | the upstream has been updated: use the upstream                 |
+| checkout, upstream         | commit             | we have updated the element: use our version                    |
+| (none)                     | (all)              | conflict: have the user resolve it                              |
+| upstream, commit           | checkout           | same version coincidence: use none-equal all-different solution |
+
