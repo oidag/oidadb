@@ -1,9 +1,9 @@
 #define _LARGEFILE64_SOURCE
 
 #include "blocks.h"
-#include "errors.h"
-#include "mmap.h"
 
+#include <oidadb-internal/memory.h>
+#include <oidadb-internal/errors.h>
 #include <oidadb-internal/odbfile.h>
 #include <oidadb/buffers.h>
 #include <fcntl.h>

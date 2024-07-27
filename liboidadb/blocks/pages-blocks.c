@@ -1,16 +1,16 @@
 #define _LARGEFILE64_SOURCE
 
+#include <oidadb-internal/memory.h>
+#include <oidadb-internal/errors.h>
 #include <sys/mman.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <errno.h>
 
-#include "mmap.h"
 #include "blocks.h"
-#include "errors.h"
-#include "errno.h"
 
 struct blockmap {
 

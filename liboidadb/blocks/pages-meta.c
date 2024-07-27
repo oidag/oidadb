@@ -1,13 +1,13 @@
 #define _LARGEFILE64_SOURCE
 
+#include <oidadb-internal/memory.h>
+#include <oidadb-internal/errors.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 
-#include "mmap.h"
 #include "blocks.h"
-#include "errors.h"
-#include "errno.h"
 
 void page_lock(int fd, odb_pid page, int xl) {
 	struct flock64 flock = {

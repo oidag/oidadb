@@ -1,10 +1,9 @@
 #include <oidadb-internal/options.h>
+#include <oidadb-internal/errors.h>
+#include <oidadb/oidadb.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <errno.h>
-
-#include <oidadb/oidadb.h>
-#include "errors.h"
 
 #define stdlogthing(stream,prefix) { \
 	int terr = errno; \

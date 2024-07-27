@@ -1,5 +1,5 @@
 #include <oidadb-internal/options.h>
-#include "errors.h"
+#include <oidadb-internal/errors.h>
 #include "blocks.h"
 
 #include <oidadb/oidadb.h>

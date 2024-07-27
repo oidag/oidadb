@@ -1,5 +1,5 @@
-#ifndef OIDADB_MMAP_H
-#define OIDADB_MMAP_H
+#ifndef OIDADB_MEMORY_H
+#define OIDADB_MEMORY_H
 
 #include <oidadb/oidadb.h>
 #include <sys/mman.h>
@@ -62,4 +62,4 @@ void odb_free(void *ptr);
 odb_err *_odb_mmap_err_location();
 #define odb_mmap_errno (*_odb_mmap_err_location ())
 
-#endif //OIDADB_MMAP_H
+#endif //OIDADB_MEMORY_H

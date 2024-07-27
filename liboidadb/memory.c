@@ -1,12 +1,11 @@
 #define _LARGEFILE64_SOURCE
+#include <oidadb-internal/memory.h>
+#include <oidadb-internal/errors.h>
 #include <oidadb-internal/options.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <malloc.h>
-
-#include "mmap.h"
-#include "errors.h"
 
 odb_err __thread mmap_error = 0;
 
