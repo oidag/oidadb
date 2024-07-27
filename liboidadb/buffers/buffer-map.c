@@ -1,5 +1,5 @@
 #include <oidadb-internal/options.h>
-#include "blocks.h"
+#include <oidadb-internal/buffers.h>
 
 
 odb_err odbv_buffer_map(odb_buf *buffer

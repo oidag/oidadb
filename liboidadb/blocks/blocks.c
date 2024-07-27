@@ -5,6 +5,7 @@
 #include <oidadb-internal/memory.h>
 #include <oidadb-internal/errors.h>
 #include <oidadb-internal/odbfile.h>
+#include <oidadb-internal/buffers.h>
 #include <oidadb/buffers.h>
 #include <fcntl.h>
 #include <errno.h>

@@ -1,12 +1,11 @@
 #include <oidadb-internal/options.h>
+#include <oidadb-internal/buffers.h>
 #include <oidadb-internal/memory.h>
 #include <oidadb-internal/errors.h>
 #include <oidadb/blocks.h>
 #include <oidadb/buffers.h>
 #include <sys/mman.h>
 #include <string.h>
-
-#include "blocks.h"
 
 odb_err odb_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 
