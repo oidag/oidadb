@@ -69,6 +69,20 @@ void *odb_malloc(size_t size) {
 	return ret;
 }
 
+void *odb_realloc(void *ptr, size_t size) {
+	void *ret = realloc(ptr, size);
+	if(!ret) {
+		switch (errno) {
+		case ENOMEM: mmap_error = ODB_ENOMEM;
+		default:
+			mmap_error = log_critf(
+					"realloc failed for unknown reason (errno %d)"
+					, errno);
+		}
+	}
+	return ret;
+}
+
 void odb_free(void *ptr) {
 	return free(ptr);
 }
