@@ -15,7 +15,17 @@ typedef enum odb_usage {
 
 
 struct odb_buffer_info {
-	uint32_t bcount;
+	//uint32_t bcount;
+
+	// buffer_version_size is the size of the buffer that will be responsible
+	// for holding version data.
+	uint32_t buffer_version_size;
+
+	// buffer_data_size is the size of the buffer that will be responsible for
+	// holding user data.
+	//
+	// Must be divisible by ODB_BLOCKSIZE
+	uint64_t  buffer_data_size;
 	odb_usage flags;
 };
 
@@ -41,18 +51,17 @@ mdata will point to a output pointer to which will be set to the address of
  Furthermore, sense this is a private map, there is no read/write/execute
  protection on this mapping.
 
- The returned output pointer will always be page-aligned.
+ If byte_offset is 0 or otherwise divisible by the system's page size, then
+ mdata will be a page-aligned pointer.
 
  Note that a MAP_FIXED equivalent is not possible.
-
- boff and blockc are the offset and count in reference to the buffer to which
- should be mapped to mdata.
 
  When a buffer area is mapped, that region of the buffer is marked as mapped and
  thus cannot be mapped again until it is unmapped. This behaviour is process-wide
  so multithreaded applications should be careful not to double-map a region.
 
  ERRORS:
+    - ODB_EINVAL - byte_count is 0.
     - ODB_EMAPPED - all or part of the requested region has already been mapped
     - ODB_ENMAP - all or part of the requested region is not mapped
     - ODB_EOUTBOUNDS - boff/blockc exceeds calculations of buffer size
@@ -61,12 +70,12 @@ mdata will point to a output pointer to which will be set to the address of
  */
 export odb_err odbv_buffer_map(odb_buf *buffer
                                , void **mdata
-                               , unsigned int boff
-                               , unsigned int blockc);
+                               , uint64_t byte_offset
+                               , uint64_t byte_count);
 
 export odb_err odbv_buffer_unmap(odb_buf *buffer
-                                 , unsigned int boff
-                                 , unsigned int blockc);
+                                 , uint64_t byte_offset
+                                 , uint64_t byte_count);
 
 
 /**
@@ -74,14 +83,15 @@ export odb_err odbv_buffer_unmap(odb_buf *buffer
  that have been checked out. This array is owned by the buffer so don't try
  to free it or anything freaky like that.
 
- These versions are associative to the data pages you get when using the map
- functions and only change when checkouts are performed with this buffer.
+ These versions are associative to the user data you get when using the mpa
+ functions - rather they be elements/blocks/ect. - and only change when
+ checkouts are performed with this buffer.
 
  You can set the versions to be whatever you want via this array, these will
  be the versions that are used when committing.
  */
 export odb_err odbv_buffer_versions(odb_buf *buffer
-                                    , odb_ver **o_verv);
+                                    , void **o_verv);
 
 /**
  *

@@ -58,7 +58,7 @@ void test_main() {
 
 		// map the first half of the buffer and write stuff to it.
 		char *pagedata;
-		if((err = odbv_buffer_map(buf, (void **) &pagedata, 0, buffer_size / 2))) {
+		if((err = odbv_buffer_map(buf, (void **) &pagedata, 0, (buffer_size / 2) * ODB_BLOCKSIZE  ))) {
 			test_error("map0");
 			return;
 		}
@@ -69,8 +69,11 @@ void test_main() {
 			pagedata[j]++;
 		}
 		// map the second half
-		if((err = odbv_buffer_map(buf, (void **) &pagedata, buffer_size / 2,
-				buffer_size - buffer_size / 2))) {
+		err = odbv_buffer_map(buf
+		                      , (void **) &pagedata
+							  , (buffer_size / 2) * ODB_BLOCKSIZE
+							  , (buffer_size - buffer_size / 2) * ODB_BLOCKSIZE);
+		if(err) {
 			test_error("2map0");
 			return;
 		}
@@ -81,15 +84,15 @@ void test_main() {
 			pagedata[j]++;
 		}
 		// unmap both halves
-		if((err = odbv_buffer_unmap(buf, 0, buffer_size))) {
+		if((err = odbv_buffer_unmap(buf, 0, buffer_size * ODB_BLOCKSIZE))) {
 			test_error("unmap0");
 			return;
 		}
 
 		if (i == 1023) {
 			// last iteration... mark the last page
-			if((err = odbv_buffer_map(buf, (void **) &pagedata, buffer_size - 1
-			                          , 1))) {
+			if((err = odbv_buffer_map(buf, (void **) &pagedata, (buffer_size - 1) * ODB_BLOCKSIZE
+			                          , 1 * ODB_BLOCKSIZE))) {
 				test_error("3map0");
 				return;
 			}
@@ -97,7 +100,7 @@ void test_main() {
 				pagedata[j] = '@';
 
 			}
-			if((err = odbv_buffer_unmap(buf, buffer_size - 1, 1))) {
+			if((err = odbv_buffer_unmap(buf, (buffer_size - 1) * ODB_BLOCKSIZE, 1 * ODB_BLOCKSIZE))) {
 				test_error("2unmap0");
 				return;
 			}
@@ -152,7 +155,7 @@ void test_main() {
 
 		char *pagedata;
 
-		if((err = odbv_buffer_map(buf, (void **) &pagedata, 0, buffer_size))) {
+		if((err = odbv_buffer_map(buf, (void **) &pagedata, 0, buffer_size * ODB_BLOCKSIZE))) {
 			test_error("map1");
 			return;
 		}
@@ -179,7 +182,7 @@ void test_main() {
 			}
 		}
 
-		if((err = odbv_buffer_unmap(buf, 0, buffer_size))) {
+		if((err = odbv_buffer_unmap(buf, 0, buffer_size * ODB_BLOCKSIZE))) {
 			test_error("map1");
 			return;
 		}

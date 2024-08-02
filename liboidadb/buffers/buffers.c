@@ -9,7 +9,10 @@
 
 odb_err odb_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 
-	if(!o_buf || buf_info.bcount == 0) {
+	if(!o_buf
+	   || buf_info.buffer_data_size == 0
+	   || (buf_info.buffer_data_size % ODB_BLOCKSIZE) != 0
+	   || buf_info.buffer_version_size == 0) {
 		return ODB_EINVAL;
 	}
 	if(buf_info.flags != 0 && buf_info.flags != ODB_UCOMMITS) {
@@ -29,7 +32,7 @@ odb_err odb_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 	buf->info = buf_info;
 
 	buf->user_datam = odb_mmap(0
-	                           , buf_info.bcount
+	                           , buf_info.buffer_data_size / ODB_BLOCKSIZE
 	                           , PROT_READ | PROT_WRITE | PROT_EXEC
 	                           , MAP_ANON | MAP_PRIVATE
 	                           , -1
@@ -41,24 +44,24 @@ odb_err odb_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 		return odb_mmap_errno;
 	}
 
-	buf->user_versionv = odb_malloc(sizeof(odb_ver) * buf_info.bcount);
+	buf->user_versionv = odb_malloc(buf_info.buffer_version_size);
 	if (!buf->user_versionv) {
 		odb_buffer_free(buf);
 		return odb_mmap_errno;
 	}
-	memset(buf->user_versionv, 0, sizeof(odb_ver) * buf_info.bcount);
+	memset(buf->user_versionv, 0, buf_info.buffer_version_size);
 
 	if (buf->info.flags & ODB_UCOMMITS) {
 
-		buf->buffer_versionv = odb_malloc(sizeof(odb_ver) * buf_info.bcount);
+		buf->buffer_versionv = odb_malloc(buf_info.buffer_version_size);
 		if (!buf->buffer_versionv) {
 			odb_buffer_free(buf);
 			return odb_mmap_errno;
 		}
-		memset(buf->buffer_versionv, 0, sizeof(odb_ver) * buf_info.bcount);
+		memset(buf->buffer_versionv, 0, buf_info.buffer_version_size);
 
 		buf->buffer_datam = odb_mmap(0
-		                             , buf_info.bcount
+		                             , buf_info.buffer_data_size / ODB_BLOCKSIZE
 		                             , PROT_NONE
 		                             , MAP_ANON | MAP_PRIVATE
 		                             , -1
@@ -71,13 +74,11 @@ odb_err odb_buffer_new(struct odb_buffer_info buf_info, odb_buf **o_buf) {
 		}
 	}
 
-	// note we must do this last because of how buffer_free works.
-	buf->map_statev = odb_malloc(sizeof(uint32_t) * ((buf_info.bcount/32)+1));
-	if (!buf->map_statev) {
-		odb_buffer_free(buf);
-		return odb_mmap_errno;
-	}
-	memset(buf->map_statev, 0, sizeof(uint32_t) * ((buf_info.bcount/32)+1));
+	// We have no need to malloc mapped_regionsv as odbv_buffer_map handles all
+	// that. We just have to make sure mapped_regionsq is set to 0, which it is
+	// due to the memset.
+	//
+	//buf->mapped_regionsv = odb_malloc(...
 
 
 	return 0;
@@ -92,31 +93,24 @@ odb_err odb_buffer_free(odb_buf *buffer) {
 	odb_err err = 0;
 
 	// undo buffer maps
-	if (buffer->map_statev) {
-		for(int i = 0; i < buffer->info.bcount; i++) {
-			uint32_t statemask = buffer->map_statev[i/32];
-			if(i % 32 == 0 && !statemask) {
-				i += 32;
-				continue;
-			}
-			for (int j = 0; j < 32; j++) {
-				if((statemask >> j) & 1) {
-					odb_err merr = odbv_buffer_unmap(buffer, i * 32 + j, 1);
-					if (merr) {
-						err = log_critf("failed to unmap something that should have been mapped (merr %d)", merr);
-					}
-				}
+	if(buffer->mapped_regionsv) {
+		for(int i = 0; i < buffer->mapped_regionsc; i++) {
+			odb_err merr = odbv_buffer_unmap(buffer
+			                                 , buffer->mapped_regionsv[i].start_offset
+			                                 , buffer->mapped_regionsv[i].end_offset - buffer->mapped_regionsv[i].start_offset);
+			if (merr) {
+				err = log_critf("failed to unmap something that should have been mapped (merr %d)", merr);
 			}
 		}
-		odb_free(buffer->map_statev);
+		odb_free(buffer->mapped_regionsv);
 	}
 
 	// undo maps
 	if (buffer->user_datam) {
-		odb_munmap(buffer->user_datam, buffer->info.bcount);
+		odb_munmap(buffer->user_datam, buffer->info.buffer_data_size / ODB_BLOCKSIZE);
 	}
 	if (buffer->buffer_datam) {
-		odb_munmap(buffer->buffer_datam, buffer->info.bcount);
+		odb_munmap(buffer->buffer_datam, buffer->info.buffer_data_size / ODB_BLOCKSIZE);
 	}
 
 	// normal arrays
@@ -132,7 +126,7 @@ odb_err odb_buffer_free(odb_buf *buffer) {
 }
 
 odb_err odbv_buffer_versions(odb_buf *buffer
-                             , odb_ver **o_verv) {
+                             , void **o_verv) {
 	*o_verv = buffer->user_versionv;
 	return 0;
 }

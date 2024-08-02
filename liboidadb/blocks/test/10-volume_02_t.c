@@ -76,11 +76,11 @@ void test_main() {
 
 		int *pagedata;
 
-		odbv_buffer_map(buf, (void **) &pagedata, 0, 12);
+		odbv_buffer_map(buf, (void **) &pagedata, 0, 12 * ODB_BLOCKSIZE);
 		for(int i = 0; i < (ODB_PAGESIZE*12)/sizeof(int); i++) {
 			pagedata[i]++;
 		}
-		odbv_buffer_unmap(buf, 0, 12);
+		odbv_buffer_unmap(buf, 0, 12 * ODB_BLOCKSIZE);
 
 		if ((err = odbb_commit(desc, 12))) {
 			if (err == ODB_EVERSION) {
@@ -144,7 +144,7 @@ void test_main() {
 
 	int *pagedata;
 
-	odbv_buffer_map(buf, (void **) &pagedata, 0, 12);
+	odbv_buffer_map(buf, (void **) &pagedata, 0, 12 * ODB_BLOCKSIZE);
 
 	// Here, we test that transactions were executed atomically. That despite
 	// us having multiple processes all trying to increment the same values,
@@ -156,7 +156,7 @@ void test_main() {
 			test_error("unexpected value");
 		}
 	}
-	odbv_buffer_unmap(buf, 0, 12);
+	odbv_buffer_unmap(buf, 0, 12 * ODB_BLOCKSIZE);
 
 	odb_buffer_free(buf);
 	odb_close(desc);

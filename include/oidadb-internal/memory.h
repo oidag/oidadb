@@ -51,6 +51,7 @@ void *odb_mmap_alloc(unsigned int page_count);
  * odb_mmap_errno.
  */
 void *odb_malloc(size_t size);
+void *odb_realloc(void *ptr, size_t size);
 void odb_free(void *ptr);
 
 

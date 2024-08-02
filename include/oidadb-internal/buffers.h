@@ -4,13 +4,18 @@
 #include <oidadb/buffers.h>
 #include <oidadb-internal/odbfile.h>
 
+typedef struct odb_buf_map_region {
+	uint64_t start_offset; // inclusive (can be 0)
+	uint64_t end_offset;   // exclusive (cannot be buffer length)
+} odb_buf_map_region;
+
 typedef struct odb_buf {
 	struct odb_buffer_info info;
 
 	/*
 	 * These are privately-mapped.
 	 */
-	odb_ver      *user_versionv;
+	void         *user_versionv;
 	odb_datapage *user_datam;
 
 	/**
@@ -27,13 +32,12 @@ typedef struct odb_buf {
 	odb_datapage *buffer_datam;
 
 	/**
-	 * Used to describe what has and hasn't been mapped via odbv_buffer_map
-	 *
-	 * map_statev is an array of uint32_t with each bit describing the
-	 * associative page found in user_datam. Thus bit 0 represents page 0.
-	 * The length of map_statev is (info->bcount / 32)+1.
+	 * mapped regions is not a 1-to-1 relationship to the calls to
+	 * odbv_buffer_map... what I mean is regions CAN be consolidated
 	 */
-	uint32_t *map_statev;
+	odb_buf_map_region *mapped_regionsv;
+	int mapped_regionsc;
+	int mapped_regionsq;
 } odb_buf;
 
 #endif
