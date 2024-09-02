@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "errors.h"
+#include "buffers.h"
 
 #define ODB_PAGESIZE 0x2000 /* 4096 * 2 */
 #define ODB_BLOCKSIZE ODB_PAGESIZE
@@ -28,7 +29,7 @@ typedef enum odb_ioflags {
 // odb_open_file - is way faster than upstream, but only works with block devices
 
 typedef struct odb_desc odb_desc;
-typedef void     odb_page;
+typedef void     odb_block;
 typedef uint64_t odb_ver;
 
 
@@ -56,8 +57,13 @@ export void odb_close(odb_desc *desc);
  *
  * commit requires that the bound buffer be ODB_UBLOCKS
  */
-export odb_err odbb_seek(odb_desc *desc, odb_bid block);
-export odb_err odbb_checkout(odb_desc *desc, int blockc);
+
+// resolve - updates the block's user version to be equal to upstream versions
+
+export odb_err odbb_seek(odb_desc *desc, odb_bid block_offset);
+export odb_err odbb_bind_buffer(odb_desc *desc, odb_buf *buffer);
+export odb_err odbb_checkout(odb_desc *desc, int blockc, odb_block **o_blockv);
+export odb_err odbb_resolve(odb_desc *desc, int blockc);
 export odb_err odbb_commit(odb_desc *desc, int blockc);
 
 

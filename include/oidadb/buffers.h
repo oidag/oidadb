@@ -3,7 +3,6 @@
 
 #include "common.h"
 #include "errors.h"
-#include "blocks.h"
 
 typedef enum odb_usage {
 
@@ -30,10 +29,6 @@ struct odb_buffer_info {
 };
 
 typedef struct odb_buf odb_buf;
-
-
-export odb_err odbb_bind_buffer(odb_desc *desc, odb_buf *buffer);
-
 
 // flags for odbh_buffer_new
 export odb_err odb_buffer_new(struct odb_buffer_info buf_info
