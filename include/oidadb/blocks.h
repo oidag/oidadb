@@ -69,7 +69,7 @@ export void odb_close(odb_desc *desc);
  *
  */
 
-typedef enum odb_confliction {
+typedef enum odb_strategy {
 
 	// If the upstream version is not equal to the committing version then this
 	// will be set to ODB_CONFLICT_RAISED and ODB_EVERSION will be returned.
@@ -97,13 +97,26 @@ typedef enum odb_confliction {
 	// automatically.
 	// Set by commit: a conflict has been raised for this item. See upstream.
 	ODB_CONFLCIT_RAISED  = 3,
-} odb_confliction;
+} odb_strategy;
+
+typedef struct odbb_buffer {
+
+	int blockc;
+
+	odb_block *checkout_data;
+	odb_strategy *strategy;
+	const odb_block *upstream_data;
+
+} odbb_buffer;
+
+export odb_err odbb_buf_create(odb_desc *desc, odbb_buffer *buffer);
+export odb_err odbb_buf_bind(odb_desc *desc, odbb_buffer *buffer);
 
 export odb_err odbb_seek(odb_desc *desc, odb_bid block_offset);
-export odb_err odbb_bind_buffer(odb_desc *desc, odb_buf *buffer);
-export odb_err odbb_checkout(odb_desc *desc, int blockc, odb_block **o_blockv);
-export odb_err odbb_commit(odb_desc *desc, int blockc, odb_confliction *conflictionv);
-export odb_err odbb_upstream(odb_desc *desc, int blockc, const odb_block **o_blockv);
+export odb_err odbb_checkout(odb_desc *desc);
+//export odb_err odbb_strategy(odb_desc *desc, odb_strategy **strategy);
+export odb_err odbb_commit(odb_desc *desc);
+
 
 
 
