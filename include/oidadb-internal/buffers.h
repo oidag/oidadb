@@ -10,13 +10,21 @@ typedef struct odb_buf_map_region {
 } odb_buf_map_region;
 
 typedef struct odb_buf {
+
+	/**
+	 * not to be written to outside of buffers/
+	 */
 	struct odb_buffer_info info;
 
 	/*
+	 *
+	 * checkout_versionv - the versions of user_datam when it was checked out
 	 * These are privately-mapped.
+	 *
+	 * user_datam - the data itself
 	 */
-	void         *user_versionv;
-	odb_datapage *user_datam;
+	const void *checkout_versionv;
+	void *user_datam;
 
 	/**
 	 * The following are only needed when committing (ODB_UCOMMITS)
@@ -24,20 +32,11 @@ typedef struct odb_buf {
 	 *  - buffer_version - needed when committing. equal length to user_versionv.
 	 *    When committing (or in the future, signaled) will have updated versions
 	 *    of the current blocks
-	 *  - buffer_data - used for committing. equal size ot user_datam. will be used
+	 *  - buffer_datam - used for committing. equal size ot user_datam. will be used
 	 *    to hold the existing data maps.
-	 *  - buffer_group_desc - buffer to hold group descriptor pages inside
 	 */
-	odb_ver      *buffer_versionv;
-	odb_datapage *buffer_datam;
-
-	/**
-	 * mapped regions is not a 1-to-1 relationship to the calls to
-	 * odbv_buffer_map... what I mean is regions CAN be consolidated
-	 */
-	odb_buf_map_region *mapped_regionsv;
-	int mapped_regionsc;
-	int mapped_regionsq;
+	const void *upstream_versionv;
+	const void *upstream_datam;
 } odb_buf;
 
 #endif
