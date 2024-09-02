@@ -35,60 +35,6 @@ export odb_err odb_buffer_new(struct odb_buffer_info buf_info
                               , odb_buf **o_buf);
 
 /**
- * the mapping functions here are synomomous to the mmap(2) family.
-
-mdata will point to a output pointer to which will be set to the address of
- the mapped data.
-
- The mapped data is equivalent to MAP_PRIVATE. Modifications made to mapped
- memory are not reflected in the database only until a commit is performed.
-
- Furthermore, sense this is a private map, there is no read/write/execute
- protection on this mapping.
-
- If byte_offset is 0 or otherwise divisible by the system's page size, then
- mdata will be a page-aligned pointer.
-
- Note that a MAP_FIXED equivalent is not possible.
-
- When a buffer area is mapped, that region of the buffer is marked as mapped and
- thus cannot be mapped again until it is unmapped. This behaviour is process-wide
- so multithreaded applications should be careful not to double-map a region.
-
- ERRORS:
-    - ODB_EINVAL - byte_count is 0.
-    - ODB_EMAPPED - all or part of the requested region has already been mapped
-    - ODB_ENMAP - all or part of the requested region is not mapped
-    - ODB_EOUTBOUNDS - boff/blockc exceeds calculations of buffer size
-
-
- */
-export odb_err odbv_buffer_map(odb_buf *buffer
-                               , void **mdata
-                               , uint64_t byte_offset
-                               , uint64_t byte_count);
-
-export odb_err odbv_buffer_unmap(odb_buf *buffer
-                                 , uint64_t byte_offset
-                                 , uint64_t byte_count);
-
-
-/**
- Sets o_verv to point to a array of all the versions of the blocks
- that have been checked out. This array is owned by the buffer so don't try
- to free it or anything freaky like that.
-
- These versions are associative to the user data you get when using the mpa
- functions - rather they be elements/blocks/ect. - and only change when
- checkouts are performed with this buffer.
-
- You can set the versions to be whatever you want via this array, these will
- be the versions that are used when committing.
- */
-export odb_err odbv_buffer_versions(odb_buf *buffer
-                                    , void **o_verv);
-
-/**
  *
 
  Same behaviour as versions, but will return the CURRENT block versions, thus

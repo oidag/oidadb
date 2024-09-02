@@ -60,11 +60,50 @@ export void odb_close(odb_desc *desc);
 
 // resolve - updates the block's user version to be equal to upstream versions
 
+
+/*
+ * odbb_commit->confliction will be an array associative to the blocks that are
+ * being committed. It is a two-way argument. It dictates the negotiation of
+ * what to do if the upstream version differs from the checked out version
+ *
+ *
+ */
+
+typedef enum odb_confliction {
+
+	// If the upstream version is not equal to the committing version then this
+	// will be set to ODB_CONFLICT_RAISED and ODB_EVERSION will be returned.
+	//
+	// Otherwise, if the upstream version is equal to the committing version,
+	// this is left untouched.
+	ODB_CONFLICT_ACCEPT  = 0,
+
+	// Assume there's no conflict if the version has not changed sense the last
+	// call to commit (this behaves the same as ODB_CONFLICT_ACCEPT if the buffer
+	// had not been used in a commit prior.)
+	//
+	// After calling commit, this will be set to ODB_CONFLICT_ACCEPT if no error
+	// was returned, or, will be set to ODB_CONFLCIT_RAISED if the item still
+	// had a conflict.
+	ODB_CONFLCIT_RESOLVE = 1,
+
+	// No conflicts can be raised. The commit will force-update.
+	//
+	// After calling commit, regardless of what is returned, this will not be
+	// modified.
+	ODB_CONFLICT_REJECT  = 2,
+
+	// If set will going INTO the commit function, then ODB_EVERSION is returned
+	// automatically.
+	// Set by commit: a conflict has been raised for this item. See upstream.
+	ODB_CONFLCIT_RAISED  = 3,
+} odb_confliction;
+
 export odb_err odbb_seek(odb_desc *desc, odb_bid block_offset);
 export odb_err odbb_bind_buffer(odb_desc *desc, odb_buf *buffer);
 export odb_err odbb_checkout(odb_desc *desc, int blockc, odb_block **o_blockv);
-export odb_err odbb_resolve(odb_desc *desc, int blockc);
-export odb_err odbb_commit(odb_desc *desc, int blockc);
+export odb_err odbb_commit(odb_desc *desc, int blockc, odb_confliction *conflictionv);
+export odb_err odbb_upstream(odb_desc *desc, int blockc, const odb_block **o_blockv);
 
 
 
