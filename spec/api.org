@@ -1,0 +1,35 @@
+#+TITLE: API Specifications
+
+TODO: KEVIN! I'm leaving this note for you so you do not forget. I
+keep going in circles with odbb_blocks and odb_elm1 (not to mention
+odb_obj1). I keep getting lost in the api semantics, I have been
+trying to force myself to use a "layered" or "recursive" approach.
+
+But it's slowing me donw. Lets be free of that.
+
+So let me describe what sort of functions we can see defined at each
+level.
+
+ - Block functions (~odbb~) will be downloading file data into memory
+   (into buffers). So ~odbb~ will include buffer-control functions.
+ - ~elm1~ should NOT include a descriptor. ~elm1~ should only provide
+   1) a way to "cast" a block (or blocks) into elements and 2) a
+   commit strategy to help merge conflicts. No descriptor
+   creators/destroyers, no seek, ect. The casting takes places after
+   ~odbb~ functions have moved memory into buffers, so ~elm1_cast~
+   (for example) will take in a buffer as an argument, not a
+   descriptor. ~elm1~ will use version-number-checking like blocks do.
+ - This is an idea, but ~obj1~ can further implement ~elm1~ and
+   provide means to break down elements into fields. It can provide
+   casting (from ~elm1~) and commit stategy to help merge conflits by
+   detecting if only a certain field has changed, but contrary to
+   ~elm1~ and ~odbb~, can use a byte-by-byte comparison instead of
+   version checking.
+
+
+Basically, what I've found out tonight is: STOP THE RECURSIVE
+ARCHITECTURE. Different levels of data intepretation will require
+differently engineered solutions. Most of the work is already done
+with blocks. Lets get on with implemeting ~elm1~ and ~obj1~ to be
+simple and dumb so we can get to the fun stuff like lookup trees and
+dynamic memory allocation.
